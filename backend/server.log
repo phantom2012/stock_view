@@ -1,0 +1,116 @@
+2026-04-24 22:40:52,190 - __main__ - INFO - API get-trade-dates called
+2026-04-24 22:40:52,190 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-24 22:40:52,199 - __main__ - INFO - API get-data called
+2026-04-24 22:40:52,201 - __main__ - INFO - Returning 1 rows from database
+2026-04-24 22:40:59,189 - __main__ - INFO - API run-strategy called with trade_date=2026-04-23, weipan_exceed=0, zaopan_exceed=0, rising_wave=1
+2026-04-24 22:40:59,189 - __main__ - INFO - Starting strategy execution: trade_date=2026-04-23, weipan=0, zaopan=0, rising=1
+2026-04-24 22:40:59,197 - __main__ - INFO - 从数据库中获取到 5605 只股票
+2026-04-24 22:40:59,198 - __main__ - INFO - 准备筛选 5605 只股票
+2026-04-24 22:40:59,199 - __main__ - INFO - Filtering 5605 stocks...
+2026-04-24 22:41:26,751 - __main__ - INFO - Strategy completed, found 49 stocks
+2026-04-24 22:41:26,753 - __main__ - INFO - Results saved to database (49 records), elapsed time: 0.002 seconds
+2026-04-24 22:41:26,758 - __main__ - INFO - API get-data called
+2026-04-24 22:41:26,760 - __main__ - INFO - Returning 1 rows from database
+2026-04-24 22:44:44,345 - __main__ - INFO - API get-trade-dates called
+2026-04-24 22:44:44,346 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-24 22:44:44,363 - __main__ - INFO - API get-block-list called
+2026-04-24 22:44:44,365 - __main__ - INFO - Returning 604 blocks from database
+2026-04-24 22:44:44,578 - __main__ - INFO - API get-data called
+2026-04-24 22:44:44,581 - __main__ - INFO - Returning 1 rows from database
+2026-04-24 22:45:39,646 - __main__ - INFO - API get-block-list called
+2026-04-24 22:45:39,648 - __main__ - INFO - Returning 604 blocks from database
+2026-04-24 22:45:44,830 - __main__ - INFO - API get-trade-dates called
+2026-04-24 22:45:44,831 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-24 22:45:44,848 - __main__ - INFO - API get-block-list called
+2026-04-24 22:45:44,850 - __main__ - INFO - Returning 604 blocks from database
+2026-04-24 22:45:44,963 - __main__ - INFO - API get-data called
+2026-04-24 22:45:44,966 - __main__ - INFO - Returning 1 rows from database
+2026-04-24 22:46:04,925 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 22:46:04,926 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-24 22:46:04,926 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-24 22:46:04,927 - __main__ - INFO - Scheduler started
+2026-04-24 22:46:04,999 - __main__ - INFO - Starting server...
+2026-04-24 22:46:32,506 - __main__ - INFO - API get-trade-dates called
+2026-04-24 22:46:32,507 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-24 22:46:32,516 - __main__ - INFO - API get-block-list called
+2026-04-24 22:46:32,521 - __main__ - INFO - Returning 604 blocks from database
+2026-04-24 22:46:32,634 - __main__ - INFO - API get-data called
+2026-04-24 22:46:32,636 - __main__ - INFO - Returning 1 rows from database
+2026-04-24 22:51:38,277 - __main__ - INFO - API run-strategy called with trade_date=2026-04-22, weipan_exceed=0, zaopan_exceed=0, rising_wave=1, block_codes=880550,880656,880670,880672
+2026-04-24 22:51:38,278 - __main__ - INFO - Starting strategy execution: trade_date=2026-04-22, weipan=0, zaopan=0, rising=1, block_codes=880550,880656,880670,880672
+2026-04-24 22:51:38,280 - __main__ - INFO - 从数据库中获取到 491 只股票（来自 4 个板块）
+2026-04-24 22:51:38,280 - __main__ - INFO - 准备筛选 491 只股票
+2026-04-24 22:51:38,280 - __main__ - INFO - Filtering 491 stocks...
+2026-04-24 22:51:43,716 - __main__ - INFO - Strategy completed, found 22 stocks
+2026-04-24 22:51:43,718 - __main__ - INFO - Results saved to database (22 records), elapsed time: 0.002 seconds
+2026-04-24 22:51:43,723 - __main__ - INFO - API get-data called
+2026-04-24 22:51:43,725 - __main__ - INFO - Returning 1 rows from database
+2026-04-24 22:57:47,282 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 22:57:47,283 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-24 22:57:47,283 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-24 22:57:47,284 - __main__ - INFO - Scheduler started
+2026-04-24 22:57:47,374 - __main__ - INFO - Starting server...
+2026-04-24 23:13:41,783 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 23:13:41,784 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-24 23:13:41,784 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-24 23:13:41,784 - __main__ - INFO - Scheduler started
+2026-04-24 23:13:41,876 - __main__ - INFO - Starting server...
+2026-04-24 23:30:26,486 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 23:30:26,486 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-24 23:30:26,486 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-24 23:30:26,487 - __main__ - INFO - Scheduler started
+2026-04-24 23:30:26,567 - __main__ - INFO - Starting server...
+2026-04-24 23:32:05,523 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 23:32:05,524 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-24 23:32:05,524 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-24 23:32:05,524 - __main__ - INFO - Scheduler started
+2026-04-24 23:32:05,598 - __main__ - INFO - Starting server...
+2026-04-24 23:32:22,390 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-24 23:32:22,391 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-24 23:32:22,391 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-24 23:32:22,392 - __main__ - INFO - Scheduler started
+2026-04-24 23:32:22,466 - __main__ - INFO - Starting server...
+2026-04-24 23:32:29,452 - __main__ - INFO - API get-trade-dates called
+2026-04-24 23:32:29,453 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-24 23:32:29,469 - __main__ - INFO - API get-block-list called
+2026-04-24 23:32:29,471 - __main__ - INFO - Returning 604 blocks from database
+2026-04-24 23:32:29,610 - __main__ - INFO - API get-data called
+2026-04-24 23:32:29,613 - __main__ - INFO - Returning 1 rows from database
+2026-04-24 23:32:42,652 - __main__ - INFO - API run-strategy called with trade_date=2026-04-23, weipan_exceed=0, zaopan_exceed=0, rising_wave=1, block_codes=880550,880656,880670,880672
+2026-04-24 23:32:42,652 - __main__ - INFO - Starting strategy execution: trade_date=2026-04-23, weipan=0, zaopan=0, rising=1, block_codes=880550,880656,880670,880672
+2026-04-24 23:32:42,654 - __main__ - INFO - 从数据库中获取到 492 只股票（来自 4 个板块）
+2026-04-24 23:32:42,655 - __main__ - INFO - 准备筛选 492 只股票
+2026-04-24 23:32:42,655 - __main__ - INFO - Filtering 492 stocks...
+2026-04-24 23:32:45,950 - __main__ - INFO - Strategy completed, found 16 stocks
+2026-04-24 23:32:45,952 - __main__ - INFO - Results saved to database (16 records), elapsed time: 0.001 seconds
+2026-04-24 23:32:45,956 - __main__ - INFO - API get-data called
+2026-04-24 23:32:45,957 - __main__ - INFO - Returning 16 rows from database
+2026-04-24 23:44:09,306 - __main__ - INFO - API get-stock-history called with code=002980, days=10
+2026-04-24 23:44:10,597 - __main__ - INFO - Returning 10 days of history data for 002980
+2026-04-24 23:47:53,388 - __main__ - INFO - API get-trade-dates called
+2026-04-24 23:47:53,389 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-24 23:47:53,406 - __main__ - INFO - API get-block-list called
+2026-04-24 23:47:53,409 - __main__ - INFO - Returning 604 blocks from database
+2026-04-24 23:47:53,538 - __main__ - INFO - API get-data called
+2026-04-24 23:47:53,541 - __main__ - INFO - Returning 16 rows from database
+2026-04-24 23:47:55,704 - __main__ - INFO - API get-stock-history called with code=002428, days=10
+2026-04-24 23:47:56,842 - __main__ - INFO - Returning 10 days of history data for 002428
+2026-04-25 00:08:06,490 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 00:08:06,490 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 00:08:06,490 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 00:08:06,491 - __main__ - INFO - Scheduler started
+2026-04-25 00:08:06,566 - __main__ - INFO - Starting server...
+2026-04-25 00:08:12,163 - __main__ - INFO - API get-trade-dates called
+2026-04-25 00:08:12,164 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 00:08:12,179 - __main__ - INFO - API get-block-list called
+2026-04-25 00:08:12,182 - __main__ - INFO - Returning 604 blocks from database
+2026-04-25 00:08:12,319 - __main__ - INFO - API get-data called
+2026-04-25 00:08:12,320 - __main__ - INFO - Returning 16 rows from database
+2026-04-25 00:08:14,639 - __main__ - INFO - API get-stock-history called with code=002428, days=10
+2026-04-25 00:08:16,364 - __main__ - INFO - Returning 10 days of history data for 002428
+2026-04-25 00:08:19,723 - __main__ - INFO - API get-trade-dates called
+2026-04-25 00:08:19,723 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 00:08:19,740 - __main__ - INFO - API get-block-list called
+2026-04-25 00:08:19,742 - __main__ - INFO - Returning 604 blocks from database
+2026-04-25 00:08:19,858 - __main__ - INFO - API get-data called
+2026-04-25 00:08:19,861 - __main__ - INFO - Returning 16 rows from database

@@ -1,0 +1,1 @@
+netstat -ano | findstr ":8000" | ForEach-Object { taskkill /F /PID $_.split()[-1] }

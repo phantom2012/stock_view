@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+apscheduler
+pandas
+python-multipart
+gm
