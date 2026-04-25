@@ -943,3 +943,9 @@
 2026-04-25 22:40:21,698 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
 2026-04-25 22:40:21,698 - apscheduler.scheduler - INFO - Scheduler started
 2026-04-25 22:40:21,698 - main - INFO - Scheduler started
+2026-04-25 22:40:24,549 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880491,880550,880656,880670,880672, only_main_board=True
+2026-04-25 22:40:24,552 - main - INFO - 从数据库中获取到 491 只股票（来自 5 个板块）
+2026-04-25 22:40:24,552 - main - INFO - 主板过滤：从 491 只股票中筛选出 207 只主板股票
+2026-04-25 22:40:25,208 - main - INFO - Filter completed, found 32 stocks
+2026-04-25 22:40:25,215 - main - INFO - API save-filter-stocks called with 32 stocks
+2026-04-25 22:40:25,217 - main - INFO - Saved 32 filter stocks to database (type=2)
