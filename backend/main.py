@@ -11,10 +11,16 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from stock_cache import get_stock_cache
 
 # 导入股票过滤器
-from stock_filter import StockFilter
+from stock_filter import StockFilter, get_stock_filter
 
 # 导入数据库模块
 from stock_sqlite.database import get_db_connection
+
+# 导入板块股票工具类
+from common.block_stock_util import get_stocks_by_blocks
+
+# 导入交易日工具类
+from baostock_data.trade_date_util import TradeDateUtil
 
 # 配置日志
 logging.basicConfig(
@@ -33,6 +39,9 @@ stock_cache.set_api_token("2e664976b46df6a0903672349c30226ac68e7bf3")
 
 # 初始化股票过滤器
 stock_filter = StockFilter()
+
+# 初始化交易日工具类
+trade_date_util = TradeDateUtil()
 
 # FastAPI应用
 app = FastAPI(title="掘金量化竞价看板后端")
@@ -83,35 +92,20 @@ def run_strategy(trade_date=None, weipan_exceed=0, zaopan_exceed=0, rising_wave=
             target_date = yesterday
         
         # 从数据库获取股票列表
-        stocks_to_filter = set()
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        try:
-            # 如果指定了板块，从 block_stock 表查询这些板块下的所有股票
-            if block_codes:
-                # 解析板块代码（支持逗号分隔的字符串）
-                if isinstance(block_codes, str):
-                    selected_block_codes = [code.strip() for code in block_codes.split(',') if code.strip()]
-                else:
-                    selected_block_codes = list(block_codes)
-                
-                placeholders = ','.join(['?' for _ in selected_block_codes])
-                query = f"SELECT DISTINCT stock_code FROM block_stock WHERE block_code IN ({placeholders})"
-                cursor.execute(query, selected_block_codes)
-                rows = cursor.fetchall()
-                stocks_to_filter = {row[0] for row in rows}
-                logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（来自 {len(selected_block_codes)} 个板块）")
+        # 解析板块代码（支持逗号分隔的字符串或列表）
+        selected_block_codes = None
+        if block_codes:
+            if isinstance(block_codes, str):
+                selected_block_codes = [code.strip() for code in block_codes.split(',') if code.strip()]
             else:
-                # 如果没有指定板块，获取所有股票
-                cursor.execute("SELECT DISTINCT stock_code FROM block_stock")
-                rows = cursor.fetchall()
-                stocks_to_filter = {row[0] for row in rows}
-                logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（所有板块）")
-        finally:
-            cursor.close()
-            conn.close()
+                selected_block_codes = list(block_codes)
+        
+        stocks_to_filter = get_stocks_by_blocks(selected_block_codes)
+        
+        if selected_block_codes:
+            logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（来自 {len(selected_block_codes)} 个板块）")
+        else:
+            logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（所有板块）")
         
         if not stocks_to_filter:
             return {"status": "error", "msg": "未从数据库加载到股票数据"}
@@ -535,44 +529,31 @@ def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: 
             selected_block_codes = [code.strip() for code in block_codes.split(',') if code.strip()]
         
         # 从数据库获取股票列表
-        stocks_to_filter = set()
+        stocks_to_filter = get_stocks_by_blocks(selected_block_codes if selected_block_codes else None)
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        if selected_block_codes:
+            logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（来自 {len(selected_block_codes)} 个板块）")
+        else:
+            logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（所有板块）")
         
-        try:
-            if selected_block_codes:
-                # 如果指定了板块，从 block_stock 表查询这些板块下的所有股票
-                placeholders = ','.join(['?' for _ in selected_block_codes])
-                query = f"SELECT DISTINCT stock_code FROM block_stock WHERE block_code IN ({placeholders})"
-                cursor.execute(query, selected_block_codes)
-                rows = cursor.fetchall()
-                stocks_to_filter = {row[0] for row in rows}
-                logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（来自 {len(selected_block_codes)} 个板块）")
-            else:
-                # 如果没有指定板块，获取所有股票
-                cursor.execute("SELECT DISTINCT stock_code FROM block_stock")
-                rows = cursor.fetchall()
-                stocks_to_filter = {row[0] for row in rows}
-                logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（所有板块）")
-            
-            # 如果勾选了仅筛选主板，过滤出主板股票
-            if only_main_board:
-                # 使用统一的check_is_main_board接口进行主板判断
-                from stock_filter import get_stock_filter
-                stock_filter = get_stock_filter()
-                main_board_stocks = {code for code in stocks_to_filter if stock_filter.check_is_main_board(code)}
-                logger.info(f"主板过滤：从 {len(stocks_to_filter)} 只股票中筛选出 {len(main_board_stocks)} 只主板股票")
-                stocks_to_filter = main_board_stocks
-        finally:
-            cursor.close()
-            conn.close()
+        # 如果勾选了仅筛选主板，过滤出主板股票
+        if only_main_board:
+            # 使用统一的check_is_main_board接口进行主板判断
+            stock_filter = get_stock_filter()
+            main_board_stocks = {code for code in stocks_to_filter if stock_filter.check_is_main_board(code)}
+            logger.info(f"主板过滤：从 {len(stocks_to_filter)} 只股票中筛选出 {len(main_board_stocks)} 只主板股票")
+            stocks_to_filter = main_board_stocks
         
         filtered_results = []
         
+        # 获取stock_filter实例
+        stock_filter = get_stock_filter()
+        
         # 获取stock_cache实例
-        from stock_cache import get_stock_cache
         stock_cache = get_stock_cache()
+        
+        # 获取当前时间作为trade_date
+        trade_date = datetime.now()
         
         # 遍历每只股票进行筛选
         for code in stocks_to_filter:
@@ -586,76 +567,30 @@ def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: 
                 symbol = f"SZSE.{code}"
             
             try:
+                # 调用stock_filter的check_performance方法进行筛选
+                is_pass, period_gain, max_daily_gain, price_ratio_value = stock_filter.check_performance(
+                    symbol=symbol,
+                    trade_date=trade_date,
+                    recent_interval_days=recent_days,
+                    recent_interval_max_gain=max_gain,
+                    day_max_gain_days=daily_gain_days,
+                    day_max_gain=daily_gain_threshold,
+                    price_to_high_ratio=price_ratio
+                )
+                
+                if not is_pass:
+                    continue
+                
                 # 获取股票名称
                 stock_name = stock_cache.get_stock_name(symbol)
-                
-                # 获取历史数据
-                history_data = stock_cache.get_history_data(symbol, recent_days)
-                
-                if history_data is None or len(history_data) == 0:
-                    continue
-                
-                # 计算最近N日的最高价
-                high_prices = history_data['high'].dropna()
-                if len(high_prices) == 0:
-                    continue
-                
-                recent_high = high_prices.max()
-                
-                # 获取当前价格（最新收盘价）
-                current_price = history_data.iloc[-1]['close']
-                
-                # 计算股价相对于近期高点的比例
-                if recent_high > 0:
-                    price_to_high_ratio = (current_price / recent_high) * 100
-                else:
-                    continue
-                
-                # 计算最近N日的最大涨幅
-                if len(history_data) >= 2:
-                    first_close = history_data.iloc[0]['close']
-                    last_close = history_data.iloc[-1]['close']
-                    if first_close > 0:
-                        period_gain = ((last_close - first_close) / first_close) * 100
-                    else:
-                        continue
-                else:
-                    continue
-                
-                # 应用筛选条件
-                # 1. 最大涨幅需要大于等于设定值（寻找强势股）
-                if abs(period_gain) < max_gain:
-                    continue
-                
-                # 2. 最近N日日内最大涨幅需要大于设定值
-                if len(history_data) >= 2:
-                    max_daily_gain = 0.0
-                    check_days = min(daily_gain_days, len(history_data) - 1)
-                    for i in range(1, check_days + 1):
-                        current_row = history_data.iloc[-i]
-                        prev_row = history_data.iloc[-i - 1]
-                        
-                        current_high = current_row['high']
-                        prev_close = prev_row['close']
-                        
-                        if prev_close > 0:
-                            day_gain = ((current_high - prev_close) / prev_close) * 100
-                            if day_gain > max_daily_gain:
-                                max_daily_gain = day_gain
-                    
-                    if max_daily_gain < daily_gain_threshold:
-                        continue
-                
-                # 3. 股价不低于近期高点的设定百分比
-                if price_to_high_ratio < price_ratio:
-                    continue
                 
                 # 符合条件，添加到结果中
                 filtered_results.append({
                     'code': code,
                     'name': stock_name,
-                    'gain': round(period_gain, 2),
-                    'max_daily_gain': round(max_daily_gain, 2)
+                    'gain': period_gain,
+                    'max_daily_gain': max_daily_gain,
+                    'price_to_high_ratio': price_ratio_value
                 })
                 
             except Exception as e:
@@ -683,13 +618,6 @@ def load_auction_data(stocks: List[Dict[str, Any]], days: int = 30):
     :return: 加载结果
     """
     logger.info(f"API load-auction-data called with {len(stocks)} stocks, days={days}")
-    
-    from datetime import datetime, timedelta
-    from stock_cache import get_stock_cache
-    from baostock_data.trade_date_util import TradeDateUtil
-    
-    stock_cache = get_stock_cache()
-    trade_date_util = TradeDateUtil()
     
     result = {
         'success': 0,
@@ -725,8 +653,26 @@ def load_auction_data(stocks: List[Dict[str, Any]], days: int = 30):
             for date_str in recent_trade_dates:
                 try:
                     trade_date = datetime.strptime(date_str, '%Y-%m-%d')
-                    # 调用get_auction_data，会自动检查数据库并保存
-                    data = stock_cache.get_auction_data(symbol, trade_date)
+                    
+                    # 1. 获取早盘竞价数据
+                    auction_data = stock_cache.get_auction_data(symbol, trade_date)
+                    
+                    # 2. 获取尾盘竞价数据（调用新接口）
+                    tail_auction_data = stock_cache.get_tail_auction_data(symbol, trade_date)
+                    
+                    # 3. 拼接尾盘竞价数据并更新数据库
+                    if tail_auction_data:
+                        tail_57_price = tail_auction_data.get('auction_start_price', 0)
+                        close_price = tail_auction_data.get('auction_end_price', 0)
+                        tail_amount = tail_auction_data.get('amount', 0)
+                        
+                        # 更新数据库中的尾盘竞价字段
+                        from common.stock_code_convert import to_pure_code
+                        pure_code = to_pure_code(symbol)
+                        stock_cache._update_auction_tail_data(pure_code, date_str, tail_57_price, close_price, tail_amount)
+                        
+                        logger.debug(f"更新尾盘竞价数据: {symbol} {date_str} tail_57_price={tail_57_price}, close_price={close_price}")
+                    
                 except Exception as e:
                     logger.error(f"Failed to load auction data for {symbol} on {date_str}: {e}")
                     stock_success = False

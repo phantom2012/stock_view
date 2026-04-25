@@ -23,10 +23,10 @@ TUSHARE_PROXY_URL = "http://tsy.xiaodefa.cn"
 # 接口限流配置（每分钟最大请求次数）
 RATE_LIMIT_CONFIG = {
     'get_auction_data': 120,   # 竞价数据接口：120次/分钟
-    'get_daily_data': 500,     # 日线数据接口：500次/分钟
-    'get_minute_data': 500,    # 分钟数据接口：500次/分钟
-    'get_tick_data': 500,      # Tick数据接口：500次/分钟
-    'get_instruments': 500,    # 股票基本信息接口：500次/分钟
+    'get_daily_data': 1000,     # 日线数据接口：500次/分钟
+    'get_minute_data': 1000,    # 分钟数据接口：500次/分钟
+    'get_tick_data': 1000,      # Tick数据接口：500次/分钟
+    'get_instruments': 120,    # 股票基本信息接口：500次/分钟
 }
 
 

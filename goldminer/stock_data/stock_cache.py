@@ -461,7 +461,7 @@ class StockDataCache:
         daily_data = self.fetch_daily_data(symbol, trade_date)
         
         # 获取14:57-15:00的分钟数据
-        auction_start = "14:57:00"
+        auction_start = "14:56:00"
         auction_end = "15:00:00"
         minute_data = self.fetch_minute_data(symbol, trade_date, auction_start, auction_end)
         

@@ -297,3 +297,649 @@
 2026-04-25 17:20:20,745 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
 2026-04-25 17:20:20,745 - apscheduler.scheduler - INFO - Scheduler started
 2026-04-25 17:20:20,746 - main - INFO - Scheduler started
+2026-04-25 18:05:25,020 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:05:25,020 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:05:25,020 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:05:25,021 - __main__ - INFO - Scheduler started
+2026-04-25 18:05:25,093 - __main__ - INFO - Starting server...
+2026-04-25 18:05:26,530 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:05:26,531 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:05:26,531 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:05:26,532 - __mp_main__ - INFO - Scheduler started
+2026-04-25 18:05:26,737 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:05:26,738 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:05:26,738 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:05:26,738 - main - INFO - Scheduler started
+2026-04-25 18:05:38,783 - main - INFO - API get-trade-dates called
+2026-04-25 18:05:38,783 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 18:05:38,798 - main - INFO - API get-block-list called
+2026-04-25 18:05:38,801 - main - INFO - Returning 604 blocks from database
+2026-04-25 18:05:38,920 - main - INFO - API get-data called
+2026-04-25 18:05:38,921 - main - INFO - Returning 0 rows from database
+2026-04-25 18:06:39,318 - main - INFO - API run-strategy called with trade_date=2026-04-23, weipan_exceed=0, zaopan_exceed=0, rising_wave=1, block_codes=880550,880656,880670,880672,880491
+2026-04-25 18:06:39,318 - main - INFO - Starting strategy execution: trade_date=2026-04-23, weipan=0, zaopan=0, rising=1, block_codes=880550,880656,880670,880672,880491
+2026-04-25 18:06:39,320 - main - INFO - 从数据库中获取到 491 只股票（来自 5 个板块）
+2026-04-25 18:06:39,320 - main - INFO - 准备筛选 491 只股票
+2026-04-25 18:06:39,320 - main - INFO - Filtering 491 stocks...
+2026-04-25 18:06:45,501 - main - INFO - Strategy completed, found 16 stocks
+2026-04-25 18:06:45,502 - main - INFO - Results saved to database (16 records), elapsed time: 0.001 seconds
+2026-04-25 18:06:45,506 - main - INFO - API get-data called
+2026-04-25 18:06:45,507 - main - INFO - Returning 16 rows from database
+2026-04-25 18:07:16,700 - main - INFO - API run-strategy called with trade_date=2026-04-22, weipan_exceed=0, zaopan_exceed=0, rising_wave=1, block_codes=880550,880656,880670,880672,880491
+2026-04-25 18:07:16,701 - main - INFO - Starting strategy execution: trade_date=2026-04-22, weipan=0, zaopan=0, rising=1, block_codes=880550,880656,880670,880672,880491
+2026-04-25 18:07:16,702 - main - INFO - 从数据库中获取到 491 只股票（来自 5 个板块）
+2026-04-25 18:07:16,703 - main - INFO - 准备筛选 491 只股票
+2026-04-25 18:07:16,703 - main - INFO - Filtering 491 stocks...
+2026-04-25 18:07:18,361 - main - INFO - Strategy completed, found 22 stocks
+2026-04-25 18:07:18,363 - main - INFO - Results saved to database (22 records), elapsed time: 0.002 seconds
+2026-04-25 18:07:18,366 - main - INFO - API get-data called
+2026-04-25 18:07:18,368 - main - INFO - Returning 22 rows from database
+2026-04-25 18:07:27,869 - main - INFO - API get-block-list called
+2026-04-25 18:07:27,869 - main - INFO - API get-filter-stocks called
+2026-04-25 18:07:27,871 - main - INFO - Returning 0 filter stocks from database (type=2)
+2026-04-25 18:07:27,872 - main - INFO - Returning 604 blocks from database
+2026-04-25 18:07:43,205 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880491,880550,880656,880670,880672, only_main_board=True
+2026-04-25 18:07:43,207 - main - INFO - 从数据库中获取到 491 只股票（来自 5 个板块）
+2026-04-25 18:07:43,208 - main - INFO - 主板过滤：从 491 只股票中筛选出 207 只主板股票
+2026-04-25 18:07:43,949 - main - INFO - Filter completed, found 32 stocks
+2026-04-25 18:07:43,955 - main - INFO - API save-filter-stocks called with 32 stocks
+2026-04-25 18:07:43,957 - main - INFO - Saved 32 filter stocks to database (type=2)
+2026-04-25 18:07:51,799 - main - INFO - API load-auction-data called with 32 stocks, days=30
+2026-04-25 18:07:52,386 - main - INFO - 获取到 30 个交易日
+2026-04-25 18:11:29,623 - main - INFO - API get-trade-dates called
+2026-04-25 18:11:29,623 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 18:11:29,650 - main - INFO - API get-block-list called
+2026-04-25 18:11:29,653 - main - INFO - Returning 604 blocks from database
+2026-04-25 18:11:29,782 - main - INFO - API get-data called
+2026-04-25 18:11:29,784 - main - INFO - Returning 22 rows from database
+2026-04-25 18:11:52,909 - main - INFO - API get-trade-dates called
+2026-04-25 18:11:52,909 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 18:11:52,921 - main - INFO - API get-block-list called
+2026-04-25 18:11:52,923 - main - INFO - Returning 604 blocks from database
+2026-04-25 18:11:53,026 - main - INFO - API get-data called
+2026-04-25 18:11:53,028 - main - INFO - Returning 22 rows from database
+2026-04-25 18:11:54,208 - main - INFO - API get-stock-info called with code=002990
+2026-04-25 18:11:54,222 - main - INFO - API get-stock-history called with code=002990, days=30
+2026-04-25 18:11:54,756 - main - INFO - Returning 30 days of history data for 002990
+2026-04-25 18:19:11,352 - main - INFO - API load-auction-data called with 32 stocks, days=30
+2026-04-25 18:19:12,002 - main - INFO - 获取到 30 个交易日
+2026-04-25 18:19:59,213 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=6.0, price_ratio=50.0, block_codes=880491,880550,880656,880670,880672, only_main_board=True
+2026-04-25 18:19:59,215 - main - INFO - 从数据库中获取到 491 只股票（来自 5 个板块）
+2026-04-25 18:19:59,215 - main - INFO - 主板过滤：从 491 只股票中筛选出 207 只主板股票
+2026-04-25 18:19:59,975 - main - INFO - Filter completed, found 32 stocks
+2026-04-25 18:19:59,980 - main - INFO - API save-filter-stocks called with 32 stocks
+2026-04-25 18:19:59,982 - main - INFO - Saved 32 filter stocks to database (type=2)
+2026-04-25 18:20:02,277 - main - INFO - API load-auction-data called with 32 stocks, days=30
+2026-04-25 18:20:02,390 - main - INFO - 获取到 30 个交易日
+2026-04-25 18:22:45,436 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:22:45,437 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:22:45,437 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:22:45,437 - __mp_main__ - INFO - Scheduler started
+2026-04-25 18:22:45,558 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:22:45,559 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:22:45,559 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:22:45,559 - main - INFO - Scheduler started
+2026-04-25 18:23:04,684 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=6.0, price_ratio=50.0, block_codes=880491,880550,880656,880670,880672, only_main_board=True
+2026-04-25 18:23:04,686 - main - INFO - 从数据库中获取到 491 只股票（来自 5 个板块）
+2026-04-25 18:23:04,687 - main - INFO - 主板过滤：从 491 只股票中筛选出 207 只主板股票
+2026-04-25 18:23:07,062 - main - INFO - Filter completed, found 32 stocks
+2026-04-25 18:23:07,067 - main - INFO - API save-filter-stocks called with 32 stocks
+2026-04-25 18:23:07,069 - main - INFO - Saved 32 filter stocks to database (type=2)
+2026-04-25 18:31:30,220 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=6.0, price_ratio=50.0, block_codes=880491,880550,880656,880670,880672,880753, only_main_board=True
+2026-04-25 18:31:30,224 - main - INFO - 从数据库中获取到 872 只股票（来自 6 个板块）
+2026-04-25 18:31:30,225 - main - INFO - 主板过滤：从 872 只股票中筛选出 510 只主板股票
+2026-04-25 18:31:37,396 - main - INFO - Filter completed, found 52 stocks
+2026-04-25 18:31:37,403 - main - INFO - API save-filter-stocks called with 52 stocks
+2026-04-25 18:31:37,407 - main - INFO - Saved 52 filter stocks to database (type=2)
+2026-04-25 18:31:43,041 - main - INFO - API load-auction-data called with 52 stocks, days=30
+2026-04-25 18:31:43,281 - main - INFO - 获取到 30 个交易日
+2026-04-25 18:36:02,726 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:36:02,727 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:36:02,727 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:36:02,727 - __mp_main__ - INFO - Scheduler started
+2026-04-25 18:36:02,860 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:36:02,860 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:36:02,861 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:36:02,861 - main - INFO - Scheduler started
+2026-04-25 18:38:26,383 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:38:26,384 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:38:26,384 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:38:26,385 - __mp_main__ - INFO - Scheduler started
+2026-04-25 18:38:26,518 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:38:26,519 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:38:26,519 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:38:26,520 - main - INFO - Scheduler started
+2026-04-25 18:49:21,180 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:49:21,181 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:49:21,181 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:49:21,182 - __mp_main__ - INFO - Scheduler started
+2026-04-25 18:49:21,307 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:49:21,308 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:49:21,308 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:49:21,309 - main - INFO - Scheduler started
+2026-04-25 18:51:43,449 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:51:43,450 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:51:43,450 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:51:43,451 - __mp_main__ - INFO - Scheduler started
+2026-04-25 18:51:43,574 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:51:43,574 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:51:43,574 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:51:43,575 - main - INFO - Scheduler started
+2026-04-25 18:52:05,125 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:52:05,125 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:52:05,125 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:52:05,126 - __mp_main__ - INFO - Scheduler started
+2026-04-25 18:52:05,251 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:52:05,252 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:52:05,252 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:52:05,252 - main - INFO - Scheduler started
+2026-04-25 18:57:00,150 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:57:00,150 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:57:00,151 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:57:00,151 - __mp_main__ - INFO - Scheduler started
+2026-04-25 18:57:00,275 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:57:00,275 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:57:00,276 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:57:00,276 - main - INFO - Scheduler started
+2026-04-25 18:59:11,154 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:59:11,155 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:59:11,155 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:59:11,156 - __mp_main__ - INFO - Scheduler started
+2026-04-25 18:59:11,354 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:59:11,355 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:59:11,355 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:59:11,355 - main - INFO - Scheduler started
+2026-04-25 18:59:24,290 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:59:24,291 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:59:24,291 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:59:24,291 - __mp_main__ - INFO - Scheduler started
+2026-04-25 18:59:24,428 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 18:59:24,428 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 18:59:24,428 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 18:59:24,429 - main - INFO - Scheduler started
+2026-04-25 19:00:01,328 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 19:00:01,329 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 19:00:01,329 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 19:00:01,329 - __mp_main__ - INFO - Scheduler started
+2026-04-25 19:00:01,472 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 19:00:01,472 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 19:00:01,472 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 19:00:01,473 - main - INFO - Scheduler started
+2026-04-25 19:11:04,746 - main - INFO - API get-trade-dates called
+2026-04-25 19:11:04,747 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 19:11:04,778 - main - INFO - API get-block-list called
+2026-04-25 19:11:04,781 - main - INFO - Returning 604 blocks from database
+2026-04-25 19:11:04,898 - main - INFO - API get-data called
+2026-04-25 19:11:04,900 - main - INFO - Returning 22 rows from database
+2026-04-25 19:11:07,566 - main - INFO - API get-stock-info called with code=000890
+2026-04-25 19:11:08,447 - main - INFO - API get-stock-history called with code=000890, days=30
+2026-04-25 19:11:08,640 - main - INFO - Returning 30 days of history data for 000890
+2026-04-25 19:13:20,505 - main - INFO - API get-trade-dates called
+2026-04-25 19:13:20,505 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 19:13:20,524 - main - INFO - API get-block-list called
+2026-04-25 19:13:20,526 - main - INFO - Returning 604 blocks from database
+2026-04-25 19:13:20,623 - main - INFO - API get-data called
+2026-04-25 19:13:20,626 - main - INFO - Returning 22 rows from database
+2026-04-25 19:13:29,334 - main - INFO - API get-stock-info called with code=002990
+2026-04-25 19:13:29,349 - main - INFO - API get-stock-history called with code=002990, days=30
+2026-04-25 19:13:29,390 - main - INFO - Returning 30 days of history data for 002990
+2026-04-25 19:14:36,681 - main - INFO - API get-trade-dates called
+2026-04-25 19:14:36,681 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 19:14:36,701 - main - INFO - API get-block-list called
+2026-04-25 19:14:36,703 - main - INFO - Returning 604 blocks from database
+2026-04-25 19:14:36,797 - main - INFO - API get-data called
+2026-04-25 19:14:36,799 - main - INFO - Returning 22 rows from database
+2026-04-25 19:14:38,804 - main - INFO - API get-stock-info called with code=002990
+2026-04-25 19:14:38,818 - main - INFO - API get-stock-history called with code=002990, days=30
+2026-04-25 19:14:38,858 - main - INFO - Returning 30 days of history data for 002990
+2026-04-25 19:18:50,516 - main - INFO - API get-trade-dates called
+2026-04-25 19:18:50,516 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 19:18:50,536 - main - INFO - API get-block-list called
+2026-04-25 19:18:50,538 - main - INFO - Returning 604 blocks from database
+2026-04-25 19:18:50,728 - main - INFO - API get-data called
+2026-04-25 19:18:50,730 - main - INFO - Returning 22 rows from database
+2026-04-25 19:55:08,503 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 19:55:08,504 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 19:55:08,505 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 19:55:08,505 - __mp_main__ - INFO - Scheduler started
+2026-04-25 19:55:08,661 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 19:55:08,661 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 19:55:08,662 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 19:55:08,662 - main - INFO - Scheduler started
+2026-04-25 19:55:31,880 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 19:55:31,881 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 19:55:31,881 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 19:55:31,882 - __mp_main__ - INFO - Scheduler started
+2026-04-25 19:55:32,011 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 19:55:32,011 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 19:55:32,012 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 19:55:32,012 - main - INFO - Scheduler started
+2026-04-25 19:56:16,807 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 19:56:16,808 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 19:56:16,808 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 19:56:16,808 - __mp_main__ - INFO - Scheduler started
+2026-04-25 19:56:16,952 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 19:56:16,952 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 19:56:16,953 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 19:56:16,953 - main - INFO - Scheduler started
+2026-04-25 19:58:43,838 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 19:58:43,839 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 19:58:43,839 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 19:58:43,839 - __mp_main__ - INFO - Scheduler started
+2026-04-25 19:58:43,967 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 19:58:43,968 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 19:58:43,968 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 19:58:43,968 - main - INFO - Scheduler started
+2026-04-25 20:23:06,001 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:23:06,001 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:23:06,002 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:23:06,002 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:23:06,136 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:23:06,137 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:23:06,137 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:23:06,138 - main - INFO - Scheduler started
+2026-04-25 20:24:21,595 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:24:21,596 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:24:21,596 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:24:21,596 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:24:21,717 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:24:21,718 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:24:21,718 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:24:21,718 - main - INFO - Scheduler started
+2026-04-25 20:25:26,996 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:25:26,997 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:25:26,997 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:25:26,997 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:25:27,128 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:25:27,129 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:25:27,129 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:25:27,129 - main - INFO - Scheduler started
+2026-04-25 20:25:33,379 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:25:33,380 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:25:33,380 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:25:33,380 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:25:33,501 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:25:33,501 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:25:33,501 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:25:33,502 - main - INFO - Scheduler started
+2026-04-25 20:25:35,030 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:25:35,031 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:25:35,031 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:25:35,031 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:25:35,151 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:25:35,151 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:25:35,152 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:25:35,152 - main - INFO - Scheduler started
+2026-04-25 20:27:10,898 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:27:10,899 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:27:10,899 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:27:10,899 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:27:11,030 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:27:11,031 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:27:11,031 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:27:11,032 - main - INFO - Scheduler started
+2026-04-25 20:27:19,873 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:27:19,874 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:27:19,874 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:27:19,874 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:27:19,996 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:27:19,996 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:27:19,997 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:27:19,997 - main - INFO - Scheduler started
+2026-04-25 20:32:16,101 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:32:16,102 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:32:16,102 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:32:16,102 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:32:16,225 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:32:16,225 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:32:16,226 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:32:16,226 - main - INFO - Scheduler started
+2026-04-25 20:34:02,320 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:34:02,321 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:34:02,321 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:34:02,321 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:34:02,453 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:34:02,454 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:34:02,454 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:34:02,455 - main - INFO - Scheduler started
+2026-04-25 20:34:37,000 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:34:37,000 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:34:37,000 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:34:37,001 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:34:37,246 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:34:37,247 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:34:37,247 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:34:37,248 - main - INFO - Scheduler started
+2026-04-25 20:34:38,896 - main - INFO - API get-trade-dates called
+2026-04-25 20:34:38,896 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 20:34:38,912 - main - INFO - API get-block-list called
+2026-04-25 20:34:38,916 - main - INFO - Returning 604 blocks from database
+2026-04-25 20:34:39,060 - main - INFO - API get-data called
+2026-04-25 20:34:39,062 - main - INFO - Returning 22 rows from database
+2026-04-25 20:34:53,941 - main - INFO - API run-strategy called with trade_date=2026-04-22, weipan_exceed=0, zaopan_exceed=0, rising_wave=1, block_codes=880550,880656,880670,880672
+2026-04-25 20:34:53,941 - main - INFO - Starting strategy execution: trade_date=2026-04-22, weipan=0, zaopan=0, rising=1, block_codes=880550,880656,880670,880672
+2026-04-25 20:34:53,944 - main - INFO - 从数据库中获取到 491 只股票（来自 4 个板块）
+2026-04-25 20:34:53,945 - main - INFO - 准备筛选 491 只股票
+2026-04-25 20:34:53,945 - main - INFO - Filtering 491 stocks...
+2026-04-25 20:34:55,288 - main - ERROR - Error running strategy: too many values to unpack (expected 3)
+2026-04-25 20:34:55,297 - main - INFO - API get-data called
+2026-04-25 20:34:55,299 - main - INFO - Returning 22 rows from database
+2026-04-25 20:36:30,233 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:36:30,233 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:36:30,233 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:36:30,234 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:36:30,767 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:36:30,768 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:36:30,768 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:36:30,768 - main - INFO - Scheduler started
+2026-04-25 20:37:55,214 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:37:55,214 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:37:55,214 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:37:55,215 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:37:55,345 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:37:55,345 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:37:55,345 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:37:55,346 - main - INFO - Scheduler started
+2026-04-25 20:37:59,597 - main - INFO - API run-strategy called with trade_date=2026-04-22, weipan_exceed=0, zaopan_exceed=0, rising_wave=1, block_codes=880550,880656,880670,880672
+2026-04-25 20:37:59,597 - main - INFO - Starting strategy execution: trade_date=2026-04-22, weipan=0, zaopan=0, rising=1, block_codes=880550,880656,880670,880672
+2026-04-25 20:37:59,601 - main - INFO - 从数据库中获取到 491 只股票（来自 4 个板块）
+2026-04-25 20:37:59,601 - main - INFO - 准备筛选 491 只股票
+2026-04-25 20:37:59,601 - main - INFO - Filtering 491 stocks...
+2026-04-25 20:38:03,316 - main - INFO - Strategy completed, found 16 stocks
+2026-04-25 20:38:03,318 - main - INFO - Results saved to database (16 records), elapsed time: 0.001 seconds
+2026-04-25 20:38:03,324 - main - INFO - API get-data called
+2026-04-25 20:38:03,326 - main - INFO - Returning 16 rows from database
+2026-04-25 20:38:57,627 - main - INFO - API run-strategy called with trade_date=2026-04-22, weipan_exceed=0, zaopan_exceed=0, rising_wave=1, block_codes=880550,880656,880670,880672
+2026-04-25 20:38:57,628 - main - INFO - Starting strategy execution: trade_date=2026-04-22, weipan=0, zaopan=0, rising=1, block_codes=880550,880656,880670,880672
+2026-04-25 20:38:57,630 - main - INFO - 从数据库中获取到 491 只股票（来自 4 个板块）
+2026-04-25 20:38:57,630 - main - INFO - 准备筛选 491 只股票
+2026-04-25 20:38:57,630 - main - INFO - Filtering 491 stocks...
+2026-04-25 20:38:59,349 - main - INFO - Strategy completed, found 16 stocks
+2026-04-25 20:38:59,351 - main - INFO - Results saved to database (16 records), elapsed time: 0.001 seconds
+2026-04-25 20:38:59,354 - main - INFO - API get-data called
+2026-04-25 20:38:59,356 - main - INFO - Returning 16 rows from database
+2026-04-25 20:46:30,467 - main - INFO - API get-block-list called
+2026-04-25 20:46:30,468 - main - INFO - API get-filter-stocks called
+2026-04-25 20:46:30,469 - main - INFO - Returning 52 filter stocks from database (type=2)
+2026-04-25 20:46:30,471 - main - INFO - Returning 604 blocks from database
+2026-04-25 20:53:59,067 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:53:59,067 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:53:59,068 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:53:59,068 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:53:59,210 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:53:59,210 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:53:59,210 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:53:59,211 - main - INFO - Scheduler started
+2026-04-25 20:54:43,656 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:54:43,656 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:54:43,656 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:54:43,657 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:54:43,778 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:54:43,779 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:54:43,779 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:54:43,779 - main - INFO - Scheduler started
+2026-04-25 20:55:23,495 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:55:23,495 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:55:23,495 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:55:23,496 - __mp_main__ - INFO - Scheduler started
+2026-04-25 20:55:23,616 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 20:55:23,616 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 20:55:23,617 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 20:55:23,617 - main - INFO - Scheduler started
+2026-04-25 21:05:19,359 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:05:19,359 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:05:19,359 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:05:19,360 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:05:19,474 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:05:19,475 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:05:19,475 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:05:19,476 - main - INFO - Scheduler started
+2026-04-25 21:05:37,995 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:05:37,995 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:05:37,995 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:05:37,996 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:05:38,120 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:05:38,120 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:05:38,120 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:05:38,121 - main - INFO - Scheduler started
+2026-04-25 21:05:47,002 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:05:47,003 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:05:47,003 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:05:47,004 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:05:47,200 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:05:47,201 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:05:47,201 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:05:47,202 - main - INFO - Scheduler started
+2026-04-25 21:06:06,563 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:06:06,564 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:06:06,565 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:06:06,566 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:06:06,701 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:06:06,702 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:06:06,702 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:06:06,703 - main - INFO - Scheduler started
+2026-04-25 21:06:37,673 - main - INFO - API load-auction-data called with 52 stocks, days=30
+2026-04-25 21:06:37,967 - main - INFO - 获取到 30 个交易日
+2026-04-25 21:09:46,392 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:09:46,393 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:09:46,393 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:09:46,393 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:09:46,516 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:09:46,516 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:09:46,516 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:09:46,517 - main - INFO - Scheduler started
+2026-04-25 21:10:17,306 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:10:17,307 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:10:17,308 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:10:17,308 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:10:17,458 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:10:17,458 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:10:17,459 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:10:17,459 - main - INFO - Scheduler started
+2026-04-25 21:10:49,331 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:10:49,332 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:10:49,332 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:10:49,332 - __main__ - INFO - Scheduler started
+2026-04-25 21:10:49,405 - __main__ - INFO - Starting server...
+2026-04-25 21:10:50,912 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:10:50,913 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:10:50,913 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:10:50,914 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:10:51,042 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:10:51,042 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:10:51,043 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:10:51,043 - main - INFO - Scheduler started
+2026-04-25 21:14:01,942 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:14:01,943 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:14:01,943 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:14:01,943 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:14:02,072 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:14:02,073 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:14:02,073 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:14:02,073 - main - INFO - Scheduler started
+2026-04-25 21:14:10,781 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:14:10,782 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:14:10,782 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:14:10,782 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:14:10,920 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:14:10,921 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:14:10,921 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:14:10,921 - main - INFO - Scheduler started
+2026-04-25 21:17:11,477 - main - INFO - API load-auction-data called with 52 stocks, days=30
+2026-04-25 21:17:11,696 - main - INFO - 获取到 30 个交易日
+2026-04-25 21:21:35,980 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:21:35,980 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:21:35,981 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:21:35,981 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:21:36,150 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:21:36,151 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:21:36,151 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:21:36,151 - main - INFO - Scheduler started
+2026-04-25 21:22:13,688 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:22:13,688 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:22:13,689 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:22:13,689 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:22:13,832 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:22:13,833 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:22:13,833 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:22:13,833 - main - INFO - Scheduler started
+2026-04-25 21:22:36,071 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:22:36,072 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:22:36,072 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:22:36,072 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:22:36,223 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:22:36,224 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:22:36,224 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:22:36,225 - main - INFO - Scheduler started
+2026-04-25 21:23:55,254 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:23:55,254 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:23:55,254 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:23:55,255 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:23:55,383 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:23:55,383 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:23:55,383 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:23:55,384 - main - INFO - Scheduler started
+2026-04-25 21:52:16,238 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:52:16,239 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:52:16,239 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:52:16,240 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:52:16,376 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:52:16,377 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:52:16,377 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:52:16,378 - main - INFO - Scheduler started
+2026-04-25 21:52:34,947 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:52:34,948 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:52:34,948 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:52:34,948 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:52:35,076 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:52:35,077 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:52:35,077 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:52:35,077 - main - INFO - Scheduler started
+2026-04-25 21:53:09,936 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:53:09,937 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:53:09,937 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:53:09,938 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:53:10,081 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:53:10,082 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:53:10,082 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:53:10,082 - main - INFO - Scheduler started
+2026-04-25 21:53:20,001 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:53:20,001 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:53:20,001 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:53:20,002 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:53:20,144 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:53:20,145 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:53:20,145 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:53:20,145 - main - INFO - Scheduler started
+2026-04-25 21:53:41,317 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:53:41,318 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:53:41,318 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:53:41,319 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:53:41,481 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:53:41,481 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:53:41,482 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:53:41,482 - main - INFO - Scheduler started
+2026-04-25 21:54:07,013 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:54:07,013 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:54:07,014 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:54:07,014 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:54:07,153 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:54:07,154 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:54:07,154 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:54:07,155 - main - INFO - Scheduler started
+2026-04-25 21:56:20,318 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:56:20,319 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:56:20,319 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:56:20,319 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:56:20,442 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:56:20,443 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:56:20,443 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:56:20,444 - main - INFO - Scheduler started
+2026-04-25 21:59:05,064 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:59:05,064 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:59:05,064 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:59:05,065 - __mp_main__ - INFO - Scheduler started
+2026-04-25 21:59:05,191 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 21:59:05,191 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 21:59:05,192 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 21:59:05,192 - main - INFO - Scheduler started
+2026-04-25 22:02:56,364 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:02:56,364 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:02:56,365 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:02:56,365 - __mp_main__ - INFO - Scheduler started
+2026-04-25 22:02:56,504 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:02:56,505 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:02:56,505 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:02:56,505 - main - INFO - Scheduler started
+2026-04-25 22:03:05,641 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:03:05,642 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:03:05,642 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:03:05,642 - __mp_main__ - INFO - Scheduler started
+2026-04-25 22:03:05,767 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:03:05,768 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:03:05,768 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:03:05,768 - main - INFO - Scheduler started
+2026-04-25 22:07:36,388 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:07:36,388 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:07:36,388 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:07:36,389 - __mp_main__ - INFO - Scheduler started
+2026-04-25 22:07:36,511 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:07:36,511 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:07:36,512 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:07:36,512 - main - INFO - Scheduler started
+2026-04-25 22:07:41,767 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:07:41,767 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:07:41,767 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:07:41,768 - __mp_main__ - INFO - Scheduler started
+2026-04-25 22:07:41,891 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:07:41,892 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:07:41,892 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:07:41,892 - main - INFO - Scheduler started
+2026-04-25 22:08:21,591 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:08:21,591 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:08:21,591 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:08:21,592 - __mp_main__ - INFO - Scheduler started
+2026-04-25 22:08:21,711 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:08:21,712 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:08:21,712 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:08:21,712 - main - INFO - Scheduler started
+2026-04-25 22:09:49,193 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:09:49,194 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:09:49,194 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:09:49,195 - __mp_main__ - INFO - Scheduler started
+2026-04-25 22:09:49,335 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:09:49,336 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:09:49,336 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:09:49,337 - main - INFO - Scheduler started
+2026-04-25 22:09:54,923 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:09:54,924 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:09:54,924 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:09:54,924 - __mp_main__ - INFO - Scheduler started
+2026-04-25 22:09:55,053 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:09:55,054 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:09:55,054 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:09:55,054 - main - INFO - Scheduler started
+2026-04-25 22:10:02,825 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:10:02,826 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:10:02,826 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:10:02,826 - __mp_main__ - INFO - Scheduler started
+2026-04-25 22:10:02,953 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:10:02,954 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:10:02,954 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:10:02,954 - main - INFO - Scheduler started
+2026-04-25 22:12:03,921 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:12:03,921 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:12:03,922 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:12:03,922 - __mp_main__ - INFO - Scheduler started
+2026-04-25 22:12:04,051 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:12:04,052 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:12:04,052 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:12:04,052 - main - INFO - Scheduler started
+2026-04-25 22:40:21,562 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:40:21,563 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:40:21,563 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:40:21,564 - __mp_main__ - INFO - Scheduler started
+2026-04-25 22:40:21,697 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 22:40:21,698 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 22:40:21,698 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 22:40:21,698 - main - INFO - Scheduler started

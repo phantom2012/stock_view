@@ -649,7 +649,7 @@ class StockDataCache:
             print(f"[StockCache] 从数据库读取竞价数据失败: {e}")
         return None
 
-    def _save_auction_to_db(self, code: str, date_key: str, price: float, amount: float, volume: int, pre_close: float, turn_over_rate: float, volume_ratio: float, float_share: float, tail_57_price: float = 0):
+    def _save_auction_to_db(self, code: str, date_key: str, price: float, amount: float, volume: int, pre_close: float, turn_over_rate: float, volume_ratio: float, float_share: float, tail_57_price: float = 0, close_price: float = 0, tail_amount: float = 0):
         """保存竞价数据到数据库"""
         update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -680,20 +680,96 @@ class StockDataCache:
         volume_ratio = to_float(volume_ratio)
         float_share = to_float(float_share)
         tail_57_price = to_float(tail_57_price)
+        close_price = to_float(close_price)
+        tail_amount = to_float(tail_amount)
 
         try:
             with get_db_cursor() as cursor:
                 cursor.execute("""
                     INSERT OR REPLACE INTO stock_auction
                     (code, trade_date, price, amount, volume, pre_close, turn_over_rate, volume_ratio, float_share, 
-                     auction_price, auction_amount, open_price, open_amount, tail_57_price, update_time)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     auction_price, auction_amount, open_price, open_amount, tail_57_price, close_price, tail_amount, update_time)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     code, date_key, price, amount, volume, pre_close, turn_over_rate, volume_ratio, float_share,
-                    price, amount, price, amount, tail_57_price, update_time
+                    price, amount, price, amount, tail_57_price, close_price, tail_amount, update_time
                 ))
         except Exception as e:
             print(f"[StockCache] 保存竞价数据失败: {e}")
+
+    def _update_auction_tail_data(self, code: str, date_key: str, tail_57_price: float, close_price: float, tail_amount: float):
+        """
+        更新竞价数据表中的尾盘竞价字段
+        
+        Args:
+            code: 股票代码（纯数字）
+            date_key: 交易日期（YYYY-MM-DD）
+            tail_57_price: 尾盘14:57竞价价格
+            close_price: 收盘价
+            tail_amount: 尾盘竞价金额
+        """
+        update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        def to_float(value, default=0):
+            try:
+                if value is None:
+                    return default
+                return float(value)
+            except (ValueError, TypeError):
+                return default
+        
+        tail_57_price = to_float(tail_57_price)
+        close_price = to_float(close_price)
+        tail_amount = to_float(tail_amount)
+        
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute("""
+                    UPDATE stock_auction
+                    SET tail_57_price = ?,
+                        close_price = ?,
+                        tail_amount = ?,
+                        update_time = ?
+                    WHERE code = ? AND trade_date = ?
+                """, (tail_57_price, close_price, tail_amount, update_time, code, date_key))
+        except Exception as e:
+            print(f"[StockCache] 更新尾盘竞价数据失败: {e}")
+
+    def get_tail_auction_data(self, symbol: str, trade_date: datetime) -> Optional[Dict[str, Any]]:
+        """
+        获取尾盘竞价数据（14:57-15:00的分钟数据）
+        
+        Args:
+            symbol: 股票代码（如: SZSE.002990）
+            trade_date: 交易日期
+            
+        Returns:
+            尾盘竞价数据字典，如果无数据返回None
+            {
+                'auction_start_price': 14:57收盘价,
+                'auction_end_price': 15:00收盘价,
+                'amount': 尾盘竞价金额
+            }
+        """
+        try:
+            # 通过缓存池获取14:56-15:00的分钟数据:获取到的是14:57,14:58，15:00的min数据
+            minute_data = self.get_minute_data(symbol, trade_date, "14:56:00", "15:00:00")
+            
+            if minute_data is not None and len(minute_data) > 0:
+                auction_start = float(minute_data.iloc[0]['close'])
+                auction_end = float(minute_data.iloc[-1]['close'])
+                
+                # 返回尾盘竞价数据
+                return {
+                    'auction_start_price': auction_start,
+                    'auction_end_price': auction_end,
+                    'amount': float(minute_data.iloc[-1]['amount'])
+                }
+            
+            return None
+        except Exception as e:
+            print(f"[StockCache] Error getting tail auction data for {symbol}: {e}")
+            return None
 
 
 # 全局缓存池实例
