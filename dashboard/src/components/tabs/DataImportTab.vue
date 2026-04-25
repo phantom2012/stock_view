@@ -130,11 +130,11 @@
         <!-- 使用v-for循环渲染3组列 -->
         <template v-for="group in 3" :key="group">
           <!-- 序号列 -->
-          <el-table-column label="序号" width="60">
+          <!-- <el-table-column label="序号" width="50">
             <template #default="scope">
               <span>{{ scope.row[`index${group}`] || '-' }}</span>
             </template>
-          </el-table-column>
+          </el-table-column> -->
           <!-- 股票代码列 -->
           <el-table-column label="股票代码" width="80">
             <template #default="scope">
@@ -147,15 +147,24 @@
               <span>{{ scope.row[`name${group}`] || '-' }}</span>
             </template>
           </el-table-column>
-          <!-- 区间涨幅列（最后一组不加group-end） -->
-          <el-table-column 
-            label="区间涨幅" 
-            width="130"
-            :class-name="group < 3 ? 'group-end' : ''"
-          >
+          <!-- 区间涨幅列 -->
+          <el-table-column label="区间涨幅" width="90">
             <template #default="scope">
               <span v-if="scope.row[`gain${group}`] !== null && scope.row[`gain${group}`] !== undefined" :style="{color: getGainColor(scope.row[`gain${group}`])}">
                 {{ scope.row[`gain${group}`].toFixed(2) }}%
+              </span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <!-- 单日涨幅列（最后一组不加group-end）-->
+          <el-table-column 
+            label="单日最大涨幅" 
+            width="group < 3 ? 160 : 110"
+            :class-name="group < 3 ? 'group-end' : ''"
+          >
+            <template #default="scope">
+              <span v-if="scope.row[`maxDailyGain${group}`] !== null && scope.row[`maxDailyGain${group}`] !== undefined" :style="{color: getGainColor(scope.row[`maxDailyGain${group}`])}">
+                {{ scope.row[`maxDailyGain${group}`].toFixed(2) }}%
               </span>
               <span v-else>-</span>
             </template>
@@ -212,7 +221,7 @@ const selectedBlock = ref('')
 const selectedBlocks = ref([])
 
 // 默认选中的板块代码
-const defaultBlockCodes = ['880656', '880670', '880550', '880672'] // CPO概念, 光通信, PCB概念, 存储芯片
+const defaultBlockCodes = ['880656', '880670', '880550', '880672', '880491'] // CPO概念, 光通信, PCB概念, 存储芯片, 半导体
 
 // 状态管理
 const loading = ref(false)
@@ -287,11 +296,13 @@ const formatTableData = (stocks, startIndex) => {
         result[row][`code${group + 1}`] = stocks[index].code
         result[row][`name${group + 1}`] = stocks[index].name
         result[row][`gain${group + 1}`] = stocks[index].gain
+        result[row][`maxDailyGain${group + 1}`] = stocks[index].max_daily_gain
       } else {
         result[row][`index${group + 1}`] = null
         result[row][`code${group + 1}`] = null
         result[row][`name${group + 1}`] = null
         result[row][`gain${group + 1}`] = null
+        result[row][`maxDailyGain${group + 1}`] = null
       }
     }
   }
@@ -310,7 +321,7 @@ const getGainColor = (value) => {
 // 表头样式 - 为每组的最后一列添加更大间距
 const headerCellStyle = ({ column }) => {
   if (column.className === 'group-end') {
-    return { paddingRight: '30px' }  // 增大到20px
+    return { paddingRight: '0px' }  // 增大到20px
   }
   return {}
 }

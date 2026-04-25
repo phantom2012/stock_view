@@ -643,7 +643,8 @@ def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: 
                 filtered_results.append({
                     'code': code,
                     'name': stock_name,
-                    'gain': round(period_gain, 2)  # 添加区间涨幅
+                    'gain': round(period_gain, 2),
+                    'max_daily_gain': round(max_daily_gain, 2)
                 })
                 
             except Exception as e:
@@ -701,4 +702,12 @@ def get_block_list():
 if __name__ == "__main__":
     import uvicorn
     logger.info("Starting server...")
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+
+    # ==============================================
+    # 热更新配置（开发时使用，生产环境建议关闭）
+    # ==============================================
+    # 如需热更新功能，使用下面的导入字符串方式
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+
+    # 如不需要热更新，使用下面的方式
+    # uvicorn.run(app, host="127.0.0.1", port=8000)
