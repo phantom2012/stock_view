@@ -34,23 +34,23 @@ def add_columns():
             else:
                 raise
         
-        # 3. 添加 avg_price_5d 字段（SQLite不允许字段名以数字开头）
+        # 3. 添加 avg_5d_price 字段
         try:
-            cursor.execute("ALTER TABLE stock_auction ADD COLUMN avg_price_5d REAL")
-            print("[SUCCESS] 已添加 avg_price_5d 字段")
+            cursor.execute("ALTER TABLE stock_auction ADD COLUMN avg_5d_price REAL")
+            print("[SUCCESS] 已添加 avg_5d_price 字段")
         except sqlite3.OperationalError as e:
             if "duplicate column name" in str(e):
-                print("[INFO] avg_price_5d 字段已存在，跳过")
+                print("[INFO] avg_5d_price 字段已存在，跳过")
             else:
                 raise
         
-        # 4. 添加 avg_price_10d 字段
+        # 4. 添加 avg_10d_price 字段
         try:
-            cursor.execute("ALTER TABLE stock_auction ADD COLUMN avg_price_10d REAL")
-            print("[SUCCESS] 已添加 avg_price_10d 字段")
+            cursor.execute("ALTER TABLE stock_auction ADD COLUMN avg_10d_price REAL")
+            print("[SUCCESS] 已添加 avg_10d_price 字段")
         except sqlite3.OperationalError as e:
             if "duplicate column name" in str(e):
-                print("[INFO] avg_price_10d 字段已存在，跳过")
+                print("[INFO] avg_10d_price 字段已存在，跳过")
             else:
                 raise
         

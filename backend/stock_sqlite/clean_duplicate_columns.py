@@ -1,6 +1,6 @@
 """
 清理 stock_auction 表中的重复字段
-保留 avg_price_5d 和 avg_price_10d，删除 avg_5d_price 和 avg_10d_price
+保留 avg_5d_price 和 avg_10d_price，删除 avg_price_5d 和 avg_price_10d
 """
 import sqlite3
 
@@ -25,10 +25,10 @@ def clean_duplicate_columns():
         # SQLite 不支持直接删除列，需要重建表
         # 检查是否有需要删除的字段
         cols_to_remove = []
-        if 'avg_5d_price' in columns:
-            cols_to_remove.append('avg_5d_price')
-        if 'avg_10d_price' in columns:
-            cols_to_remove.append('avg_10d_price')
+        if 'avg_price_5d' in columns:
+            cols_to_remove.append('avg_price_5d')
+        if 'avg_price_10d' in columns:
+            cols_to_remove.append('avg_price_10d')
         
         if not cols_to_remove:
             print("\n[INFO] 没有需要清理的重复字段")
@@ -72,8 +72,8 @@ def clean_duplicate_columns():
             tail_57_price REAL,
             close_price REAL,
             tail_amount REAL,
-            avg_price_5d REAL,
-            avg_price_10d REAL,
+            avg_5d_price REAL,
+            avg_10d_price REAL,
             update_time TEXT,
             UNIQUE(code, trade_date)
         )
