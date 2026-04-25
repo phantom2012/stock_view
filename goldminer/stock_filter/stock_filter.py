@@ -246,31 +246,52 @@ class StockFilter:
             print(f"Error getting stock gains for {symbol}: {e}")
             return None, None
     
-    def check_stock_type(self, symbol: str) -> bool:
+    def check_is_main_board(self, symbol: str) -> bool:
         """
-        检查股票类型（只保留10cm涨跌幅的主板股票，排除科创板、创业板、北交所、ST股）
+        检查是否是主板股票
+        主板股票定义：排除科创板、创业板、北交所后的股票
         
         Args:
             symbol: 股票代码
             
         Returns:
-            bool: 是否符合条件
+            bool: 是否是主板股票
         """
         stock_code = symbol.split('.')[-1] if '.' in symbol else symbol
         
-        # 1. 排除科创板 (688)
+        # 排除科创板 (688)
         if stock_code.startswith('688'):
             return False
         
-        # 2. 排除创业板 (300, 301)
+        # 排除创业板 (300, 301)
         if stock_code.startswith('300') or stock_code.startswith('301'):
             return False
         
-        # 3. 排除北交所 (8, 4, 92开头)
+        # 排除北交所 (8, 4, 92开头)
         if stock_code.startswith('8') or stock_code.startswith('4') or stock_code.startswith('92'):
             return False
         
-        # 4. 排除 ST 股票 (通过名称判断)
+        # 剩下的就是主板股票（包括60、00、002、003等）
+        return True
+
+    def check_is_10cm(self, symbol: str) -> bool:
+        """
+        检查是否为10cm涨跌幅股票（主板非ST股票）
+        过滤条件：
+        1. 必须是主板股票（60或00开头）
+        2. 排除ST、*ST股票
+        
+        Args:
+            symbol: 股票代码
+            
+        Returns:
+            bool: 是否符合10cm条件
+        """
+        # 1. 首先检查是否是主板股票
+        if not self.check_is_main_board(symbol):
+            return False
+        
+        # 2. 排除 ST 股票 (通过名称判断)
         try:
             stock_name = self.cache.get_stock_name(symbol)
             if 'ST' in stock_name or '*ST' in stock_name:
@@ -278,7 +299,6 @@ class StockFilter:
         except:
             pass
         
-        # 5. 只保留主板股票 (60, 00, 002, 003等)
         return True
     
     def calculate_higher_score(self, auction_data: Dict[str, Any], 
@@ -344,10 +364,10 @@ class StockFilter:
                 debug_mode = True
                 print(f"\n=== 开始调试股票: {symbol} ===")
             
-            # 检查股票类型
-            if not self.check_stock_type(symbol):
+            # 检查是否为10cm股票
+            if not self.check_is_10cm(symbol):
                 if debug_mode:
-                    print(f"  [筛选] 股票类型不符合条件（创业板/科创板），被筛掉")
+                    print(f"  [筛选] 非10cm股票，被筛掉")
                 continue
             
             # 检查性能条件

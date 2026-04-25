@@ -22,10 +22,10 @@
       <StockInfoTab 
         v-else-if="activeTab === 'stock_info'" 
         :selectedStock="selectedStock"
-        @backToAuction="handleBackToAuction"
+        @back="handleBack"
       />
       
-      <DataImportTab v-else-if="activeTab === 'data_import'" />
+      <DataImportTab v-else-if="activeTab === 'data_import'" @selectStock="handleSelectStock" />
       
       <FlowTab v-else-if="activeTab === 'flow'" />
       <SectorTab v-else-if="activeTab === 'sector'" />
@@ -43,14 +43,16 @@ import SectorTab from '../components/tabs/SectorTab.vue'
 
 const activeTab = ref('auction')
 const selectedStock = ref(null)
+const returnTab = ref('auction')
 
-const handleSelectStock = (stock) => {
+const handleSelectStock = (stock, fromTab = 'auction') => {
   selectedStock.value = stock
+  returnTab.value = fromTab
   activeTab.value = 'stock_info'
 }
 
-const handleBackToAuction = () => {
-  activeTab.value = 'auction'
+const handleBack = (tab) => {
+  activeTab.value = tab || returnTab.value
 }
 </script>
 

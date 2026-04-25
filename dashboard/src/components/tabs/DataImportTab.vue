@@ -53,27 +53,34 @@
           </el-form-item>
         </el-form>
         
-        <!-- 第二行：板块选择和按钮 -->
+        <!-- 第二行：板块选择、主板勾选项和按钮 -->
         <div class="flex items-center justify-between mt-4">
-          <div class="flex items-center">
-            <span class="mr-2 text-gray-700">选择板块</span>
-            <el-select
-              v-model="selectedBlock"
-              filterable
-              placeholder="搜索并选择板块"
-              style="width: 250px;"
-              @change="handleBlockSelect"
-            >
-              <el-option
-                v-for="block in blockList"
-                :key="block.code"
-                :label="block.name"
-                :value="block.code"
+          <div class="flex items-center gap-4">
+            <div class="flex items-center">
+              <span class="mr-2 text-gray-700">选择板块</span>
+              <el-select
+                v-model="selectedBlock"
+                filterable
+                placeholder="搜索并选择板块"
+                style="width: 250px;"
+                @change="handleBlockSelect"
               >
-                <span style="float: left">{{ block.name }}</span>
-                <span style="float: right; color: #8492a6; font-size: 13px">{{ block.code }}</span>
-              </el-option>
-            </el-select>
+                <el-option
+                  v-for="block in blockList"
+                  :key="block.code"
+                  :label="block.name"
+                  :value="block.code"
+                >
+                  <span style="float: left">{{ block.name }}</span>
+                  <span style="float: right; color: #8492a6; font-size: 13px">{{ block.code }}</span>
+                </el-option>
+              </el-select>
+            </div>
+            
+            <!-- 仅筛选主板勾选项 -->
+            <el-checkbox v-model="filterForm.onlyMainBoard" size="large">
+              仅筛选主板
+            </el-checkbox>
           </div>
           
           <div class="flex items-center gap-2">
@@ -87,6 +94,14 @@
             </el-button>
             <el-button @click="resetFilter" icon="Refresh">
               重置
+            </el-button>
+            <el-button 
+              type="success" 
+              @click="loadAuctionData"
+              :loading="loadingAuction"
+              icon="Download"
+            >
+              加载竞价
             </el-button>
           </div>
         </div>
@@ -123,9 +138,10 @@
         stripe
         style="width: 100%"
         header-row-class-name="bg-gray-50 text-gray-800"
-        row-class-name="bg-white"
+        row-class-name="bg-white cursor-pointer"
         :cell-style="cellStyle"
         :header-cell-style="headerCellStyle"
+        @row-click="handleRowClick"
       >
         <!-- 使用v-for循环渲染3组列 -->
         <template v-for="group in 3" :key="group">
@@ -200,6 +216,8 @@ import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
+const emit = defineEmits(['selectStock'])
+
 // ========== 全局常量配置 ==========
 const TABLE_ROWS_PER_PAGE = 6 // 表格每页显示的行数
 const TABLE_COLS_PER_PAGE = 3 // 表格每行的列数
@@ -212,7 +230,8 @@ const filterForm = ref({
   maxGain: 30,
   dailyGainDays: 5,
   dailyGainThreshold: 7,
-  priceRatio: 80
+  priceRatio: 80,
+  onlyMainBoard: true  // 默认勾选仅筛选主板
 })
 
 // 板块相关
@@ -225,6 +244,7 @@ const defaultBlockCodes = ['880656', '880670', '880550', '880672', '880491'] // 
 
 // 状态管理
 const loading = ref(false)
+const loadingAuction = ref(false)
 const hasSearched = ref(false)
 const filteredStocks = ref([])
 const currentPage = ref(1)
@@ -291,18 +311,21 @@ const formatTableData = (stocks, startIndex) => {
   for (let group = 0; group < groupsCount; group++) {
     for (let row = 0; row < rowsPerPage; row++) {
       const index = group * rowsPerPage + row
+      const stockIndex = startIndex + index
       if (index < totalStocks) {
         result[row][`index${group + 1}`] = startIndex + index + 1
         result[row][`code${group + 1}`] = stocks[index].code
         result[row][`name${group + 1}`] = stocks[index].name
         result[row][`gain${group + 1}`] = stocks[index].gain
         result[row][`maxDailyGain${group + 1}`] = stocks[index].max_daily_gain
+        result[row][`stockIndex${group + 1}`] = stockIndex
       } else {
         result[row][`index${group + 1}`] = null
         result[row][`code${group + 1}`] = null
         result[row][`name${group + 1}`] = null
         result[row][`gain${group + 1}`] = null
         result[row][`maxDailyGain${group + 1}`] = null
+        result[row][`stockIndex${group + 1}`] = null
       }
     }
   }
@@ -345,7 +368,8 @@ const handleFilter = async () => {
         daily_gain_days: filterForm.value.dailyGainDays,
         daily_gain_threshold: filterForm.value.dailyGainThreshold,
         price_ratio: filterForm.value.priceRatio,
-        block_codes: blockCodes.join(',')
+        block_codes: blockCodes.join(','),
+        only_main_board: filterForm.value.onlyMainBoard
       }
     })
     
@@ -353,6 +377,13 @@ const handleFilter = async () => {
     
     // 按区间涨幅倒序排列
     filteredStocks.value.sort((a, b) => (b.gain || 0) - (a.gain || 0))
+    
+    // 保存到数据库
+    try {
+      await axios.post('http://127.0.0.1:8000/save-filter-stocks', filteredStocks.value)
+    } catch (error) {
+      console.error('保存筛选结果失败:', error)
+    }
     
     currentPage.value = 1 // 重置到第一页
     
@@ -377,13 +408,52 @@ const resetFilter = () => {
     maxGain: 30,
     dailyGainDays: 5,
     dailyGainThreshold: 7,
-    priceRatio: 80
+    priceRatio: 80,
+    onlyMainBoard: true  // 重置时保持默认勾选
   }
   selectedBlocks.value = []
   selectedBlock.value = ''
   filteredStocks.value = []
   hasSearched.value = false
   currentPage.value = 1
+}
+
+// 加载竞价数据
+const loadAuctionData = async () => {
+  if (filteredStocks.value.length === 0) {
+    ElMessage.warning('请先筛选股票后再加载竞价数据')
+    return
+  }
+  
+  loadingAuction.value = true
+  
+  // 显示加载提示
+  const loadingMsg = ElMessage({
+    message: `正在加载竞价数据，共 ${filteredStocks.value.length} 只股票...`,
+    type: 'info',
+    duration: 0  // 不自动关闭
+  })
+  
+  try {
+    const response = await axios.post('http://127.0.0.1:8000/load-auction-data', filteredStocks.value, {
+      params: { days: 30 }
+    })
+    
+    loadingMsg.close()
+    
+    if (response.data.status === 'success') {
+      const result = response.data.data
+      ElMessage.success(`加载竞价数据完成：成功 ${result.success} 只，失败 ${result.failed} 只，总计 ${result.total} 只股票`)
+    } else {
+      ElMessage.error('加载竞价数据失败：' + (response.data.msg || '未知错误'))
+    }
+  } catch (error) {
+    loadingMsg.close()
+    console.error('加载竞价数据失败:', error)
+    ElMessage.error('加载竞价数据失败，请稍后重试')
+  } finally {
+    loadingAuction.value = false
+  }
 }
 
 // 处理天数输入，限制为1-365的数字
@@ -473,10 +543,56 @@ const handleCurrentChange = (val) => {
   currentPage.value = val
 }
 
-// 组件挂载时加载板块列表
+// 处理行点击，跳转到个股详情
+const handleRowClick = (row, column, event) => {
+  if (!event || !event.target) {
+    return
+  }
+  
+  const cell = event.target.closest('td')
+  if (!cell) {
+    return
+  }
+  
+  const cellIndex = Array.from(cell.parentElement.children).indexOf(cell)
+  const colCountPerGroup = 4
+  const group = Math.floor(cellIndex / colCountPerGroup) + 1
+  
+  // 检查是否点击的是股票代码列（每组的第1列，索引为0）
+  const relativeCellIndex = cellIndex % colCountPerGroup
+  if (relativeCellIndex === 0) {
+    return // 股票代码列不触发跳转
+  }
+  
+  const stockIndex = row[`stockIndex${group}`]
+  if (stockIndex !== null && stockIndex !== undefined) {
+    const stock = filteredStocks.value[stockIndex]
+    if (stock) {
+      emit('selectStock', stock, 'data_import')
+    }
+  }
+}
+
+// 组件挂载时加载板块列表和筛选结果
 onMounted(() => {
   loadBlockList()
+  loadFilterStocks()
 })
+
+// 从数据库加载筛选结果(type=2)
+const loadFilterStocks = async () => {
+  try {
+    const response = await axios.get('http://127.0.0.1:8000/get-filter-stocks')
+    if (response.data && response.data.length > 0) {
+      filteredStocks.value = response.data
+      filteredStocks.value.sort((a, b) => (b.gain || 0) - (a.gain || 0))
+      hasSearched.value = true
+      currentPage.value = 1
+    }
+  } catch (error) {
+    console.error('加载筛选结果失败:', error)
+  }
+}
 </script>
 
 <style scoped>

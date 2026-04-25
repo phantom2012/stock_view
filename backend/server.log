@@ -1,301 +1,170 @@
-2026-04-24 22:40:52,190 - __main__ - INFO - API get-trade-dates called
-2026-04-24 22:40:52,190 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-24 22:40:52,199 - __main__ - INFO - API get-data called
-2026-04-24 22:40:52,201 - __main__ - INFO - Returning 1 rows from database
-2026-04-24 22:40:59,189 - __main__ - INFO - API run-strategy called with trade_date=2026-04-23, weipan_exceed=0, zaopan_exceed=0, rising_wave=1
-2026-04-24 22:40:59,189 - __main__ - INFO - Starting strategy execution: trade_date=2026-04-23, weipan=0, zaopan=0, rising=1
-2026-04-24 22:40:59,197 - __main__ - INFO - 从数据库中获取到 5605 只股票
-2026-04-24 22:40:59,198 - __main__ - INFO - 准备筛选 5605 只股票
-2026-04-24 22:40:59,199 - __main__ - INFO - Filtering 5605 stocks...
-2026-04-24 22:41:26,751 - __main__ - INFO - Strategy completed, found 49 stocks
-2026-04-24 22:41:26,753 - __main__ - INFO - Results saved to database (49 records), elapsed time: 0.002 seconds
-2026-04-24 22:41:26,758 - __main__ - INFO - API get-data called
-2026-04-24 22:41:26,760 - __main__ - INFO - Returning 1 rows from database
-2026-04-24 22:44:44,345 - __main__ - INFO - API get-trade-dates called
-2026-04-24 22:44:44,346 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-24 22:44:44,363 - __main__ - INFO - API get-block-list called
-2026-04-24 22:44:44,365 - __main__ - INFO - Returning 604 blocks from database
-2026-04-24 22:44:44,578 - __main__ - INFO - API get-data called
-2026-04-24 22:44:44,581 - __main__ - INFO - Returning 1 rows from database
-2026-04-24 22:45:39,646 - __main__ - INFO - API get-block-list called
-2026-04-24 22:45:39,648 - __main__ - INFO - Returning 604 blocks from database
-2026-04-24 22:45:44,830 - __main__ - INFO - API get-trade-dates called
-2026-04-24 22:45:44,831 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-24 22:45:44,848 - __main__ - INFO - API get-block-list called
-2026-04-24 22:45:44,850 - __main__ - INFO - Returning 604 blocks from database
-2026-04-24 22:45:44,963 - __main__ - INFO - API get-data called
-2026-04-24 22:45:44,966 - __main__ - INFO - Returning 1 rows from database
-2026-04-24 22:46:04,925 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 22:46:04,926 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-24 22:46:04,926 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-24 22:46:04,927 - __main__ - INFO - Scheduler started
-2026-04-24 22:46:04,999 - __main__ - INFO - Starting server...
-2026-04-24 22:46:32,506 - __main__ - INFO - API get-trade-dates called
-2026-04-24 22:46:32,507 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-24 22:46:32,516 - __main__ - INFO - API get-block-list called
-2026-04-24 22:46:32,521 - __main__ - INFO - Returning 604 blocks from database
-2026-04-24 22:46:32,634 - __main__ - INFO - API get-data called
-2026-04-24 22:46:32,636 - __main__ - INFO - Returning 1 rows from database
-2026-04-24 22:51:38,277 - __main__ - INFO - API run-strategy called with trade_date=2026-04-22, weipan_exceed=0, zaopan_exceed=0, rising_wave=1, block_codes=880550,880656,880670,880672
-2026-04-24 22:51:38,278 - __main__ - INFO - Starting strategy execution: trade_date=2026-04-22, weipan=0, zaopan=0, rising=1, block_codes=880550,880656,880670,880672
-2026-04-24 22:51:38,280 - __main__ - INFO - 从数据库中获取到 491 只股票（来自 4 个板块）
-2026-04-24 22:51:38,280 - __main__ - INFO - 准备筛选 491 只股票
-2026-04-24 22:51:38,280 - __main__ - INFO - Filtering 491 stocks...
-2026-04-24 22:51:43,716 - __main__ - INFO - Strategy completed, found 22 stocks
-2026-04-24 22:51:43,718 - __main__ - INFO - Results saved to database (22 records), elapsed time: 0.002 seconds
-2026-04-24 22:51:43,723 - __main__ - INFO - API get-data called
-2026-04-24 22:51:43,725 - __main__ - INFO - Returning 1 rows from database
-2026-04-24 22:57:47,282 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 22:57:47,283 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-24 22:57:47,283 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-24 22:57:47,284 - __main__ - INFO - Scheduler started
-2026-04-24 22:57:47,374 - __main__ - INFO - Starting server...
-2026-04-24 23:13:41,783 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 23:13:41,784 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-24 23:13:41,784 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-24 23:13:41,784 - __main__ - INFO - Scheduler started
-2026-04-24 23:13:41,876 - __main__ - INFO - Starting server...
-2026-04-24 23:30:26,486 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 23:30:26,486 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-24 23:30:26,486 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-24 23:30:26,487 - __main__ - INFO - Scheduler started
-2026-04-24 23:30:26,567 - __main__ - INFO - Starting server...
-2026-04-24 23:32:05,523 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 23:32:05,524 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-24 23:32:05,524 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-24 23:32:05,524 - __main__ - INFO - Scheduler started
-2026-04-24 23:32:05,598 - __main__ - INFO - Starting server...
-2026-04-24 23:32:22,390 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-24 23:32:22,391 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-24 23:32:22,391 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-24 23:32:22,392 - __main__ - INFO - Scheduler started
-2026-04-24 23:32:22,466 - __main__ - INFO - Starting server...
-2026-04-24 23:32:29,452 - __main__ - INFO - API get-trade-dates called
-2026-04-24 23:32:29,453 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-24 23:32:29,469 - __main__ - INFO - API get-block-list called
-2026-04-24 23:32:29,471 - __main__ - INFO - Returning 604 blocks from database
-2026-04-24 23:32:29,610 - __main__ - INFO - API get-data called
-2026-04-24 23:32:29,613 - __main__ - INFO - Returning 1 rows from database
-2026-04-24 23:32:42,652 - __main__ - INFO - API run-strategy called with trade_date=2026-04-23, weipan_exceed=0, zaopan_exceed=0, rising_wave=1, block_codes=880550,880656,880670,880672
-2026-04-24 23:32:42,652 - __main__ - INFO - Starting strategy execution: trade_date=2026-04-23, weipan=0, zaopan=0, rising=1, block_codes=880550,880656,880670,880672
-2026-04-24 23:32:42,654 - __main__ - INFO - 从数据库中获取到 492 只股票（来自 4 个板块）
-2026-04-24 23:32:42,655 - __main__ - INFO - 准备筛选 492 只股票
-2026-04-24 23:32:42,655 - __main__ - INFO - Filtering 492 stocks...
-2026-04-24 23:32:45,950 - __main__ - INFO - Strategy completed, found 16 stocks
-2026-04-24 23:32:45,952 - __main__ - INFO - Results saved to database (16 records), elapsed time: 0.001 seconds
-2026-04-24 23:32:45,956 - __main__ - INFO - API get-data called
-2026-04-24 23:32:45,957 - __main__ - INFO - Returning 16 rows from database
-2026-04-24 23:44:09,306 - __main__ - INFO - API get-stock-history called with code=002980, days=10
-2026-04-24 23:44:10,597 - __main__ - INFO - Returning 10 days of history data for 002980
-2026-04-24 23:47:53,388 - __main__ - INFO - API get-trade-dates called
-2026-04-24 23:47:53,389 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-24 23:47:53,406 - __main__ - INFO - API get-block-list called
-2026-04-24 23:47:53,409 - __main__ - INFO - Returning 604 blocks from database
-2026-04-24 23:47:53,538 - __main__ - INFO - API get-data called
-2026-04-24 23:47:53,541 - __main__ - INFO - Returning 16 rows from database
-2026-04-24 23:47:55,704 - __main__ - INFO - API get-stock-history called with code=002428, days=10
-2026-04-24 23:47:56,842 - __main__ - INFO - Returning 10 days of history data for 002428
-2026-04-25 00:08:06,490 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-25 00:08:06,490 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-25 00:08:06,490 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-25 00:08:06,491 - __main__ - INFO - Scheduler started
-2026-04-25 00:08:06,566 - __main__ - INFO - Starting server...
-2026-04-25 00:08:12,163 - __main__ - INFO - API get-trade-dates called
-2026-04-25 00:08:12,164 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 00:08:12,179 - __main__ - INFO - API get-block-list called
-2026-04-25 00:08:12,182 - __main__ - INFO - Returning 604 blocks from database
-2026-04-25 00:08:12,319 - __main__ - INFO - API get-data called
-2026-04-25 00:08:12,320 - __main__ - INFO - Returning 16 rows from database
-2026-04-25 00:08:14,639 - __main__ - INFO - API get-stock-history called with code=002428, days=10
-2026-04-25 00:08:16,364 - __main__ - INFO - Returning 10 days of history data for 002428
-2026-04-25 00:08:19,723 - __main__ - INFO - API get-trade-dates called
-2026-04-25 00:08:19,723 - __main__ - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 00:08:19,740 - __main__ - INFO - API get-block-list called
-2026-04-25 00:08:19,742 - __main__ - INFO - Returning 604 blocks from database
-2026-04-25 00:08:19,858 - __main__ - INFO - API get-data called
-2026-04-25 00:08:19,861 - __main__ - INFO - Returning 16 rows from database
-2026-04-25 08:21:10,095 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-25 08:21:10,096 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-25 08:21:10,096 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-25 08:21:10,097 - __main__ - INFO - Scheduler started
-2026-04-25 08:21:10,183 - __main__ - INFO - Starting server...
-2026-04-25 08:30:32,384 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-25 08:30:32,385 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-25 08:30:32,385 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-25 08:30:32,385 - __main__ - INFO - Scheduler started
-2026-04-25 08:30:32,452 - __main__ - INFO - Starting server...
-2026-04-25 08:32:31,538 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-25 08:32:31,539 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-25 08:32:31,539 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-25 08:32:31,539 - __main__ - INFO - Scheduler started
-2026-04-25 08:32:31,604 - __main__ - INFO - Starting server...
-2026-04-25 08:33:29,414 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-25 08:33:29,414 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-25 08:33:29,414 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-25 08:33:29,415 - __main__ - INFO - Scheduler started
-2026-04-25 08:33:29,480 - __main__ - INFO - Starting server...
-2026-04-25 08:33:30,854 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-25 08:33:30,854 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-25 08:33:30,854 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-25 08:33:30,855 - __mp_main__ - INFO - Scheduler started
-2026-04-25 08:33:30,971 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-25 08:33:30,972 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-25 08:33:30,972 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-25 08:33:30,972 - main - INFO - Scheduler started
-2026-04-25 08:35:49,113 - main - INFO - API get-trade-dates called
-2026-04-25 08:35:49,114 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 08:35:49,124 - main - INFO - API get-block-list called
-2026-04-25 08:35:49,138 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:35:49,254 - main - INFO - API get-data called
-2026-04-25 08:35:49,257 - main - INFO - Returning 16 rows from database
-2026-04-25 08:36:40,488 - main - INFO - API get-trade-dates called
-2026-04-25 08:36:40,489 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 08:36:40,502 - main - INFO - API get-block-list called
-2026-04-25 08:36:40,505 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:36:40,611 - main - INFO - API get-data called
-2026-04-25 08:36:40,612 - main - INFO - Returning 16 rows from database
-2026-04-25 08:36:42,830 - main - INFO - API get-trade-dates called
-2026-04-25 08:36:42,830 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 08:36:42,846 - main - INFO - API get-block-list called
-2026-04-25 08:36:42,849 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:36:42,958 - main - INFO - API get-data called
-2026-04-25 08:36:42,960 - main - INFO - Returning 16 rows from database
-2026-04-25 08:36:50,722 - main - INFO - API get-trade-dates called
-2026-04-25 08:36:50,722 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 08:36:50,735 - main - INFO - API get-block-list called
-2026-04-25 08:36:50,737 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:36:50,890 - main - INFO - API get-data called
-2026-04-25 08:36:50,891 - main - INFO - Returning 16 rows from database
-2026-04-25 08:36:53,415 - main - INFO - API get-trade-dates called
-2026-04-25 08:36:53,416 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 08:36:53,430 - main - INFO - API get-block-list called
-2026-04-25 08:36:53,432 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:36:53,562 - main - INFO - API get-data called
-2026-04-25 08:36:53,564 - main - INFO - Returning 16 rows from database
-2026-04-25 08:36:56,795 - main - INFO - API get-trade-dates called
-2026-04-25 08:36:56,795 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 08:36:56,808 - main - INFO - API get-block-list called
-2026-04-25 08:36:56,810 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:36:56,913 - main - INFO - API get-data called
-2026-04-25 08:36:56,915 - main - INFO - Returning 16 rows from database
-2026-04-25 08:36:58,449 - main - INFO - API get-trade-dates called
-2026-04-25 08:36:58,450 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 08:36:58,462 - main - INFO - API get-block-list called
-2026-04-25 08:36:58,464 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:36:58,573 - main - INFO - API get-data called
-2026-04-25 08:36:58,574 - main - INFO - Returning 16 rows from database
-2026-04-25 08:40:06,298 - main - INFO - API get-trade-dates called
-2026-04-25 08:40:06,299 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 08:40:06,317 - main - INFO - API get-block-list called
-2026-04-25 08:40:06,319 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:40:06,431 - main - INFO - API get-data called
-2026-04-25 08:40:06,432 - main - INFO - Returning 16 rows from database
-2026-04-25 08:41:01,142 - main - INFO - API get-trade-dates called
-2026-04-25 08:41:01,142 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 08:41:01,171 - main - INFO - API get-block-list called
-2026-04-25 08:41:01,173 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:41:01,281 - main - INFO - API get-data called
-2026-04-25 08:41:01,282 - main - INFO - Returning 16 rows from database
-2026-04-25 08:41:29,080 - main - INFO - API get-block-list called
-2026-04-25 08:41:29,082 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:45:03,991 - main - INFO - API get-block-list called
-2026-04-25 08:45:03,993 - main - INFO - Returning 604 blocks from database
-2026-04-25 08:45:20,950 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880491,880550,880656,880670,880672
-2026-04-25 08:45:20,954 - main - INFO - 从数据库中获取到 492 只股票（来自 5 个板块）
-2026-04-25 08:45:29,094 - main - INFO - Filter completed, found 64 stocks
-2026-04-25 08:46:00,612 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880491
-2026-04-25 08:46:00,615 - main - INFO - 从数据库中获取到 0 只股票（来自 1 个板块）
-2026-04-25 08:46:00,616 - main - INFO - Filter completed, found 0 stocks
-2026-04-25 08:46:40,556 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880491
-2026-04-25 08:46:40,558 - main - INFO - 从数据库中获取到 0 只股票（来自 1 个板块）
-2026-04-25 08:46:40,558 - main - INFO - Filter completed, found 0 stocks
-2026-04-25 08:48:32,061 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880952
-2026-04-25 08:48:32,064 - main - INFO - 从数据库中获取到 829 只股票（来自 1 个板块）
-2026-04-25 08:48:38,917 - main - INFO - Filter completed, found 57 stocks
-2026-04-25 08:48:57,227 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880952
-2026-04-25 08:48:57,229 - main - INFO - 从数据库中获取到 829 只股票（来自 1 个板块）
-2026-04-25 08:48:59,961 - main - INFO - Filter completed, found 57 stocks
-2026-04-25 08:56:24,356 - main - INFO - API filter-stocks called with recent_days=60, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880952
-2026-04-25 08:56:24,358 - main - INFO - 从数据库中获取到 829 只股票（来自 1 个板块）
-2026-04-25 08:56:27,026 - main - INFO - Filter completed, found 57 stocks
-2026-04-25 08:59:18,470 - main - INFO - API get-block-list called
-2026-04-25 08:59:18,472 - main - INFO - Returning 604 blocks from database
-2026-04-25 09:00:25,707 - main - INFO - API get-trade-dates called
-2026-04-25 09:00:25,707 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 09:00:25,720 - main - INFO - API get-block-list called
-2026-04-25 09:00:25,723 - main - INFO - Returning 604 blocks from database
-2026-04-25 09:00:25,833 - main - INFO - API get-data called
-2026-04-25 09:00:25,835 - main - INFO - Returning 16 rows from database
-2026-04-25 09:00:27,174 - main - INFO - API get-block-list called
-2026-04-25 09:00:27,176 - main - INFO - Returning 604 blocks from database
-2026-04-25 09:01:13,492 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880952
-2026-04-25 09:01:13,494 - main - INFO - 从数据库中获取到 829 只股票（来自 1 个板块）
-2026-04-25 09:01:16,282 - main - INFO - Filter completed, found 57 stocks
-2026-04-25 09:03:17,680 - main - INFO - API get-block-list called
-2026-04-25 09:03:17,682 - main - INFO - Returning 604 blocks from database
-2026-04-25 09:03:32,621 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880952
-2026-04-25 09:03:32,623 - main - INFO - 从数据库中获取到 829 只股票（来自 1 个板块）
-2026-04-25 09:03:35,259 - main - INFO - Filter completed, found 57 stocks
-2026-04-25 09:07:44,877 - main - INFO - API get-trade-dates called
-2026-04-25 09:07:44,877 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 09:07:44,895 - main - INFO - API get-block-list called
-2026-04-25 09:07:44,898 - main - INFO - Returning 604 blocks from database
-2026-04-25 09:07:45,006 - main - INFO - API get-data called
-2026-04-25 09:07:45,008 - main - INFO - Returning 16 rows from database
-2026-04-25 09:07:46,389 - main - INFO - API get-block-list called
-2026-04-25 09:07:46,391 - main - INFO - Returning 604 blocks from database
-2026-04-25 09:09:39,499 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-25 09:09:39,499 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-25 09:09:39,499 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-25 09:09:39,500 - __main__ - INFO - Scheduler started
-2026-04-25 09:09:39,566 - __main__ - INFO - Starting server...
-2026-04-25 09:09:40,955 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-25 09:09:40,956 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-25 09:09:40,956 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-25 09:09:40,956 - __mp_main__ - INFO - Scheduler started
-2026-04-25 09:09:41,076 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
-2026-04-25 09:09:41,077 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
-2026-04-25 09:09:41,077 - apscheduler.scheduler - INFO - Scheduler started
-2026-04-25 09:09:41,077 - main - INFO - Scheduler started
-2026-04-25 09:09:46,371 - main - INFO - API get-trade-dates called
-2026-04-25 09:09:46,372 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
-2026-04-25 09:09:46,388 - main - INFO - API get-block-list called
-2026-04-25 09:09:46,390 - main - INFO - Returning 604 blocks from database
-2026-04-25 09:09:46,506 - main - INFO - API get-data called
-2026-04-25 09:09:46,508 - main - INFO - Returning 16 rows from database
-2026-04-25 09:09:47,399 - main - INFO - API get-block-list called
-2026-04-25 09:09:47,401 - main - INFO - Returning 604 blocks from database
-2026-04-25 09:09:55,182 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880952
-2026-04-25 09:09:55,184 - main - INFO - 从数据库中获取到 829 只股票（来自 1 个板块）
-2026-04-25 09:09:58,026 - main - INFO - Filter completed, found 57 stocks
-2026-04-25 09:15:32,191 - main - INFO - API get-block-list called
-2026-04-25 09:15:32,193 - main - INFO - Returning 604 blocks from database
-2026-04-25 09:15:52,778 - main - INFO - API get-block-list called
-2026-04-25 09:15:52,780 - main - INFO - Returning 604 blocks from database
-2026-04-25 09:22:07,653 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880491,880550,880656,880670,880672
-2026-04-25 09:22:07,655 - main - INFO - 从数据库中获取到 492 只股票（来自 5 个板块）
-2026-04-25 09:22:10,139 - main - INFO - Filter completed, found 64 stocks
-2026-04-25 09:25:00,005 - apscheduler.executors.default - INFO - Running job "run_strategy (trigger: cron[hour='9', minute='25'], next run at: 2026-04-25 09:25:00 CST)" (scheduled at 2026-04-25 09:25:00+08:00)
-2026-04-25 09:25:00,005 - apscheduler.executors.default - INFO - Running job "run_strategy (trigger: cron[hour='9', minute='25'], next run at: 2026-04-26 09:25:00 CST)" (scheduled at 2026-04-25 09:25:00+08:00)
-2026-04-25 09:25:00,008 - __main__ - INFO - Starting strategy execution: trade_date=None, weipan=0, zaopan=0, rising=0, block_codes=None
-2026-04-25 09:25:00,008 - __mp_main__ - INFO - Starting strategy execution: trade_date=None, weipan=0, zaopan=0, rising=0, block_codes=None
-2026-04-25 09:25:00,008 - apscheduler.executors.default - INFO - Running job "run_strategy (trigger: cron[hour='9', minute='25'], next run at: 2026-04-26 09:25:00 CST)" (scheduled at 2026-04-25 09:25:00+08:00)
-2026-04-25 09:25:00,009 - main - INFO - Starting strategy execution: trade_date=None, weipan=0, zaopan=0, rising=0, block_codes=None
-2026-04-25 09:25:00,048 - __main__ - INFO - 从数据库中获取到 5606 只股票（所有板块）
-2026-04-25 09:25:00,048 - __mp_main__ - INFO - 从数据库中获取到 5606 只股票（所有板块）
-2026-04-25 09:25:00,050 - __main__ - INFO - 准备筛选 5606 只股票
-2026-04-25 09:25:00,050 - __main__ - INFO - Filtering 5606 stocks...
-2026-04-25 09:25:00,051 - main - INFO - 从数据库中获取到 5606 只股票（所有板块）
-2026-04-25 09:25:00,052 - __mp_main__ - INFO - 准备筛选 5606 只股票
-2026-04-25 09:25:00,053 - main - INFO - 准备筛选 5606 只股票
-2026-04-25 09:25:00,054 - __mp_main__ - INFO - Filtering 5606 stocks...
-2026-04-25 09:25:00,054 - main - INFO - Filtering 5606 stocks...
-2026-04-25 09:25:28,135 - __main__ - INFO - Strategy completed, found 59 stocks
-2026-04-25 09:25:28,162 - __main__ - INFO - Results saved to database (59 records), elapsed time: 0.026 seconds
-2026-04-25 09:25:28,162 - apscheduler.executors.default - INFO - Job "run_strategy (trigger: cron[hour='9', minute='25'], next run at: 2026-04-26 09:25:00 CST)" executed successfully
-2026-04-25 09:25:37,398 - __mp_main__ - INFO - Strategy completed, found 59 stocks
-2026-04-25 09:25:37,409 - __mp_main__ - INFO - Results saved to database (59 records), elapsed time: 0.010 seconds
-2026-04-25 09:25:37,410 - apscheduler.executors.default - INFO - Job "run_strategy (trigger: cron[hour='9', minute='25'], next run at: 2026-04-26 09:25:00 CST)" executed successfully
-2026-04-25 09:25:37,530 - main - INFO - Strategy completed, found 59 stocks
-2026-04-25 09:25:37,531 - main - INFO - Results saved to database (59 records), elapsed time: 0.001 seconds
-2026-04-25 09:25:37,532 - apscheduler.executors.default - INFO - Job "run_strategy (trigger: cron[hour='9', minute='25'], next run at: 2026-04-26 09:25:00 CST)" executed successfully
+2026-04-25 13:08:46,064 - main - INFO - API load-auction-data called with 9 stocks, days=30
+2026-04-25 13:08:56,430 - main - INFO - 获取到 30 个交易日
+2026-04-25 13:12:57,070 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:12:57,070 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:12:57,070 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:12:57,071 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:12:57,199 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:12:57,200 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:12:57,200 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:12:57,201 - main - INFO - Scheduler started
+2026-04-25 13:24:27,699 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:24:27,699 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:24:27,699 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:24:27,700 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:24:27,819 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:24:27,820 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:24:27,820 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:24:27,821 - main - INFO - Scheduler started
+2026-04-25 13:24:36,610 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:24:36,610 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:24:36,610 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:24:36,611 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:24:36,731 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:24:36,732 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:24:36,732 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:24:36,733 - main - INFO - Scheduler started
+2026-04-25 13:24:56,026 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:24:56,027 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:24:56,027 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:24:56,027 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:24:56,156 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:24:56,157 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:24:56,157 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:24:56,158 - main - INFO - Scheduler started
+2026-04-25 13:25:12,325 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:25:12,325 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:25:12,325 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:25:12,326 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:25:12,454 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:25:12,455 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:25:12,455 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:25:12,455 - main - INFO - Scheduler started
+2026-04-25 13:25:32,578 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:25:32,578 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:25:32,578 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:25:32,579 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:25:32,700 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:25:32,700 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:25:32,700 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:25:32,701 - main - INFO - Scheduler started
+2026-04-25 13:25:49,474 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:25:49,474 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:25:49,475 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:25:49,475 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:25:49,594 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:25:49,594 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:25:49,595 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:25:49,595 - main - INFO - Scheduler started
+2026-04-25 13:26:06,787 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:26:06,787 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:26:06,787 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:26:06,788 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:26:06,912 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:26:06,912 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:26:06,913 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:26:06,913 - main - INFO - Scheduler started
+2026-04-25 13:26:19,323 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:26:19,324 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:26:19,324 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:26:19,324 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:26:19,445 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:26:19,446 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:26:19,446 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:26:19,446 - main - INFO - Scheduler started
+2026-04-25 13:26:29,829 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:26:29,830 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:26:29,830 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:26:29,830 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:26:29,952 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:26:29,952 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:26:29,953 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:26:29,953 - main - INFO - Scheduler started
+2026-04-25 13:31:53,525 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:31:53,526 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:31:53,526 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:31:53,526 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:31:53,717 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:31:53,718 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:31:53,718 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:31:53,719 - main - INFO - Scheduler started
+2026-04-25 13:32:07,810 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:32:07,811 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:32:07,811 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:32:07,811 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:32:07,939 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:32:07,940 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:32:07,940 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:32:07,941 - main - INFO - Scheduler started
+2026-04-25 13:32:16,666 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:32:16,667 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:32:16,667 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:32:16,668 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:32:16,803 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:32:16,803 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:32:16,803 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:32:16,804 - main - INFO - Scheduler started
+2026-04-25 13:32:25,807 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:32:25,808 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:32:25,808 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:32:25,808 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:32:25,930 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:32:25,931 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:32:25,931 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:32:25,932 - main - INFO - Scheduler started
+2026-04-25 13:32:34,278 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:32:34,278 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:32:34,278 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:32:34,279 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:32:34,399 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:32:34,399 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:32:34,399 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:32:34,400 - main - INFO - Scheduler started
+2026-04-25 13:32:42,748 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:32:42,748 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:32:42,749 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:32:42,749 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:32:42,876 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:32:42,877 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:32:42,877 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:32:42,877 - main - INFO - Scheduler started
+2026-04-25 13:33:22,233 - main - INFO - API get-trade-dates called
+2026-04-25 13:33:22,234 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 13:33:22,275 - main - INFO - API get-block-list called
+2026-04-25 13:33:22,279 - main - INFO - Returning 604 blocks from database
+2026-04-25 13:33:22,436 - main - INFO - API get-data called
+2026-04-25 13:33:22,439 - main - INFO - Returning 16 rows from database
+2026-04-25 13:33:25,980 - main - INFO - API get-block-list called
+2026-04-25 13:33:25,981 - main - INFO - API get-filter-stocks called
+2026-04-25 13:33:25,983 - main - INFO - Returning 9 filter stocks from database (type=2)
+2026-04-25 13:33:25,983 - main - INFO - Returning 604 blocks from database
+2026-04-25 13:33:31,208 - main - INFO - API load-auction-data called with 9 stocks, days=30
+2026-04-25 13:33:34,205 - main - INFO - 获取到 30 个交易日
+2026-04-25 13:34:33,343 - main - INFO - API get-trade-dates called
+2026-04-25 13:34:33,343 - main - WARNING - Trade dates CSV not found: F:\gupiao\stock_view\backend\baostock_data\a_stock_trade_days_2026.csv
+2026-04-25 13:34:33,379 - main - INFO - API get-block-list called
+2026-04-25 13:34:33,383 - main - INFO - Returning 604 blocks from database
+2026-04-25 13:34:33,503 - main - INFO - API get-data called
+2026-04-25 13:34:33,505 - main - INFO - Returning 16 rows from database
+2026-04-25 13:34:33,999 - main - INFO - API get-block-list called
+2026-04-25 13:34:34,000 - main - INFO - API get-filter-stocks called
+2026-04-25 13:34:34,001 - main - INFO - Returning 9 filter stocks from database (type=2)
+2026-04-25 13:34:34,002 - main - INFO - Returning 604 blocks from database
+2026-04-25 13:34:43,668 - main - INFO - API load-auction-data called with 9 stocks, days=30
+2026-04-25 13:34:44,469 - main - INFO - 获取到 30 个交易日
+2026-04-25 13:35:08,708 - main - INFO - API filter-stocks called with recent_days=50, max_gain=30.0, daily_gain_days=5, daily_gain_threshold=7.0, price_ratio=80.0, block_codes=880656,880670,880672, only_main_board=True
+2026-04-25 13:35:08,711 - main - INFO - 从数据库中获取到 367 只股票（来自 3 个板块）
+2026-04-25 13:35:08,711 - main - INFO - 主板过滤：从 367 只股票中筛选出 156 只主板股票
+2026-04-25 13:35:11,489 - main - INFO - Filter completed, found 28 stocks
+2026-04-25 13:35:11,500 - main - INFO - API save-filter-stocks called with 28 stocks
+2026-04-25 13:35:11,502 - main - INFO - Saved 28 filter stocks to database (type=2)
+2026-04-25 13:35:13,825 - main - INFO - API load-auction-data called with 28 stocks, days=30
+2026-04-25 13:35:14,324 - main - INFO - 获取到 30 个交易日
+2026-04-25 13:37:44,838 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:37:44,839 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:37:44,839 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:37:44,840 - __mp_main__ - INFO - Scheduler started
+2026-04-25 13:37:44,974 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-04-25 13:37:44,975 - apscheduler.scheduler - INFO - Added job "run_strategy" to job store "default"
+2026-04-25 13:37:44,975 - apscheduler.scheduler - INFO - Scheduler started
+2026-04-25 13:37:44,975 - main - INFO - Scheduler started

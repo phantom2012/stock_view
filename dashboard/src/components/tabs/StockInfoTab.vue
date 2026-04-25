@@ -38,34 +38,34 @@
       </el-button>
     </div>
 
-    <div v-if="selectedStock" class="space-y-4">
+    <div v-if="stockInfo" class="space-y-4">
       <!-- 信息卡片行 -->
       <div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%;">
         <!-- 基本信息卡片 -->
         <el-card style="flex: 1; min-width: 300px; background: white; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
           <template #header>
             <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ selectedStock.stock_name }}</span>
-              <span style="font-size: 14px; color: #4b5563;">{{ selectedStock.code }}</span>
+              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ stockInfo.stock_name }}</span>
+              <span style="font-size: 14px; color: #4b5563;">{{ stockInfo.code }}</span>
             </div>
           </template>
 
           <div style="display: flex; flex-wrap: wrap; gap: 16px; position: relative; min-height: 100px; align-items: flex-start;">
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">竞价开始价：</span>
-              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ selectedStock.auction_start_price }}</span>
+              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ stockInfo.auction_start_price }}</span>
             </div>
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">竞价结束价：</span>
-              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ selectedStock.auction_end_price }}</span>
+              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ stockInfo.auction_end_price }}</span>
             </div>
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">价格差异：</span>
-              <span style="font-size: 18px; font-weight: 600;" :class="getDiffColor(selectedStock.price_diff)">{{ selectedStock.price_diff }}</span>
+              <span style="font-size: 18px; font-weight: 600;" :class="getDiffColor(stockInfo.price_diff)">{{ stockInfo.price_diff }}</span>
             </div>
             <div style="position: absolute; bottom: 10px; right: 10px; display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">超预期分：</span>
-              <span style="font-size: 18px; font-weight: 600; color: #3b82f6;">{{ selectedStock.higher_score }}</span>
+              <span style="font-size: 18px; font-weight: 600; color: #3b82f6;">{{ stockInfo.higher_score }}</span>
             </div>
           </div>
         </el-card>
@@ -79,19 +79,19 @@
           <div style="display: flex; flex-wrap: wrap; gap: 16px;">
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">区间最大涨幅：</span>
-              <span style="font-size: 18px; font-weight: 600;" :class="getGainColor(selectedStock.max_gain)">{{ selectedStock.max_gain }}%</span>
+              <span style="font-size: 18px; font-weight: 600;" :class="getGainColor(stockInfo.max_gain)">{{ stockInfo.max_gain }}%</span>
             </div>
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">最大单日涨幅：</span>
-              <span style="font-size: 18px; font-weight: 600;" :class="getGainColor(selectedStock.max_daily_gain)">{{ selectedStock.max_daily_gain }}%</span>
+              <span style="font-size: 18px; font-weight: 600;" :class="getGainColor(stockInfo.max_daily_gain)">{{ stockInfo.max_daily_gain }}%</span>
             </div>
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">当日涨幅：</span>
-              <span style="font-size: 18px; font-weight: 600;" :class="getGainColor(selectedStock.today_gain)">{{ selectedStock.today_gain }}%</span>
+              <span style="font-size: 18px; font-weight: 600;" :class="getGainColor(stockInfo.today_gain)">{{ stockInfo.today_gain }}%</span>
             </div>
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">次日涨幅：</span>
-              <span style="font-size: 18px; font-weight: 600;" :class="getGainColor(selectedStock.next_day_gain)">{{ selectedStock.next_day_gain }}%</span>
+              <span style="font-size: 18px; font-weight: 600;" :class="getGainColor(stockInfo.next_day_gain)">{{ stockInfo.next_day_gain }}%</span>
             </div>
           </div>
         </el-card>
@@ -105,28 +105,28 @@
           <div style="display: flex; flex-wrap: wrap; gap: 16px; position: relative; min-height: 100px; align-items: flex-start;">
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">交易日期：</span>
-              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ selectedStock.trade_date }}</span>
+              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ stockInfo.trade_date }}</span>
             </div>
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">筛选配置：</span>
               <span style="font-size: 14px; color: #4b5563;">
-                尾盘: {{ selectedStock.weipan_exceed ? '✓' : '✗' }}
-                早盘: {{ selectedStock.zaopan_exceed ? '✓' : '✗' }}
-                升浪: {{ selectedStock.rising_wave ? '✓' : '✗' }}
+                尾盘: {{ stockInfo.weipan_exceed ? '✓' : '✗' }}
+                早盘: {{ stockInfo.zaopan_exceed ? '✓' : '✗' }}
+                升浪: {{ stockInfo.rising_wave ? '✓' : '✗' }}
               </span>
             </div>
             <div style="position: absolute; bottom: 10px; right: 10px; display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">形态评分：</span>
-              <span style="font-size: 18px; font-weight: 600; color: #f97316;">{{ selectedStock.rising_wave_score }}</span>
+              <span style="font-size: 18px; font-weight: 600; color: #f97316;">{{ stockInfo.rising_wave_score }}</span>
             </div>
           </div>
         </el-card>
       </div>
 
-      <!-- 10日行情表格 -->
+      <!-- 30日行情表格 -->
       <el-card class="bg-white border border-gray-200 shadow-lg">
         <template #header>
-          <span class="text-lg font-semibold text-gray-800">最近10日行情</span>
+          <span class="text-lg font-semibold text-gray-800">最近30日行情</span>
         </template>
 
         <el-table
@@ -136,6 +136,8 @@
           style="width: 100%"
           header-row-class-name="bg-gray-50 text-gray-800"
           row-class-name="bg-white"
+          :max-height="460"
+          :scrollbar-always-on="true"
         >
           <el-table-column prop="date" label="日期" width="120" />
           <el-table-column label="开盘涨幅" width="100">
@@ -202,10 +204,11 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['backToAuction'])
+const emit = defineEmits(['back'])
 
 const stockHistory = ref([])
 const historyLoading = ref(false)
+const stockInfo = ref(null)
 
 // 股票查询相关
 const stockCode = ref('')
@@ -220,7 +223,7 @@ const getBiasColor = getValueColor
 const loadStockHistory = async (code) => {
   historyLoading.value = true
   try {
-    const res = await axios.get(`http://127.0.0.1:8000/get-stock-history?code=${code}&days=10`)
+    const res = await axios.get(`http://127.0.0.1:8000/get-stock-history?code=${code}&days=30`)
     stockHistory.value = res.data || []
   } catch (error) {
     console.error('获取历史数据失败:', error)
@@ -231,7 +234,7 @@ const loadStockHistory = async (code) => {
 }
 
 const handleBack = () => {
-  emit('backToAuction')
+  emit('back')
 }
 
 // 验证股票代码
@@ -275,12 +278,27 @@ const queryStock = async () => {
   }
 }
 
-// 监听selectedStock变化，自动加载历史数据
-watch(() => props.selectedStock, (newStock) => {
+// 监听selectedStock变化，自动加载完整股票信息和历史数据
+watch(() => props.selectedStock, async (newStock) => {
   if (newStock) {
     stockCode.value = newStock.code
     validateStockCode()
-    loadStockHistory(newStock.code)
+    
+    try {
+      // 先获取股票基本信息
+      const infoRes = await axios.get(`http://127.0.0.1:8000/get-stock-info?code=${newStock.code}`)
+      const stockInfoData = infoRes.data
+      
+      if (stockInfoData) {
+        stockInfo.value = stockInfoData
+        // 加载历史数据
+        await loadStockHistory(newStock.code)
+      } else {
+        console.error('未找到股票信息')
+      }
+    } catch (error) {
+      console.error('查询股票失败:', error)
+    }
   }
 }, { immediate: true })
 </script>

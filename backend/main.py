@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import logging
 from datetime import datetime, timedelta
+from typing import List, Dict, Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -513,7 +514,7 @@ def get_stock_history(code: str, days: int = 10):
 # 8. 股票筛选接口
 # ==============================================
 @app.get("/filter-stocks")
-def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: int = 5, daily_gain_threshold: float = 7, price_ratio: float = 90, block_codes: str = ""):
+def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: int = 5, daily_gain_threshold: float = 7, price_ratio: float = 90, block_codes: str = "", only_main_board: bool = False):
     """
     根据条件筛选股票
     :param recent_days: 最近天数（用于计算区间涨幅）
@@ -522,9 +523,10 @@ def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: 
     :param daily_gain_threshold: 日内最大涨幅阈值百分比
     :param price_ratio: 股价不低于近期高点的百分比
     :param block_codes: 板块代码列表，逗号分隔
+    :param only_main_board: 是否仅筛选主板股票
     :return: 符合条件的股票列表
     """
-    logger.info(f"API filter-stocks called with recent_days={recent_days}, max_gain={max_gain}, daily_gain_days={daily_gain_days}, daily_gain_threshold={daily_gain_threshold}, price_ratio={price_ratio}, block_codes={block_codes}")
+    logger.info(f"API filter-stocks called with recent_days={recent_days}, max_gain={max_gain}, daily_gain_days={daily_gain_days}, daily_gain_threshold={daily_gain_threshold}, price_ratio={price_ratio}, block_codes={block_codes}, only_main_board={only_main_board}")
     
     try:
         # 解析板块代码
@@ -553,6 +555,15 @@ def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: 
                 rows = cursor.fetchall()
                 stocks_to_filter = {row[0] for row in rows}
                 logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（所有板块）")
+            
+            # 如果勾选了仅筛选主板，过滤出主板股票
+            if only_main_board:
+                # 使用统一的check_is_main_board接口进行主板判断
+                from stock_filter import get_stock_filter
+                stock_filter = get_stock_filter()
+                main_board_stocks = {code for code in stocks_to_filter if stock_filter.check_is_main_board(code)}
+                logger.info(f"主板过滤：从 {len(stocks_to_filter)} 只股票中筛选出 {len(main_board_stocks)} 只主板股票")
+                stocks_to_filter = main_board_stocks
         finally:
             cursor.close()
             conn.close()
@@ -661,7 +672,174 @@ def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: 
         return []
 
 # ==============================================
-# 9. 获取板块列表
+# 9. 加载竞价数据接口
+# ==============================================
+@app.post("/load-auction-data")
+def load_auction_data(stocks: List[Dict[str, Any]], days: int = 30):
+    """
+    加载股票竞价数据
+    :param stocks: 股票列表
+    :param days: 最近天数，默认30天
+    :return: 加载结果
+    """
+    logger.info(f"API load-auction-data called with {len(stocks)} stocks, days={days}")
+    
+    from datetime import datetime, timedelta
+    from stock_cache import get_stock_cache
+    from baostock_data.trade_date_util import TradeDateUtil
+    
+    stock_cache = get_stock_cache()
+    trade_date_util = TradeDateUtil()
+    
+    result = {
+        'success': 0,
+        'failed': 0,
+        'total': len(stocks)
+    }
+    
+    try:
+        # 获取最近N个交易日
+        recent_trade_dates = trade_date_util.get_recent_trade_dates(days)
+        if not recent_trade_dates:
+            logger.error("Failed to get recent trade dates")
+            return {"status": "error", "msg": "获取最近交易日失败"}
+        
+        logger.info(f"获取到 {len(recent_trade_dates)} 个交易日")
+        
+        # 遍历股票
+        for stock in stocks:
+            code = stock.get('code', '')
+            
+            if not code:
+                result['failed'] += 1
+                continue
+            
+            # 构造symbol
+            if code.startswith('6'):
+                symbol = f'SHSE.{code}'
+            else:
+                symbol = f'SZSE.{code}'
+            
+            # 遍历交易日
+            stock_success = True
+            for date_str in recent_trade_dates:
+                try:
+                    trade_date = datetime.strptime(date_str, '%Y-%m-%d')
+                    # 调用get_auction_data，会自动检查数据库并保存
+                    data = stock_cache.get_auction_data(symbol, trade_date)
+                except Exception as e:
+                    logger.error(f"Failed to load auction data for {symbol} on {date_str}: {e}")
+                    stock_success = False
+            
+            # 统计结果
+            if stock_success:
+                result['success'] += 1
+            else:
+                result['failed'] += 1
+        
+        return {"status": "success", "data": result}
+    except Exception as e:
+        logger.error(f"Error in load-auction-data: {str(e)}")
+        return {"status": "error", "msg": str(e)}
+
+# ==============================================
+# 8. 保存筛选结果到数据库(type=2)
+# ==============================================
+@app.post("/save-filter-stocks")
+def save_filter_stocks(stocks: List[Dict[str, Any]]):
+    """
+    保存数据导入筛选结果到数据库
+    :param stocks: 股票列表
+    :return: 保存结果
+    """
+    logger.info(f"API save-filter-stocks called with {len(stocks)} stocks")
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        try:
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            # 先删除type=2的旧数据
+            cursor.execute("DELETE FROM filter_results WHERE type = 2")
+            
+            # 插入新数据
+            insert_count = 0
+            for stock in stocks:
+                code = stock.get('code', '')
+                name = stock.get('name', '')
+                gain = stock.get('gain', 0)
+                max_daily_gain = stock.get('max_daily_gain', 0)
+                
+                # 构造symbol格式
+                if code.startswith('6'):
+                    symbol = f'SHSE.{code}'
+                else:
+                    symbol = f'SZSE.{code}'
+                
+                cursor.execute(
+                    "INSERT INTO filter_results (type, symbol, code, stock_name, max_gain, max_daily_gain, update_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (2, symbol, code, name, gain, max_daily_gain, current_time)
+                )
+                insert_count += 1
+            
+            conn.commit()
+            logger.info(f"Saved {insert_count} filter stocks to database (type=2)")
+            return {"status": "success", "msg": f"保存成功，共{insert_count}条记录"}
+        finally:
+            cursor.close()
+            conn.close()
+    except Exception as e:
+        logger.error(f"Error saving filter stocks: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "msg": str(e)}
+
+# ==============================================
+# 9. 获取数据库中的筛选结果(type=2)
+# ==============================================
+@app.get("/get-filter-stocks")
+def get_filter_stocks():
+    """
+    从数据库读取数据导入筛选结果(type=2)
+    :return: 股票列表
+    """
+    logger.info("API get-filter-stocks called")
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT code, stock_name, max_gain, max_daily_gain
+                FROM filter_results 
+                WHERE type = 2
+                ORDER BY max_gain DESC
+            """)
+            rows = cursor.fetchall()
+            
+            results = []
+            for row in rows:
+                results.append({
+                    'code': row[0],
+                    'name': row[1],
+                    'gain': row[2],
+                    'max_daily_gain': row[3]
+                })
+            
+            logger.info(f"Returning {len(results)} filter stocks from database (type=2)")
+            return results
+        finally:
+            cursor.close()
+            conn.close()
+    except Exception as e:
+        logger.error(f"Error reading filter stocks from database: {str(e)}")
+        return []
+
+# ==============================================
+# 10. 获取板块列表
 # ==============================================
 @app.get("/get-block-list")
 def get_block_list():

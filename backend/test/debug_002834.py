@@ -47,8 +47,8 @@ print(f'  竞价数据: {auction_data}')
 rising_wave_score = sf.calculate_rising_wave_score('SZSE.002834', trade_date, 6)
 print(f'  升浪形态得分: {rising_wave_score}')
 
-# 检查股票类型
-stock_type_ok = sf.check_stock_type('SZSE.002834')
-print(f'  股票类型检查: {stock_type_ok}')
+# 检查股票类型（10cm）
+stock_type_ok = sf.check_is_10cm('SZSE.002834')
+print(f'  10cm股票检查: {stock_type_ok}')
 
 conn.close()

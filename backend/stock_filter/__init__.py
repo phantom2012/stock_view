@@ -242,31 +242,53 @@ class StockFilter:
             traceback.print_exc()
             return 0.0, 0.0
     
-    def check_stock_type(self, symbol: str) -> bool:
+    def check_is_main_board(self, symbol: str) -> bool:
         """
-        检查股票类型（只保留10cm涨跌幅的主板股票，排除科创板、创业板、北交所、ST股）
+        检查是否是主板股票
+        主板股票定义：排除科创板、创业板、北交所后的股票
         
         Args:
             symbol: 股票代码
             
         Returns:
-            bool: 是否符合条件
+            bool: 是否是主板股票
         """
         stock_code = symbol.split('.')[-1] if '.' in symbol else symbol
         
-        # 1. 排除科创板 (688)
+        # 排除科创板 (688)
         if stock_code.startswith('688'):
             return False
         
-        # 2. 排除创业板 (300, 301)
+        # 排除创业板 (300, 301)
         if stock_code.startswith('300') or stock_code.startswith('301'):
             return False
         
-        # 3. 排除北交所 (8, 4, 92开头)
+        # 排除北交所 (8, 4, 92开头)
         if stock_code.startswith('8') or stock_code.startswith('4') or stock_code.startswith('92'):
             return False
         
-        # 4. 验证股票名称并排除 ST 股票
+        # 剩下的就是主板股票（包括60、00、002、003等）
+        return True
+
+    def check_is_10cm(self, symbol: str) -> bool:
+        """
+        检查是否为10cm涨跌幅股票（主板非ST股票）
+        过滤条件：
+        1. 必须是主板股票（60或00开头）
+        2. 排除ST、*ST股票
+        3. 排除退市股票
+        
+        Args:
+            symbol: 股票代码
+            
+        Returns:
+            bool: 是否符合10cm条件
+        """
+        # 1. 首先检查是否是主板股票
+        if not self.check_is_main_board(symbol):
+            return False
+        
+        # 2. 验证股票名称并排除 ST 股票
         try:
             stock_name = self.cache.get_stock_name(symbol)
             
@@ -293,11 +315,9 @@ class StockFilter:
             # 最终检查：如果名称仍然是未知，打印警告但允许通过
             if stock_name == '未知':
                 print(f"[StockFilter] 警告: 股票 {symbol} 无法获取有效名称，但允许通过筛选")
-                # return False  # 注释掉，允许名称未知的股票通过
             
             # 检查是否是 ST 或 *ST
             if 'ST' in stock_name or '*ST' in stock_name:
-                # print(f"[DEBUG] 股票 {symbol} ({stock_name}) 是 ST 股，已剔除")
                 return False
             
             # 检查是否是退市股票
@@ -313,14 +333,12 @@ class StockFilter:
                         if isinstance(delisted_date, pd.Timestamp):
                             # 如果退市日期早于今天，才是真的退市
                             if delisted_date < datetime.now():
-                                # print(f"[DEBUG] 股票 {symbol} ({stock_name}) 已退市（{delisted_date}），已剔除")
                                 return False
                         elif isinstance(delisted_date, str) and delisted_date.strip():
                             # 处理字符串格式的日期
                             try:
                                 delisted_dt = datetime.strptime(delisted_date[:10], '%Y-%m-%d')
                                 if delisted_dt < datetime.now():
-                                    # print(f"[DEBUG] 股票 {symbol} ({stock_name}) 已退市（{delisted_date}），已剔除")
                                     return False
                             except:
                                 pass
@@ -328,11 +346,9 @@ class StockFilter:
                 pass
                 
         except Exception as e:
-            print(f"[StockFilter] 检查股票类型时出错 {symbol}: {e}，已剔除")
+            print(f"[StockFilter] 检查10cm股票时出错 {symbol}: {e}，已剔除")
             return False
         
-        # 5. 只保留主板股票 (60, 00, 002, 003等)
-        # print(f"[DEBUG] 股票 {symbol} ({stock_name}) 通过类型检查")
         return True
     
     def calculate_higher_score(self, auction_data: Dict[str, Any], 
@@ -387,8 +403,8 @@ class StockFilter:
         results = []
         
         for i, symbol in enumerate(symbols):
-            # 检查股票类型
-            if not self.check_stock_type(symbol):
+            # 检查是否为10cm股票
+            if not self.check_is_10cm(symbol):
                 continue
             
             # 检查性能条件
@@ -459,3 +475,19 @@ class StockFilter:
             results.append(result)
         
         return results
+
+
+# 全局单例
+_stock_filter_instance = None
+
+def get_stock_filter() -> StockFilter:
+    """
+    获取StockFilter单例
+    
+    Returns:
+        StockFilter实例
+    """
+    global _stock_filter_instance
+    if _stock_filter_instance is None:
+        _stock_filter_instance = StockFilter()
+    return _stock_filter_instance

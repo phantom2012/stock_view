@@ -234,8 +234,24 @@ const isTradingDay = (date) => {
   return tradeDates.value.includes(date)
 }
 
-const handleRowClick = (row) => {
-  emit('selectStock', row)
+const handleRowClick = (row, column, event) => {
+  if (!event || !event.target) {
+    return
+  }
+  
+  const cell = event.target.closest('td')
+  if (!cell) {
+    return
+  }
+  
+  const cellIndex = Array.from(cell.parentElement.children).indexOf(cell)
+  
+  // 检查是否点击的是前两列（序号和股票代码）
+  if (cellIndex < 2) {
+    return // 前两列不触发跳转
+  }
+  
+  emit('selectStock', row, 'auction')
 }
 
 onMounted(async () => {

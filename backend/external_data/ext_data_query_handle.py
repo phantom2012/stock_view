@@ -7,6 +7,8 @@
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional
+import time
+import threading
 
 # 外部数据接口类型 （tushare, goldminer）
 # 注意：只有竞价数据会使用此配置切换数据源
@@ -17,6 +19,89 @@ QUERY_API_TYPE = "tushare"
 TUSHARE_API_TOKEN = "aeb08b4b67a00b77b8c8041b8e183e9c07c350fbe31691ede2913291"
 # Tushare 代理地址
 TUSHARE_PROXY_URL = "http://tsy.xiaodefa.cn"
+
+# 接口限流配置（每分钟最大请求次数）
+RATE_LIMIT_CONFIG = {
+    'get_auction_data': 120,   # 竞价数据接口：120次/分钟
+    'get_daily_data': 500,     # 日线数据接口：500次/分钟
+    'get_minute_data': 500,    # 分钟数据接口：500次/分钟
+    'get_tick_data': 500,      # Tick数据接口：500次/分钟
+    'get_instruments': 500,    # 股票基本信息接口：500次/分钟
+}
+
+
+class RateLimiter:
+    """
+    限流器：基于滑动窗口算法，限制每分钟内的请求次数
+    采用阻塞等待机制，超过限流时自动等待直到有可用配额
+    """
+    
+    def __init__(self, max_requests: int, window_seconds: int = 60):
+        """
+        初始化限流器
+        
+        Args:
+            max_requests: 窗口期内最大请求次数
+            window_seconds: 窗口期大小（秒），默认60秒（1分钟）
+        """
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = []  # 记录请求时间戳
+        self.lock = threading.Lock()  # 线程锁
+    
+    def acquire(self) -> bool:
+        """
+        尝试获取请求许可（非阻塞）
+        
+        Returns:
+            bool: True表示允许请求，False表示需要等待
+        """
+        with self.lock:
+            now = time.time()
+            # 移除窗口期外的请求记录
+            self.requests = [t for t in self.requests if now - t < self.window_seconds]
+            
+            if len(self.requests) < self.max_requests:
+                self.requests.append(now)
+                return True
+            else:
+                return False
+    
+    def wait_and_acquire(self) -> None:
+        """
+        阻塞等待并获取请求许可
+        如果当前窗口期内请求次数已达上限，则阻塞等待直到窗口期重置
+        此方法会一直阻塞直到成功获取请求许可
+        """
+        wait_count = 0
+        while True:
+            if self.acquire():
+                if wait_count > 0:
+                    print(f"[RateLimiter] 等待完成，继续执行请求（等待了{wait_count}次）")
+                return
+            
+            # 计算需要等待的时间：找到最早的请求时间，等待到它超出窗口期
+            with self.lock:
+                if self.requests:
+                    oldest_request = min(self.requests)
+                    wait_time = self.window_seconds - (time.time() - oldest_request)
+                    if wait_time > 0:
+                        # 额外等待0.1秒确保完全超出窗口期
+                        wait_time += 0.1
+                        if wait_count == 0:
+                            print(f"[RateLimiter] 触发限流，需要等待{wait_time:.2f}秒（当前窗口期已有{len(self.requests)}次请求，上限{self.max_requests}次）")
+                        else:
+                            print(f"[RateLimiter] 继续等待{wait_time:.2f}秒...")
+                        time.sleep(wait_time)
+                        wait_count += 1
+                    else:
+                        # 窗口期已过，重试
+                        time.sleep(0.01)
+                        wait_count += 1
+                else:
+                    # 理论上不会到这里，因为acquire()返回False说明requests不为空
+                    time.sleep(0.01)
+                    wait_count += 1
 
 
 class ExternalDataQueryHandler:
@@ -41,6 +126,11 @@ class ExternalDataQueryHandler:
 
         self._api_token_set = False
         self._tushare_pro = None
+        
+        # 初始化各接口的限流器
+        self._rate_limiters = {}
+        for api_name, max_requests in RATE_LIMIT_CONFIG.items():
+            self._rate_limiters[api_name] = RateLimiter(max_requests=max_requests)
 
         # 初始化掘金API Token
         from gm.api import set_token
@@ -70,6 +160,9 @@ class ExternalDataQueryHandler:
             DataFrame，格式与掘金history接口返回一致
         """
         print(f"[ExternalData] 调用 get_daily_data - symbol={symbol}, start_date={start_date}, end_date={end_date}, fields={fields}")
+        
+        # 限流检查（阻塞等待直到有可用配额）
+        self._rate_limiters['get_daily_data'].wait_and_acquire()
         
         from gm.api import history, ADJUST_PREV
 
@@ -101,6 +194,9 @@ class ExternalDataQueryHandler:
         """
         print(f"[ExternalData] 调用 get_minute_data - symbol={symbol}, trade_date={trade_date}, start_time={start_time}, end_time={end_time}")
         
+        # 限流检查（阻塞等待直到有可用配额）
+        self._rate_limiters['get_minute_data'].wait_and_acquire()
+        
         from gm.api import history
 
         full_start = f"{trade_date} {start_time}"
@@ -130,6 +226,9 @@ class ExternalDataQueryHandler:
         """
         print(f"[ExternalData] 调用 get_tick_data - symbol={symbol}, trade_date={trade_date}, start_time={start_time}, end_time={end_time}")
         
+        # 限流检查（阻塞等待直到有可用配额）
+        self._rate_limiters['get_tick_data'].wait_and_acquire()
+        
         from gm.api import history
 
         full_start = f"{trade_date} {start_time}"
@@ -156,6 +255,9 @@ class ExternalDataQueryHandler:
             DataFrame，包含竞价成交信息
         """
         print(f"[ExternalData] 调用 get_auction_data - symbol={symbol}, trade_date={trade_date}")
+        
+        # 限流检查（阻塞等待直到有可用配额）
+        self._rate_limiters['get_auction_data'].wait_and_acquire()
         
         try:
             import time
@@ -208,6 +310,9 @@ class ExternalDataQueryHandler:
             DataFrame，包含股票基本信息（symbol, sec_name, exchange等）
         """
         print(f"[ExternalData] 调用 get_instruments")
+        
+        # 限流检查（阻塞等待直到有可用配额）
+        self._rate_limiters['get_instruments'].wait_and_acquire()
         
         try:
             import time
