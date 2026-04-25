@@ -32,18 +32,21 @@ def get_db_cursor() -> Generator:
 
 
 def init_database():
-    """初始化数据库表结构"""
+    """初始化数据库表结构（仅在表不存在时创建）"""
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("DROP TABLE IF EXISTS stock_info")
-    cursor.execute("DROP TABLE IF EXISTS stock_daily")
-    cursor.execute("DROP TABLE IF EXISTS stock_minute")
-    cursor.execute("DROP TABLE IF EXISTS stock_tick")
-    cursor.execute("DROP TABLE IF EXISTS stock_auction")
-    cursor.execute("DROP TABLE IF EXISTS block_info")
-    cursor.execute("DROP TABLE IF EXISTS block_stock")
-    cursor.execute("DROP TABLE IF EXISTS filter_results")
+    # 检查表是否已存在
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='stock_auction'")
+    table_exists = cursor.fetchone() is not None
+    
+    if table_exists:
+        print(f"[INFO] 数据库已存在，跳过初始化")
+        print(f"[INFO] 如需重新初始化，请手动删除数据库文件: {DATABASE_PATH}")
+        conn.close()
+        return
+
+    print(f"[INFO] 开始创建数据库表...")
 
     # 股票基本信息表
     cursor.execute("""
@@ -140,6 +143,10 @@ def init_database():
         open_price REAL,                  -- 开盘价(=price)
         open_amount REAL,                 -- 开盘成交额(=amount)
         tail_57_price REAL,               -- 尾盘(14:57)竞价价格
+        close_price REAL,                 -- 收盘价
+        tail_amount REAL,                 -- 尾盘竞价金额
+        avg_5d_price REAL,                -- 5日均价
+        avg_10d_price REAL,               -- 10日均价
         update_time TEXT,                 -- 更新时间
         UNIQUE(code, trade_date)
     )

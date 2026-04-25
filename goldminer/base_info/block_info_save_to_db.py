@@ -41,6 +41,22 @@ def parse_block_mapping(file_path):
     return mapping
 
 
+def load_block_name_mapping(file_path):
+    """
+    加载板块名称映射配置
+    返回: {源板块名: 目标板块名}
+    """
+    if not os.path.exists(file_path):
+        print(f"[提示] 未找到板块名称映射配置文件: {file_path}，将不使用自定义映射")
+        return {}
+    
+    with open(file_path, 'r', encoding='utf-8') as f:
+        mapping = json.load(f)
+    
+    # 过滤掉以_开头的注释键
+    return {k: v for k, v in mapping.items() if not k.startswith('_')}
+
+
 def normalize_stock_code(stock_code):
     """
     标准化股票代码，去除交易所前缀
@@ -87,11 +103,12 @@ def save_block_info_to_db(blocks_dict):
         conn.close()
 
 
-def save_stock_block_to_db(block_mapping, blocks_dict):
+def save_stock_block_to_db(block_mapping, blocks_dict, name_mapping=None):
     """
     保存股票板块关系到数据库
     :param block_mapping: {block_name: [stock_codes]}
     :param blocks_dict: {block_code: block_name}
+    :param name_mapping: {源板块名: 目标板块名} 自定义名称映射
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -99,11 +116,16 @@ def save_stock_block_to_db(block_mapping, blocks_dict):
     try:
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        # 清空旧数据
+        # 清空旧数据并重置自增ID
         cursor.execute("DELETE FROM block_stock")
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name='block_stock'")
         
         # 构建板块名称到代码的映射
         name_to_code = {name: code for code, name in blocks_dict.items()}
+        
+        # 如果没有提供name_mapping，则使用空字典
+        if name_mapping is None:
+            name_mapping = {}
         
         # 插入新数据
         insert_count = 0
@@ -112,10 +134,37 @@ def save_stock_block_to_db(block_mapping, blocks_dict):
         for block_name, stock_list in block_mapping.items():
             # 获取板块代码
             block_code = name_to_code.get(block_name)
+            
+            # 如果精确匹配失败，尝试名称映射配置
             if not block_code:
-                print(f"[警告] 未找到板块 '{block_name}' 的代码，跳过")
-                skip_count += 1
-                continue
+                mapped_name = name_mapping.get(block_name)
+                if mapped_name:
+                    block_code = name_to_code.get(mapped_name)
+                    if block_code:
+                        print(f"[配置] 板块 '{block_name}' 通过自定义映射: '{mapped_name}'")
+                    else:
+                        print(f"[警告] 板块 '{block_name}' 配置映射到 '{mapped_name}'，但在数据库中未找到，跳过")
+                        skip_count += 1
+                        continue
+                else:
+                    # 没有配置映射，尝试模糊匹配（包含关系）
+                    matched_blocks = [name for name in name_to_code.keys() if block_name in name]
+                    
+                    if len(matched_blocks) == 1:
+                        # 只找到一个匹配的，使用这个
+                        matched_name = matched_blocks[0]
+                        block_code = name_to_code[matched_name]
+                        print(f"[提示] 板块 '{block_name}' 未精确匹配，使用模糊匹配: '{matched_name}'")
+                    elif len(matched_blocks) > 1:
+                        # 找到多个匹配的，打印并跳过
+                        print(f"[警告] 板块 '{block_name}' 模糊匹配到多个结果: {matched_blocks}，请添加名称映射配置")
+                        skip_count += 1
+                        continue
+                    else:
+                        # 完全找不到
+                        print(f"[警告] 未找到板块 '{block_name}' 的代码，请添加名称映射配置")
+                        skip_count += 1
+                        continue
             
             for stock_code in stock_list:
                 # 标准化股票代码
@@ -179,14 +228,22 @@ def main():
         block_mapping = parse_block_mapping(block_mapping_file)
         print(f"  解析到 {len(block_mapping)} 个板块的股票列表")
         
-        # 4. 保存股票板块关系到数据库
-        print("\n[步骤4] 保存股票板块关系到数据库...")
-        relation_count, skip_count = save_stock_block_to_db(block_mapping, blocks_dict)
+        # 4. 加载板块名称映射配置
+        print("\n[步骤4] 加载板块名称映射配置...")
+        goldminer_dir = r"F:\gupiao\stock_view\goldminer"
+        name_mapping_file = os.path.join(goldminer_dir, 'block_name_mapping.json')
+        name_mapping = load_block_name_mapping(name_mapping_file)
+        print(f"  加载到 {len(name_mapping)} 个自定义名称映射")
         
-        # 5. 统计信息
+        # 5. 保存股票板块关系到数据库
+        print("\n[步骤5] 保存股票板块关系到数据库...")
+        relation_count, skip_count = save_stock_block_to_db(block_mapping, blocks_dict, name_mapping)
+        
+        # 6. 统计信息
         print("\n" + "=" * 60)
         print("导入完成！统计信息:")
         print(f"  板块总数: {block_count}")
+        print(f"  自定义名称映射数: {len(name_mapping)}")
         print(f"  股票-板块关系数: {relation_count}")
         print(f"  跳过记录数: {skip_count}")
         print("=" * 60)
