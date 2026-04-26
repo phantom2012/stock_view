@@ -284,6 +284,68 @@ class StockDataCache:
             traceback.print_exc()
             return None
 
+    def get_previous_trade_data(self, symbol: str, trade_date: datetime) -> Optional[Dict[str, Any]]:
+        """
+        获取指定交易日的上一个交易日的数据
+
+        Args:
+            symbol: 股票代码（如：SHSE.600105）
+            trade_date: 指定的交易日
+
+        Returns:
+            包含上一个交易日数据的字典，包含以下字段：
+            - pre_close_price: 上一个交易日的收盘价
+            - pre_avg_price: 上一个交易日的均价
+            - pre_price_gain: 昨涨幅（上一个交易日相比上上一个交易日的涨幅）
+            - trade_date: 上一个交易日的日期
+            如果获取失败返回None
+        """
+        try:
+            # 获取上一个交易日
+            prev_trade_date_str = trade_date_util.get_previous_trade_date(trade_date)
+            if not prev_trade_date_str:
+                print(f"[StockCache] 无法获取 {trade_date.strftime('%Y-%m-%d')} 的上一个交易日")
+                return None
+
+            prev_trade_date = datetime.strptime(prev_trade_date_str, '%Y-%m-%d')
+
+            # 获取上一个交易日的数据
+            data = self.get_stock_day_data(symbol, prev_trade_date)
+            if data is None or data.empty:
+                print(f"[StockCache] 无法获取 {symbol} 在 {prev_trade_date_str} 的数据")
+                return None
+
+            # 提取需要的字段
+            row = data.iloc[-1]
+            pre_close_price = row.get('close', 0)  # 上一个交易日的收盘价
+            pre_pre_close_price = row.get('pre_close', 0)  # 上上个交易日的收盘价（pre_close字段）
+
+            # 计算均价：成交额 / 成交量
+            volume = row.get('volume', 0)
+            amount = row.get('amount', 0)
+            pre_avg_price = round(amount / volume, 2) if volume > 0 else pre_close_price
+
+            # 计算昨涨幅：(上一个交易日收盘价 - 上上个交易日收盘价) / 上上个交易日收盘价 * 100
+            pre_price_gain = 0
+            try:
+                if pre_pre_close_price > 0:
+                    pre_price_gain = round((pre_close_price - pre_pre_close_price) / pre_pre_close_price * 100, 2)
+            except Exception as e:
+                print(f"[StockCache] 计算昨涨幅失败: {e}")
+
+            return {
+                'pre_close_price': pre_close_price,
+                'pre_avg_price': pre_avg_price,
+                'pre_price_gain': pre_price_gain,
+                'trade_date': prev_trade_date_str
+            }
+
+        except Exception as e:
+            print(f"[StockCache] 获取上一个交易日数据失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def _read_from_db(self, query: str, params: tuple, columns: list) -> Optional[pd.DataFrame]:
         """从数据库读取数据的通用方法"""
         try:
@@ -352,9 +414,9 @@ class StockDataCache:
                         row['close'],
                         row['high'],
                         row['low'],
-                        int(row['volume']),
+                        row['volume'],
                         row['amount'],
-                        row.get('pre_close', 0),
+                        row['pre_close'],
                         eob_str,
                         update_time
                     ))

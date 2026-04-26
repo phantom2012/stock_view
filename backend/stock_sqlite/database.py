@@ -195,9 +195,13 @@ def init_database():
         symbol TEXT NOT NULL,               -- 股票代码(如: SHSE.600666)
         code TEXT NOT NULL,                 -- 纯数字代码(如: 600666)
         stock_name TEXT,                    -- 股票名称
+        pre_avg_price REAL,                 -- 昨均价
+        pre_close_price REAL,               -- 昨收盘价
+        pre_price_gain REAL,                -- 昨涨幅
         auction_start_price REAL,           -- 竞价开始价
         auction_end_price REAL,             -- 竞价结束价
         price_diff REAL,                    -- 价格差异
+        volume_ratio REAL,                  -- 量比
         max_gain REAL,                      -- 区间最大涨幅
         max_daily_gain REAL,                -- 日内最大涨幅
         today_gain REAL,                    -- 今日涨幅

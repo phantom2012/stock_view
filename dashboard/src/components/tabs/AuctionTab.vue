@@ -83,35 +83,63 @@
       <el-table
         :data="list"
         stripe
-        style="width: 100%"
+        style="width: 100%;"
+        height="650"
         header-row-class-name="bg-gray-50 text-gray-800"
         row-class-name="bg-white hover:bg-gray-50 cursor-pointer"
         @row-click="handleRowClick"
       >
         <el-table-column type="index" label="序号" width="60" />
-        <el-table-column label="股票代码" width="90">
+        <el-table-column label="股票代码" width="80">
           <template #default="scope">
             {{ scope.row.code }}
           </template>
         </el-table-column>
         <el-table-column prop="stock_name" label="名称" width="90" />
-        <el-table-column prop="auction_start_price" label="竞价开始价" width="100" />
-        <el-table-column prop="auction_end_price" label="竞价结束价" width="100" />
-        <el-table-column label="价格差异" width="80">
+        <el-table-column label="昨均价" width="80">
           <template #default="scope">
-            <span :class="getValueColor(scope.row.price_diff)">{{ scope.row.price_diff }}</span>
+            {{ scope.row.yesterday_avg || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="max_gain" label="最大涨幅" width="90" />
-        <el-table-column prop="max_daily_gain" label="最大日涨幅" width="100" />
+        <el-table-column label="昨收盘价" width="80">
+          <template #default="scope">
+            {{ scope.row.yesterday_close || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="昨乖离率" width="80">
+          <template #default="scope">
+            <span :class="getValueColor(scope.row.yesterday_bias)">{{ scope.row.yesterday_bias !== undefined && scope.row.yesterday_bias !== null ? scope.row.yesterday_bias : '-' }}%</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="昨涨幅" width="80">
+          <template #default="scope">
+            <span :class="getValueColor(scope.row.yesterday_gain)">{{ scope.row.yesterday_gain !== undefined && scope.row.yesterday_gain !== null ? scope.row.yesterday_gain : '-' }}%</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="今开盘价" width="80">
+          <template #default="scope">
+            {{ scope.row.today_open || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="开盘涨幅" width="80">
+          <template #default="scope">
+            <span :class="getValueColor(scope.row.open_gain)">{{ scope.row.open_gain !== undefined && scope.row.open_gain !== null ? scope.row.open_gain : '-' }}%</span>
+          </template>
+        </el-table-column>
         <el-table-column label="今日涨幅" width="80">
           <template #default="scope">
-            <span :class="getValueColor(scope.row.today_gain)">{{ scope.row.today_gain }}%</span>
+            <span :class="getValueColor(scope.row.today_gain)">{{ scope.row.today_gain !== undefined && scope.row.today_gain !== null ? scope.row.today_gain : '-' }}%</span>
           </template>
         </el-table-column>
+        <el-table-column label="开盘量比" width="80">
+          <template #default="scope">
+            {{ scope.row.open_volume_ratio || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="max_gain" label="最大涨幅" width="80" />
         <el-table-column label="次日涨幅" width="80">
           <template #default="scope">
-            <span :class="getValueColor(scope.row.next_day_gain)">{{ scope.row.next_day_gain }}%</span>
+            <span :class="getValueColor(scope.row.next_day_gain)">{{ scope.row.next_day_gain !== undefined && scope.row.next_day_gain !== null ? scope.row.next_day_gain : '-' }}%</span>
           </template>
         </el-table-column>
         <el-table-column prop="trade_date" label="交易日期" width="120" />
@@ -161,7 +189,7 @@ const {
 } = useBlockSelection()
 
 // 设置默认板块代码
-setDefaultBlockCodes(['880656', '880670', '880550', '880672']) // CPO概念, 光通信, PCB概念, 存储芯片
+setDefaultBlockCodes(['880656', '880670', '880550', '880672', '880669']) // CPO概念, 光通信, PCB概念, 存储芯片，算力租赁
 
 const handleDateChange = (date) => {
   selectedDate.value = date

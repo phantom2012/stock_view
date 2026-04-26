@@ -142,12 +142,13 @@ class TradeDateUtil:
         all_dates.sort()
         return all_dates
 
-    def get_recent_trade_dates(self, days=5):
+    def get_recent_trade_dates(self, days=5, trade_date=None):
         """
         获取最近N个交易日的日期
 
         Args:
             days (int): 需要获取的交易日数量，默认为5
+            trade_date (datetime): 可选，指定的交易日。如果不传，则使用当前时间计算门槛日期
 
         Returns:
             list: 最近N个交易日的日期列表，格式为 ['YYYY-MM-DD', ...]，如果查询失败返回空列表
@@ -156,11 +157,14 @@ class TradeDateUtil:
         beijing_tz = pytz.timezone('Asia/Shanghai')
         now_beijing = datetime.now(beijing_tz)
 
-        cutoff_time = now_beijing.replace(hour=15, minute=30, second=0, microsecond=0)
-        if now_beijing > cutoff_time:
-            threshold_date = now_beijing
+        if trade_date is None:
+            cutoff_time = now_beijing.replace(hour=15, minute=30, second=0, microsecond=0)
+            if now_beijing > cutoff_time:
+                threshold_date = now_beijing
+            else:
+                threshold_date = now_beijing - timedelta(days=1)
         else:
-            threshold_date = now_beijing - timedelta(days=1)
+            threshold_date = trade_date
 
         self._ensure_trade_dates_cache()
 
@@ -325,6 +329,25 @@ class TradeDateUtil:
             return next_trade_date
         else:
             print("未找到下一个交易日")
+            return None
+
+    def get_previous_trade_date(self, trade_date: datetime) -> str:
+        """
+        获取指定日期之前的上一个交易日
+
+        Args:
+            trade_date: 指定的日期（datetime对象）
+
+        Returns:
+            str: 上一个交易日的日期，格式为 'YYYY-MM-DD'，如果查询失败返回 None
+        """
+        recent_dates = self.get_recent_trade_dates(days=2, trade_date=trade_date)
+        if len(recent_dates) >= 2:
+            prev_trade_date = recent_dates[0]
+            print(f"找到上一个交易日: {prev_trade_date}")
+            return prev_trade_date
+        else:
+            print("未找到上一个交易日")
             return None
 
 

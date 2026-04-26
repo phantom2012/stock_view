@@ -1,7 +1,7 @@
 <template>
   <div class="h-auto min-h-screen bg-white text-gray-800">
     <div class="mb-0 w-full border-b border-gray-200 bg-white shadow-sm">
-      <div class="mx-auto max-w-7xl px-6" style="padding-left: 20px;">
+      <div class="mx-auto w-[83%] px-6" style="padding-left: 20px;">
         <el-tabs v-model="activeTab" class="header-tabs w-full !border-0 !bg-transparent" style="min-width: 500px;">
           <el-tab-pane label="超预期选股" name="auction" />
           <el-tab-pane label="个股详情" name="stock_info" />
@@ -12,7 +12,7 @@
       </div>
     </div>
 
-    <div class="mx-auto max-w-7xl px-6 pb-6">
+    <div class="mx-auto w-[85%] px-6 pb-6">
       <AuctionTab 
         v-if="activeTab === 'auction'" 
         :activeTab="activeTab"

@@ -184,9 +184,9 @@ class StockFilter:
             print(f"[StockFilter] Error calculating rising wave score for {symbol}: {e}")
             return 0
     
-    def check_auction_condition(self, symbol: str, trade_date: datetime) -> Optional[Dict[str, Any]]:
+    def check_tail_auction_condition(self, symbol: str, trade_date: datetime) -> Optional[Dict[str, Any]]:
         """
-        检查竞价条件（获取14:57-15:00的尾盘数据，要求价格上涨）
+        检查尾盘竞价条件（获取14:57-15:00的尾盘数据，要求价格上涨）
         
         Args:
             symbol: 股票代码
@@ -209,7 +209,7 @@ class StockFilter:
             
             return None
         except Exception as e:
-            print(f"[StockFilter] Error checking auction for {symbol}: {e}")
+            print(f"[StockFilter] Error checking tail auction for {symbol}: {e}")
             return None
     
     def get_stock_day_gain(self, symbol: str, trade_date: datetime) -> Optional[float]:
@@ -437,11 +437,13 @@ class StockFilter:
             if not performance_ok:
                 continue
             
-            # 检查竞价条件（要求价格上涨）
-            auction_data = self.check_auction_condition(symbol, trade_date)
-            
-            if not auction_data:
-                continue
+            # 只有在勾选了尾盘超预期时才检查尾盘竞价条件
+            # 注意：早盘超预期的逻辑不是用这个接口
+            auction_data = None
+            if weipan_exceed > 0:
+                auction_data = self.check_tail_auction_condition(symbol, trade_date)
+                if not auction_data:
+                    continue
             
             # 获取当日涨幅
             today_gain = self.get_stock_day_gain(symbol, trade_date)
@@ -464,8 +466,26 @@ class StockFilter:
                 if rising_wave_score <= 0:
                     continue
             
-            # 计算超预期得分
-            higher_score = self.calculate_higher_score(auction_data, rising_wave_score)
+            # 计算超预期得分（仅在有竞价数据时计算）
+            if auction_data:
+                higher_score = self.calculate_higher_score(auction_data, rising_wave_score)
+            else:
+                higher_score = 0
+            
+            # 计算新增字段：昨均价、昨收盘价、昨涨幅
+            pre_avg_price = 0
+            pre_close_price = 0
+            pre_price_gain = 0
+
+            # 获取上一个交易日的数据
+            try:
+                prev_trade_data = self.cache.get_previous_trade_data(symbol, trade_date)
+                if prev_trade_data:
+                    pre_close_price = prev_trade_data.get('pre_close_price', 0)
+                    pre_avg_price = prev_trade_data.get('pre_avg_price', 0)
+                    pre_price_gain = prev_trade_data.get('pre_price_gain', 0)
+            except Exception as e:
+                logger.error(f"Error getting previous trade data for {symbol}: {e}")
             
             # 获取股票名称
             stock_name = self.cache.get_stock_name(symbol)
@@ -484,9 +504,13 @@ class StockFilter:
                 'symbol': symbol,  # 添加symbol字段
                 'code': stock_code,
                 'stock_name': stock_name,
-                'auction_start_price': auction_data['auction_start_price'],
-                'auction_end_price': auction_data['auction_end_price'],
-                'price_diff': round(auction_data['auction_end_price'] - auction_data['auction_start_price'], 2),
+                'pre_avg_price': pre_avg_price,        # 新增字段：昨均价
+                'pre_close_price': pre_close_price,    # 新增字段：昨收盘价
+                'pre_price_gain': pre_price_gain,       # 新增字段：昨涨幅
+                'auction_start_price': auction_data['auction_start_price'] if auction_data else 0,
+                'auction_end_price': auction_data['auction_end_price'] if auction_data else 0,
+                'price_diff': round(auction_data['auction_end_price'] - auction_data['auction_start_price'], 2) if auction_data else 0,
+                'volume_ratio': 0,                     # 量比暂时设为0
                 'max_gain': max_gain,
                 'max_daily_gain': max_daily_gain,
                 'today_gain': today_gain if today_gain is not None else 0.0,

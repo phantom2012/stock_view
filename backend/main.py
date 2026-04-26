@@ -55,7 +55,7 @@ try:
 except Exception as e:
     logger.error(f"Error starting scheduler: {str(e)}")
 
-
+# 筛选超预期策略股票
 @app.get("/run-strategy")
 def api_run_strategy(trade_date: str = None, weipan_exceed: int = 0, zaopan_exceed: int = 0, rising_wave: int = 0, block_codes: str = None):
     logger.info(f"API run-strategy called with trade_date={trade_date}, weipan_exceed={weipan_exceed}, zaopan_exceed={zaopan_exceed}, rising_wave={rising_wave}, block_codes={block_codes}")
@@ -69,31 +69,79 @@ def get_data():
     try:
         with get_db_cursor() as cursor:
             cursor.execute("""
-                SELECT symbol, code, stock_name, auction_start_price, auction_end_price,
-                       price_diff, max_gain, max_daily_gain, today_gain, next_day_gain,
-                       trade_date, higher_score, rising_wave_score
-                FROM filter_results
-                WHERE type = 1
-                ORDER BY higher_score DESC
+                SELECT fr.symbol, fr.code, fr.stock_name, fr.pre_avg_price, fr.pre_close_price, fr.pre_price_gain, fr.auction_start_price, fr.auction_end_price,
+                       fr.price_diff, fr.max_gain, fr.max_daily_gain, fr.today_gain, fr.next_day_gain,
+                       fr.trade_date, fr.higher_score, fr.rising_wave_score,
+                       COALESCE(sa.volume_ratio, 0) as volume_ratio
+                FROM filter_results fr
+                LEFT JOIN stock_auction sa ON fr.code = sa.code AND fr.trade_date = sa.trade_date
+                WHERE fr.type = 1
+                ORDER BY fr.higher_score DESC
             """)
             rows = cursor.fetchall()
 
             results = []
             for row in rows:
+                symbol = row[0]
+                code = row[1]
+                stock_name = row[2]
+                pre_avg_price = row[3]
+                pre_close_price = row[4]
+                pre_price_gain = round(row[5], 2) if row[5] else 0
+                auction_start_price = row[6]
+                auction_end_price = row[7]
+                price_diff = row[8]
+                max_gain = row[9]
+                max_daily_gain = row[10]
+                today_gain = row[11]
+                next_day_gain = row[12]
+                trade_date = row[13]
+                higher_score = row[14]
+                rising_wave_score = row[15]
+                volume_ratio = round(row[16], 2) if row[16] else 0
+                
+                # 计算昨乖离率
+                yesterday_bias = 0
+                if pre_avg_price > 0:
+                    yesterday_bias = round((pre_close_price - pre_avg_price) / pre_avg_price * 100, 2)
+                
+                # 计算今开盘价和开盘涨幅
+                today_open = 0
+                open_gain = 0
+                try:
+                    # 获取指定交易日的数据
+                    trade_date_obj = datetime.strptime(trade_date, '%Y-%m-%d')
+                    data = stock_cache.get_stock_day_data(symbol, trade_date_obj)
+                    if data is not None and not data.empty:
+                        today_open = data.iloc[-1].get('open', 0)
+                        # 开盘涨幅 = (今开盘价 - 昨收盘价) / 昨收盘价 * 100
+                        if pre_close_price > 0:
+                            open_gain = round((today_open - pre_close_price) / pre_close_price * 100, 2)
+                except Exception as e:
+                    logger.error(f"Error calculating open price for {symbol}: {e}")
+                
                 results.append({
-                    'symbol': row[0],
-                    'code': row[1],
-                    'stock_name': row[2],
-                    'auction_start_price': row[3],
-                    'auction_end_price': row[4],
-                    'price_diff': row[5],
-                    'max_gain': row[6],
-                    'max_daily_gain': row[7],
-                    'today_gain': row[8],
-                    'next_day_gain': row[9],
-                    'trade_date': row[10],
-                    'higher_score': row[11],
-                    'rising_wave_score': row[12]
+                    'symbol': symbol,
+                    'code': code,
+                    'stock_name': stock_name,
+                    'auction_start_price': auction_start_price,
+                    'auction_end_price': auction_end_price,
+                    'price_diff': price_diff,
+                    'max_gain': max_gain,
+                    'max_daily_gain': max_daily_gain,
+                    'today_gain': today_gain,
+                    'next_day_gain': next_day_gain,
+                    'trade_date': trade_date,
+                    'higher_score': higher_score,
+                    'rising_wave_score': rising_wave_score,
+                    # 新增字段
+                    'yesterday_avg': pre_avg_price,
+                    'yesterday_close': pre_close_price,
+                    'yesterday_bias': yesterday_bias,
+                    'yesterday_gain': pre_price_gain,
+                    'today_open': today_open,
+                    'open_gain': open_gain,
+                    'open_volume_ratio': volume_ratio
                 })
 
             logger.info(f"Returning {len(results)} rows from database")

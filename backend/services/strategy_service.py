@@ -58,9 +58,9 @@ class StrategyService:
 
             config = {
                 'recent_interval_days': 40,
-                'recent_interval_max_gain': 60,
-                'day_max_gain_days': 6,
-                'day_max_gain': 8,
+                'recent_interval_max_gain': 40,
+                'day_max_gain_days': 10,
+                'day_max_gain': 7,
             }
 
             logger.info(f"Filtering {len(stock_symbols)} stocks...")
@@ -128,9 +128,13 @@ class StrategyService:
                 symbol = stock.get('symbol', '')
                 code = symbol.split('.')[-1] if '.' in symbol else symbol
                 stock_name = stock.get('stock_name', '')
+                pre_avg_price = stock.get('pre_avg_price', 0)
+                pre_close_price = stock.get('pre_close_price', 0)
+                pre_price_gain = stock.get('pre_price_gain', 0)
                 auction_start_price = stock.get('auction_start_price', 0)
                 auction_end_price = stock.get('auction_end_price', 0)
                 price_diff = stock.get('price_diff', 0)
+                volume_ratio = stock.get('volume_ratio', 0)
                 max_gain = stock.get('max_gain', 0)
                 max_daily_gain = stock.get('max_daily_gain', 0)
                 today_gain = stock.get('today_gain', 0)
@@ -143,8 +147,8 @@ class StrategyService:
                 rising_wave = stock.get('rising_wave', 0)
 
                 cursor.execute(
-                    "INSERT OR REPLACE INTO filter_results (type, symbol, code, stock_name, auction_start_price, auction_end_price, price_diff, max_gain, max_daily_gain, today_gain, next_day_gain, trade_date, higher_score, rising_wave_score, weipan_exceed, zaopan_exceed, rising_wave, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (1, symbol, code, stock_name, auction_start_price, auction_end_price, price_diff, max_gain, max_daily_gain, today_gain, next_day_gain, trade_date, higher_score, rising_wave_score, weipan_exceed, zaopan_exceed, rising_wave, current_time)
+                    "INSERT OR REPLACE INTO filter_results (type, symbol, code, stock_name, pre_avg_price, pre_close_price, pre_price_gain, auction_start_price, auction_end_price, price_diff, volume_ratio, max_gain, max_daily_gain, today_gain, next_day_gain, trade_date, higher_score, rising_wave_score, weipan_exceed, zaopan_exceed, rising_wave, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (1, symbol, code, stock_name, pre_avg_price, pre_close_price, pre_price_gain, auction_start_price, auction_end_price, price_diff, volume_ratio, max_gain, max_daily_gain, today_gain, next_day_gain, trade_date, higher_score, rising_wave_score, weipan_exceed, zaopan_exceed, rising_wave, current_time)
                 )
                 insert_count += 1
 
