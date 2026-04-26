@@ -40,3 +40,7 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Trae 相关
+.trae/
+.trae/rules/
