@@ -1,17 +1,42 @@
-backend/server.log
-
-# Python 编译文件
+# Python 编译文件 & 缓存
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.pyc.*
+.pytest_cache/
+.coverage
 
 # 日志文件
 *.log
 server.log
+*.log.*
 
-# 其他临时文件
-*.tmp
-*.swp
+# 环境配置 & 敏感信息
+.env
+.env.local
+.env.*.local
+.vscode/
+.idea/
+
+# 数据库文件 & 临时数据
+*.db
+*.sqlite3
+*.csv
+*.xlsx
+*.xls
+*.json.tmp
+
+# Vue/前端相关
+node_modules/
+dist/
+.nuxt/
+.vuepress/dist
+.cache/
+
+# 系统文件
 .DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
