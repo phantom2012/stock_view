@@ -9,8 +9,13 @@ from datetime import datetime, timedelta
 from typing import Optional, Tuple, Dict, Any, List
 import pandas as pd
 
+# 导入掘金 API
+from gm.api import get_instruments
+
 # 导入后端缓存
 from stock_cache import get_stock_cache
+# 导入交易日工具
+from baostock_data.trade_date_util import TradeDateUtil
 
 
 class StockFilter:
@@ -22,6 +27,7 @@ class StockFilter:
     def __init__(self):
         """初始化过滤器"""
         self.cache = get_stock_cache()
+        self.trade_date_util = TradeDateUtil()
     
     def check_performance(self, symbol: str, trade_date: datetime, 
                         recent_interval_days: int = 10, 
@@ -198,71 +204,40 @@ class StockFilter:
             print(f"[StockFilter] Error checking auction for {symbol}: {e}")
             return None
     
-    def check_stock_gains(self, symbol: str, trade_date: datetime) -> Tuple[Optional[float], Optional[float]]:
+    def get_stock_day_gain(self, symbol: str, trade_date: datetime) -> Optional[float]:
         """
-        获取股票的当日涨幅和次日涨幅
+        获取股票指定日期的涨幅
         
         Args:
             symbol: 股票代码
             trade_date: 交易日期
             
         Returns:
-            Tuple[当日涨幅, 次日涨幅]
+            涨幅百分比，如果无法计算则返回 None
         """
         try:
-            # 从缓存获取日K线数据（优先从数据库读取）
-            data = self.cache.get_history_data(symbol, days=10, trade_date=trade_date, force_refresh=False)
+            # 从缓存获取该日的日K线数据（优先从数据库读取）
+            data = self.cache.get_stock_day_data(symbol, trade_date, force_refresh=False)
             
-            today_gain = 0.0
-            next_day_gain = 0.0
-            
-            if data is not None and not data.empty and len(data) >= 2:
-                # 当日收盘价
-                today_close = data.iloc[-1]['close']
-                # 昨日收盘价（前一行）
-                prev_close = data.iloc[-2]['close']
-                # 计算当日收盘价相对昨日收盘价的涨跌幅
-                if prev_close != 0:
-                    today_gain = round((today_close - prev_close) / prev_close * 100, 2)
-            
-            # 获取次日数据
-            # 检查是否是最后一个交易日（今天）
-            if trade_date.date() < datetime.now().date():
-                # 计算下一个交易日
-                next_trading_day = trade_date + timedelta(days=1)
-                while next_trading_day.weekday() >= 5:  # 跳过周末
-                    next_trading_day += timedelta(days=1)
+            if data is not None and not data.empty:
+                # 获取第一行数据
+                row = data.iloc[0]
                 
-                # 获取当日收盘价
-                today_close = None
-                if data is not None and not data.empty:
-                    today_close = data.iloc[-1]['close']
+                # 使用当日收盘价和前一日收盘价计算涨幅
+                today_close = row['close']
+                prev_close = row['pre_close']
                 
-                if today_close is not None and today_close != 0:
-                    # 从缓存获取次日数据，多取几天确保有数据（优先从数据库读取）
-                    next_data = self.cache.get_history_data(symbol, days=5, trade_date=next_trading_day, force_refresh=False)
-                    if next_data is not None and not next_data.empty:
-                        # 查找 next_trading_day 对应的收盘价
-                        next_trading_day_str = next_trading_day.strftime('%Y-%m-%d')
-                        next_close = None
-                        for i, row in next_data.iterrows():
-                            row_date = str(row['eob'])[:10]
-                            if row_date == next_trading_day_str:
-                                next_close = row['close']
-                                break
-                        # 如果没找到，使用最后一天的数据
-                        if next_close is None and not next_data.empty:
-                            next_close = next_data.iloc[-1]['close']
-                        # 计算次日收盘价相对当日收盘价的涨幅
-                        if next_close is not None and next_close != 0:
-                            next_day_gain = round((next_close - today_close) / today_close * 100, 2)
+                # 计算涨幅
+                if prev_close is not None and prev_close != 0:
+                    gain = round((today_close - prev_close) / prev_close * 100, 2)
+                    return gain
             
-            return today_gain, next_day_gain
+            return None
         except Exception as e:
-            print(f"[StockFilter] Error getting gains for {symbol}: {e}")
+            print(f"[StockFilter] Error getting day gain for {symbol} on {trade_date.strftime('%Y-%m-%d')}: {e}")
             import traceback
             traceback.print_exc()
-            return 0.0, 0.0
+            return None
     
     def check_is_main_board(self, symbol: str) -> bool:
         """
@@ -322,50 +297,63 @@ class StockFilter:
             # 如果还是未知，尝试通过 API 单独查询
             if stock_name == '未知':
                 try:
-                    from gm.api import get_instruments
                     inst = get_instruments(symbols=[symbol], df=True)
                     if inst is not None and not inst.empty:
+                        # 1. 获取股票名称
                         stock_name = inst.iloc[0].get('sec_name', '未知')
                         print(f"[StockFilter] API 单独查询 {symbol} 名称: {stock_name}")
+                        
+                        # 2. 检查是否是退市股票（使用同一次 API 调用的结果）
+                        delisted_date = inst.iloc[0].get('delisted_date')
+                        if delisted_date is not None and not pd.isna(delisted_date):
+                            if isinstance(delisted_date, pd.Timestamp):
+                                # 如果退市日期早于今天，才是真的退市
+                                if delisted_date < datetime.now():
+                                    print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
+                                    return False
+                            elif isinstance(delisted_date, str) and delisted_date.strip():
+                                # 处理字符串格式的日期
+                                try:
+                                    delisted_dt = datetime.strptime(delisted_date[:10], '%Y-%m-%d')
+                                    if delisted_dt < datetime.now():
+                                        print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
+                                        return False
+                                except:
+                                    pass
                     else:
                         print(f"[StockFilter] 股票 {symbol} 在 API 中也找不到，视为无效股票，已剔除")
                         return False
                 except Exception as api_err:
                     print(f"[StockFilter] API 单独查询 {symbol} 失败: {api_err}，已剔除")
                     return False
+            else:
+                # 名称已知时，仍需检查是否退市
+                try:
+                    inst = get_instruments(symbols=[symbol], df=True)
+                    if inst is not None and not inst.empty:
+                        delisted_date = inst.iloc[0].get('delisted_date')
+                        if delisted_date is not None and not pd.isna(delisted_date):
+                            if isinstance(delisted_date, pd.Timestamp):
+                                if delisted_date < datetime.now():
+                                    print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
+                                    return False
+                            elif isinstance(delisted_date, str) and delisted_date.strip():
+                                try:
+                                    delisted_dt = datetime.strptime(delisted_date[:10], '%Y-%m-%d')
+                                    if delisted_dt < datetime.now():
+                                        print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
+                                        return False
+                                except:
+                                    pass
+                except Exception:
+                    pass
             
-            # 最终检查：如果名称仍然是未知，打印警告但允许通过
+            # 检查是否是 ST 或 *ST 股票
             if stock_name == '未知':
                 print(f"[StockFilter] 警告: 股票 {symbol} 无法获取有效名称，但允许通过筛选")
-            
-            # 检查是否是 ST 或 *ST
-            if 'ST' in stock_name or '*ST' in stock_name:
+            elif 'ST' in stock_name or '*ST' in stock_name:
+                print(f"[StockFilter] 股票 {symbol} 是 ST 股票，已剔除")
                 return False
-            
-            # 检查是否是退市股票
-            try:
-                from gm.api import get_instruments
-                import pandas as pd
-                inst = get_instruments(symbols=[symbol], df=True)
-                if inst is not None and not inst.empty:
-                    delisted_date = inst.iloc[0].get('delisted_date')
-                    # 正确的退市判断：只有当 delisted_date 是过去的时间才算退市
-                    # 注意：正常股票 API 会返回 2038-01-01 作为占位符，不应视为退市
-                    if delisted_date is not None and not pd.isna(delisted_date):
-                        if isinstance(delisted_date, pd.Timestamp):
-                            # 如果退市日期早于今天，才是真的退市
-                            if delisted_date < datetime.now():
-                                return False
-                        elif isinstance(delisted_date, str) and delisted_date.strip():
-                            # 处理字符串格式的日期
-                            try:
-                                delisted_dt = datetime.strptime(delisted_date[:10], '%Y-%m-%d')
-                                if delisted_dt < datetime.now():
-                                    return False
-                            except:
-                                pass
-            except Exception:
-                pass
                 
         except Exception as e:
             print(f"[StockFilter] 检查10cm股票时出错 {symbol}: {e}，已剔除")
@@ -447,8 +435,17 @@ class StockFilter:
             if not auction_data:
                 continue
             
-            # 获取涨幅数据
-            today_gain, next_day_gain = self.check_stock_gains(symbol, trade_date)
+            # 获取当日涨幅
+            today_gain = self.get_stock_day_gain(symbol, trade_date)
+            
+            # 获取次日涨幅（只有当次日不是今天时才获取）
+            next_day_gain = None
+            if trade_date.date() < datetime.now().date():
+                # 使用交易日工具获取下一个交易日
+                next_trade_date_str = self.trade_date_util.get_next_trade_date(trade_date)
+                if next_trade_date_str:
+                    next_trading_day = datetime.strptime(next_trade_date_str, '%Y-%m-%d')
+                    next_day_gain = self.get_stock_day_gain(symbol, next_trading_day)
             
             # 计算升浪形态得分
             rising_wave_score = 0
@@ -484,8 +481,8 @@ class StockFilter:
                 'price_diff': round(auction_data['auction_end_price'] - auction_data['auction_start_price'], 2),
                 'max_gain': max_gain,
                 'max_daily_gain': max_daily_gain,
-                'today_gain': today_gain,
-                'next_day_gain': next_day_gain,
+                'today_gain': today_gain if today_gain is not None else 0.0,
+                'next_day_gain': next_day_gain if next_day_gain is not None else 0.0,
                 'trade_date': trade_date.strftime('%Y-%m-%d'),
                 'higher_score': higher_score,
                 'rising_wave_score': rising_wave_score,

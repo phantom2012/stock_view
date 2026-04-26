@@ -51,6 +51,26 @@ class StockDataCache:
             print(f"[StockCache] API Token已通过ExternalDataQueryHandler初始化")
             self._api_token_set = True
 
+    @staticmethod
+    def to_float(value, default=0):
+        """安全转换为浮点数"""
+        try:
+            if value is None:
+                return default
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    @staticmethod
+    def to_int(value, default=0):
+        """安全转换为整数"""
+        try:
+            if value is None:
+                return default
+            return int(float(value))
+        except (ValueError, TypeError):
+            return default
+
     def _load_instruments_cache(self) -> pd.DataFrame:
         """加载 instruments 缓存（通过ExternalDataQueryHandler获取）"""
         if self._instruments_loaded and self._instruments_cache is not None:
@@ -167,6 +187,53 @@ class StockDataCache:
 
         return return_result
 
+    def get_stock_day_data(self, symbol: str, trade_date: datetime, force_refresh: bool = False) -> Optional[pd.DataFrame]:
+        """
+        获取股票指定日期的日线数据（单条记录）
+        
+        Args:
+            symbol: 股票代码，如 'SHSE.600105'
+            trade_date: 交易日期
+            force_refresh: 是否强制从 API 刷新
+            
+        Returns:
+            包含单条记录的 DataFrame，如果未找到则返回 None
+        """
+        from common.stock_code_convert import to_pure_code
+        
+        date_key = trade_date.strftime('%Y-%m-%d')
+        pure_code = to_pure_code(symbol)
+        
+        if not force_refresh:
+            # 从数据库读取指定日期的数据
+            cached_data = self._read_single_day_from_db(pure_code, date_key)
+            if cached_data is not None and not cached_data.empty:
+                return cached_data
+        
+        # 从 API 获取（使用 ExternalDataQueryHandler）
+        try:
+            # 直接查询指定日期的数据
+            date_str = trade_date.strftime('%Y-%m-%d')
+            
+            data = self._query_handler.get_daily_data(
+                symbol=symbol,
+                start_date=date_str,
+                end_date=date_str
+            )
+            
+            if data is not None and not data.empty:
+                # 保存到数据库
+                self._save_daily_to_db(pure_code, data)
+                return data
+            else:
+                print(f"[StockCache] 未获取到 {symbol} 在 {date_str} 的数据")
+                return None
+        except Exception as e:
+            print(f"[StockCache] 获取单日数据失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def get_history_data(self, symbol: str, days: int = 5, trade_date: Optional[datetime] = None, force_refresh: bool = False) -> Optional[pd.DataFrame]:
         """
         获取股票最近N日的历史数据（从数据库读取）
@@ -242,6 +309,25 @@ class StockDataCache:
                     return df
         except Exception as e:
             print(f"[StockCache] 从数据库读取日线数据失败: {e}")
+        return None
+
+    def _read_single_day_from_db(self, code: str, date_key: str) -> Optional[pd.DataFrame]:
+        """从数据库读取指定日期的单条日线数据"""
+        try:
+            with get_db_cursor() as cursor:
+                cursor.execute("""
+                    SELECT trade_date, open, close, high, low, volume, amount, pre_close, eob
+                    FROM stock_daily
+                    WHERE code = ? AND trade_date = ?
+                    LIMIT 1
+                """, (code, date_key))
+
+                row = cursor.fetchone()
+                if row:
+                    df = pd.DataFrame([row], columns=['trade_date', 'open', 'close', 'high', 'low', 'volume', 'amount', 'pre_close', 'eob'])
+                    return df
+        except Exception as e:
+            print(f"[StockCache] 从数据库读取单日数据失败: {e}")
         return None
 
     def _save_daily_to_db(self, code: str, data: pd.DataFrame):
@@ -573,29 +659,13 @@ class StockDataCache:
                         row = auction_data.iloc[0]
                         
                         # 确保所有数字字段都是正确的类型
-                        def to_float(value, default=0):
-                            try:
-                                if value is None:
-                                    return default
-                                return float(value)
-                            except (ValueError, TypeError):
-                                return default
-                        
-                        def to_int(value, default=0):
-                            try:
-                                if value is None:
-                                    return default
-                                return int(float(value))
-                            except (ValueError, TypeError):
-                                return default
-                        
-                        price = to_float(row.get('price', 0))
-                        amount = to_float(row.get('amount', 0))
-                        volume = to_int(row.get('vol', row.get('volume', 0)))
-                        pre_close = to_float(row.get('pre_close', 0))
-                        turn_over_rate = to_float(row.get('turnover_rate', 0))
-                        volume_ratio = to_float(row.get('volume_ratio', 0))
-                        float_share = to_float(row.get('float_share', 0))
+                        price = self.to_float(row.get('price', 0))
+                        amount = self.to_float(row.get('amount', 0))
+                        volume = self.to_int(row.get('vol', row.get('volume', 0)))
+                        pre_close = self.to_float(row.get('pre_close', 0))
+                        turn_over_rate = self.to_float(row.get('turnover_rate', 0))
+                        volume_ratio = self.to_float(row.get('volume_ratio', 0))
+                        float_share = self.to_float(row.get('float_share', 0))
 
                         # 保存完整的竞价数据到数据库
                         self._save_auction_to_db(
@@ -654,34 +724,18 @@ class StockDataCache:
         update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         # 确保所有参数都是正确的类型
-        def to_float(value, default=0):
-            try:
-                if value is None:
-                    return default
-                return float(value)
-            except (ValueError, TypeError):
-                return default
-        
-        def to_int(value, default=0):
-            try:
-                if value is None:
-                    return default
-                return int(float(value))
-            except (ValueError, TypeError):
-                return default
-        
         # 转换所有参数
         code = str(code)
-        price = to_float(price)
-        amount = to_float(amount)
-        volume = to_int(volume)
-        pre_close = to_float(pre_close)
-        turn_over_rate = to_float(turn_over_rate)
-        volume_ratio = to_float(volume_ratio)
-        float_share = to_float(float_share)
-        tail_57_price = to_float(tail_57_price)
-        close_price = to_float(close_price)
-        tail_amount = to_float(tail_amount)
+        price = self.to_float(price)
+        amount = self.to_float(amount)
+        volume = self.to_int(volume)
+        pre_close = self.to_float(pre_close)
+        turn_over_rate = self.to_float(turn_over_rate)
+        volume_ratio = self.to_float(volume_ratio)
+        float_share = self.to_float(float_share)
+        tail_57_price = self.to_float(tail_57_price)
+        close_price = self.to_float(close_price)
+        tail_amount = self.to_float(tail_amount)
 
         try:
             with get_db_cursor() as cursor:
@@ -710,17 +764,9 @@ class StockDataCache:
         """
         update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        def to_float(value, default=0):
-            try:
-                if value is None:
-                    return default
-                return float(value)
-            except (ValueError, TypeError):
-                return default
-        
-        tail_57_price = to_float(tail_57_price)
-        close_price = to_float(close_price)
-        tail_amount = to_float(tail_amount)
+        tail_57_price = self.to_float(tail_57_price)
+        close_price = self.to_float(close_price)
+        tail_amount = self.to_float(tail_amount)
         
         try:
             with get_db_cursor() as cursor:

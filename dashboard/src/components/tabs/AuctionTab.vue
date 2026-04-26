@@ -127,6 +127,8 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { getValueColor } from '../../utils/colorUtils.js'
+import { useBlockSelection } from '../../composables/useBlockSelection.js'
+import { API_BASE_URL } from '../../api/config.js'
 
 const props = defineProps({
   activeTab: {
@@ -141,55 +143,38 @@ const loading = ref(false)
 const list = ref([])
 const lastUpdate = ref('')
 const selectedDate = ref('')
-const tradeDates = ref([])
 const filters = ref({
   'weipan_exceed': false,
   'zaopan_exceed': false,
   'rising_wave': true  // 默认勾选上升形态
 })
 
-// 板块相关
-const blockList = ref([])
-const selectedBlock = ref('')
-const selectedBlocks = ref([])
+// 使用板块选择 composable
+const { 
+  blockList, 
+  selectedBlock, 
+  selectedBlocks, 
+  loadBlockList, 
+  setDefaultBlockCodes,
+  handleBlockSelect,
+  removeBlock
+} = useBlockSelection()
 
-// 默认选中的板块代码
-const defaultBlockCodes = ['880656', '880670', '880550', '880672'] // CPO概念, 光通信, PCB概念, 存储芯片
+// 设置默认板块代码
+setDefaultBlockCodes(['880656', '880670', '880550', '880672']) // CPO概念, 光通信, PCB概念, 存储芯片
 
 const handleDateChange = (date) => {
   selectedDate.value = date
 }
 
-// 加载板块列表
-const loadBlockList = async () => {
-  try {
-    const response = await axios.get('http://127.0.0.1:8000/get-block-list')
-    blockList.value = response.data || []
-    
-    // 设置默认选中的板块
-    const defaultBlocks = blockList.value.filter(block => 
-      defaultBlockCodes.includes(block.code)
-    )
-    selectedBlocks.value = defaultBlocks
-  } catch (error) {
-    console.error('加载板块列表失败:', error)
-    ElMessage.error('加载板块列表失败')
-  }
-}
+// 加载板块列表（由composable提供）
+// 已在 onMounted 中调用 loadBlockList()
 
-// 处理板块选择
-const handleBlockSelect = (blockCode) => {
-  const block = blockList.value.find(b => b.code === blockCode)
-  if (block && !selectedBlocks.value.some(b => b.code === blockCode)) {
-    selectedBlocks.value.push(block)
-  }
-  selectedBlock.value = '' // 清空选择
-}
+// 处理板块选择（由composable提供）
+// 已在模板中调用 handleBlockSelect
 
-// 移除板块
-const removeBlock = (blockCode) => {
-  selectedBlocks.value = selectedBlocks.value.filter(b => b.code !== blockCode)
-}
+// 移除板块（由composable提供）
+// 已在模板中调用 removeBlock
 
 const runStrategy = async () => {
   loading.value = true
@@ -206,7 +191,7 @@ const runStrategy = async () => {
       const blockCodes = selectedBlocks.value.map(b => b.code).join(',')
       params.append('block_codes', blockCodes)
     }
-    await axios.get(`http://127.0.0.1:8000/run-strategy?${params.toString()}`)
+    await axios.get(`${API_BASE_URL}/run-strategy?${params.toString()}`)
     await getData()
     lastUpdate.value = new Date().toLocaleString()
   } finally {
@@ -215,7 +200,7 @@ const runStrategy = async () => {
 }
 
 const getData = async () => {
-  const res = await axios.get('http://127.0.0.1:8000/get-data')
+  const res = await axios.get(`${API_BASE_URL}/get-data`)
   let data = res.data || []
   data.sort((a, b) => {
     const scoreA = parseFloat(a.higher_score) || 0
@@ -223,15 +208,6 @@ const getData = async () => {
     return scoreB - scoreA
   })
   list.value = data
-}
-
-const getTradeDates = async () => {
-  const res = await axios.get('http://127.0.0.1:8000/get-trade-dates')
-  tradeDates.value = res.data || []
-}
-
-const isTradingDay = (date) => {
-  return tradeDates.value.includes(date)
 }
 
 const handleRowClick = (row, column, event) => {
@@ -255,7 +231,6 @@ const handleRowClick = (row, column, event) => {
 }
 
 onMounted(async () => {
-  await getTradeDates()
   await loadBlockList()  // 加载板块列表
   await getData()
 })

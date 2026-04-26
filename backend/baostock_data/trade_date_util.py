@@ -302,6 +302,46 @@ class TradeDateUtil:
             return filtered_dates
         finally:
             self._logout()
+    
+    def get_next_trade_date(self, trade_date: datetime) -> str:
+        """
+        获取指定日期之后的下一个交易日
+        
+        Args:
+            trade_date: 指定的日期（datetime对象）
+            
+        Returns:
+            str: 下一个交易日的日期，格式为 'YYYY-MM-DD'，如果查询失败返回 None
+        """
+        if not self._login():
+            return None
+        
+        try:
+            # 从指定日期的后一天开始查询，往后查10天（足够覆盖周末和节假日）
+            start_date = (trade_date + timedelta(days=1)).strftime("%Y-%m-%d")
+            end_date = (trade_date + timedelta(days=10)).strftime("%Y-%m-%d")
+            
+            print(f"查询下一个交易日，范围: {start_date} 至 {end_date}")
+            
+            # 查询交易日历
+            df = bs.query_trade_dates(start_date=start_date, end_date=end_date)
+            data = df.get_data()
+            
+            # 筛选出是交易日的日期
+            trade_dates = data[data['is_trading_day'] == '1']['calendar_date'].tolist()
+            
+            # 排序并获取第一个（最近的下一个交易日）
+            trade_dates.sort()
+            
+            if trade_dates:
+                next_trade_date = trade_dates[0]
+                print(f"下一个交易日: {next_trade_date}")
+                return next_trade_date
+            else:
+                print("未找到下一个交易日")
+                return None
+        finally:
+            self._logout()
 
 
 # 测试代码

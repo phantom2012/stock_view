@@ -1,1 +1,17 @@
 backend/server.log
+
+# Python 编译文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyc.*
+
+# 日志文件
+*.log
+server.log
+
+# 其他临时文件
+*.tmp
+*.swp
+.DS_Store

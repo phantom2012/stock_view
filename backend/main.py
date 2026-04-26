@@ -1,11 +1,15 @@
 import os
 import pandas as pd
 import logging
+import traceback
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
+
+# 导入掘金 API
+from gm.api import get_instruments
 
 # 导入股票缓存
 from stock_cache import get_stock_cache
@@ -14,10 +18,13 @@ from stock_cache import get_stock_cache
 from stock_filter import StockFilter, get_stock_filter
 
 # 导入数据库模块
-from stock_sqlite.database import get_db_connection
+from stock_sqlite.database import get_db_connection, get_db_cursor
 
 # 导入板块股票工具类
 from common.block_stock_util import get_stocks_by_blocks
+
+# 导入股票代码转换工具
+from common.stock_code_convert import to_goldminer_symbol, to_pure_code
 
 # 导入交易日工具类
 from baostock_data.trade_date_util import TradeDateUtil
@@ -58,20 +65,6 @@ app.add_middleware(
 # 全局变量
 last_run_time = None
 
-app = FastAPI(title="掘釆量化竞价看板后端")
-
-# 跨域（前端能访问）
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 全局变量
-last_run_time = None
-
 # ==============================================
 # 1. 运行掘金策略（核心函数）
 # ==============================================
@@ -84,12 +77,17 @@ def run_strategy(trade_date=None, weipan_exceed=0, zaopan_exceed=0, rising_wave=
         if trade_date:
             target_date = datetime.strptime(trade_date, '%Y-%m-%d')
         else:
-            # 默认使用上一个交易日
-            today = datetime.now()
-            yesterday = today - timedelta(days=1)
-            while yesterday.weekday() >= 5:  # 跳过周末
-                yesterday -= timedelta(days=1)
-            target_date = yesterday
+            # 默认使用上一个交易日（考虑节假日）
+            latest_trade_date_str = trade_date_util.get_latest_trade_date()
+            if latest_trade_date_str:
+                target_date = datetime.strptime(latest_trade_date_str, '%Y-%m-%d')
+            else:
+                # 降级到简单逻辑（只跳过周末）
+                today = datetime.now()
+                yesterday = today - timedelta(days=1)
+                while yesterday.weekday() >= 5:
+                    yesterday -= timedelta(days=1)
+                target_date = yesterday
         
         # 从数据库获取股票列表
         # 解析板块代码（支持逗号分隔的字符串或列表）
@@ -111,13 +109,7 @@ def run_strategy(trade_date=None, weipan_exceed=0, zaopan_exceed=0, rising_wave=
             return {"status": "error", "msg": "未从数据库加载到股票数据"}
         
         # 转换为SHSE/SZSE格式
-        stock_symbols = []
-        for code in stocks_to_filter:
-            if code.startswith('6') or code.startswith('9'):
-                symbol = f"SHSE.{code}"
-            else:
-                symbol = f"SZSE.{code}"
-            stock_symbols.append(symbol)
+        stock_symbols = [to_goldminer_symbol(code) for code in stocks_to_filter]
         
         logger.info(f"准备筛选 {len(stock_symbols)} 只股票")
         
@@ -135,10 +127,9 @@ def run_strategy(trade_date=None, weipan_exceed=0, zaopan_exceed=0, rising_wave=
         logger.info(f"Filtering {len(stock_symbols)} stocks...")
         
         # 确保 instruments 缓存已加载，以便正确识别 ST 股票
-        print("[DEBUG] 正在强制加载 instruments 缓存...")
         instruments = stock_cache._load_instruments_cache()
         cache_count = len(instruments) if instruments is not None else 0
-        print(f"[DEBUG] instruments 缓存加载完成，共 {cache_count} 条数据")
+        logger.info(f"instruments 缓存加载完成，共 {cache_count} 条数据")
         
         # 执行筛选
         results = stock_filter.filter_stocks(
@@ -204,7 +195,6 @@ def run_strategy(trade_date=None, weipan_exceed=0, zaopan_exceed=0, rising_wave=
         return {"status": "success", "msg": f"策略运行完成，选出{len(results)}只股票", "time": last_run_time}
     except Exception as e:
         logger.error(f"Error running strategy: {str(e)}")
-        import traceback
         traceback.print_exc()
         return {"status": "error", "msg": str(e)}
 
@@ -236,10 +226,7 @@ def get_data():
     
     # 从数据库读取筛选结果
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        try:
+        with get_db_cursor() as cursor:
             cursor.execute("""
                 SELECT symbol, code, stock_name, auction_start_price, auction_end_price, 
                        price_diff, max_gain, max_daily_gain, today_gain, next_day_gain, 
@@ -270,9 +257,6 @@ def get_data():
             
             logger.info(f"Returning {len(results)} rows from database")
             return results
-        finally:
-            cursor.close()
-            conn.close()
     except Exception as e:
         logger.error(f"Error reading from database: {str(e)}")
         return []
@@ -299,7 +283,7 @@ def get_trade_dates():
         return []
 
 # ==============================================
-# 5. 健康检查
+# 6. 健康检查
 # ==============================================
 @app.get("/")
 def index():
@@ -307,7 +291,7 @@ def index():
     return {"status": "运行中", "last_run": last_run_time}
 
 # ==============================================
-# 6. 获取股票基本信息
+# 7. 获取股票基本信息
 # ==============================================
 @app.get("/get-stock-info")
 def get_stock_info(code: str):
@@ -315,10 +299,7 @@ def get_stock_info(code: str):
     
     try:
         # 构建完整的股票代码
-        if code.startswith('6'):
-            symbol = f"SHSE.{code}"
-        else:
-            symbol = f"SZSE.{code}"
+        symbol = to_goldminer_symbol(code)
         
         # 从缓存获取股票名称
         stock_name = stock_cache.get_stock_name(symbol)
@@ -326,7 +307,6 @@ def get_stock_info(code: str):
         # 如果缓存中没有，尝试通过API单独查询
         if stock_name == '未知':
             try:
-                from gm.api import get_instruments
                 inst = get_instruments(symbols=[symbol], df=True)
                 if inst is not None and not inst.empty:
                     stock_name = inst.iloc[0].get('sec_name', '未知')
@@ -381,7 +361,7 @@ def get_stock_info(code: str):
         }
 
 # ==============================================
-# 7. 获取股票最近N日历史数据
+# 8. 获取股票最近N日历史数据
 # ==============================================
 @app.get("/get-stock-history")
 def get_stock_history(code: str, days: int = 10):
@@ -389,10 +369,7 @@ def get_stock_history(code: str, days: int = 10):
     
     try:
         # 构建完整的股票代码
-        if code.startswith('6'):
-            symbol = f"SHSE.{code}"
-        else:
-            symbol = f"SZSE.{code}"
+        symbol = to_goldminer_symbol(code)
         
         # 从缓存获取历史数据
         data = stock_cache.get_history_data(symbol, days)
@@ -500,12 +477,11 @@ def get_stock_history(code: str, days: int = 10):
             
     except Exception as e:
         logger.error(f"Error getting stock history: {str(e)}")
-        import traceback
         traceback.print_exc()
         return []
 
 # ==============================================
-# 8. 股票筛选接口
+# 9. 股票筛选接口
 # ==============================================
 @app.get("/filter-stocks")
 def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: int = 5, daily_gain_threshold: float = 7, price_ratio: float = 90, block_codes: str = "", only_main_board: bool = False):
@@ -539,18 +515,11 @@ def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: 
         # 如果勾选了仅筛选主板，过滤出主板股票
         if only_main_board:
             # 使用统一的check_is_main_board接口进行主板判断
-            stock_filter = get_stock_filter()
             main_board_stocks = {code for code in stocks_to_filter if stock_filter.check_is_main_board(code)}
             logger.info(f"主板过滤：从 {len(stocks_to_filter)} 只股票中筛选出 {len(main_board_stocks)} 只主板股票")
             stocks_to_filter = main_board_stocks
         
         filtered_results = []
-        
-        # 获取stock_filter实例
-        stock_filter = get_stock_filter()
-        
-        # 获取stock_cache实例
-        stock_cache = get_stock_cache()
         
         # 获取当前时间作为trade_date
         trade_date = datetime.now()
@@ -602,12 +571,11 @@ def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: 
         
     except Exception as e:
         logger.error(f"Error in filter-stocks: {str(e)}")
-        import traceback
         traceback.print_exc()
         return []
 
 # ==============================================
-# 9. 加载竞价数据接口
+# 10. 加载竞价数据接口
 # ==============================================
 @app.post("/load-auction-data")
 def load_auction_data(stocks: List[Dict[str, Any]], days: int = 30):
@@ -643,10 +611,7 @@ def load_auction_data(stocks: List[Dict[str, Any]], days: int = 30):
                 continue
             
             # 构造symbol
-            if code.startswith('6'):
-                symbol = f'SHSE.{code}'
-            else:
-                symbol = f'SZSE.{code}'
+            symbol = to_goldminer_symbol(code)
             
             # 遍历交易日
             stock_success = True
@@ -667,7 +632,6 @@ def load_auction_data(stocks: List[Dict[str, Any]], days: int = 30):
                         tail_amount = tail_auction_data.get('amount', 0)
                         
                         # 更新数据库中的尾盘竞价字段
-                        from common.stock_code_convert import to_pure_code
                         pure_code = to_pure_code(symbol)
                         stock_cache._update_auction_tail_data(pure_code, date_str, tail_57_price, close_price, tail_amount)
                         
@@ -689,7 +653,7 @@ def load_auction_data(stocks: List[Dict[str, Any]], days: int = 30):
         return {"status": "error", "msg": str(e)}
 
 # ==============================================
-# 8. 保存筛选结果到数据库(type=2)
+# 11. 保存筛选结果到数据库(type=2)
 # ==============================================
 @app.post("/save-filter-stocks")
 def save_filter_stocks(stocks: List[Dict[str, Any]]):
@@ -701,12 +665,9 @@ def save_filter_stocks(stocks: List[Dict[str, Any]]):
     logger.info(f"API save-filter-stocks called with {len(stocks)} stocks")
     
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        try:
-            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
+        with get_db_cursor() as cursor:
             # 先删除type=2的旧数据
             cursor.execute("DELETE FROM filter_results WHERE type = 2")
             
@@ -719,10 +680,7 @@ def save_filter_stocks(stocks: List[Dict[str, Any]]):
                 max_daily_gain = stock.get('max_daily_gain', 0)
                 
                 # 构造symbol格式
-                if code.startswith('6'):
-                    symbol = f'SHSE.{code}'
-                else:
-                    symbol = f'SZSE.{code}'
+                symbol = to_goldminer_symbol(code)
                 
                 cursor.execute(
                     "INSERT INTO filter_results (type, symbol, code, stock_name, max_gain, max_daily_gain, update_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -730,20 +688,15 @@ def save_filter_stocks(stocks: List[Dict[str, Any]]):
                 )
                 insert_count += 1
             
-            conn.commit()
             logger.info(f"Saved {insert_count} filter stocks to database (type=2)")
             return {"status": "success", "msg": f"保存成功，共{insert_count}条记录"}
-        finally:
-            cursor.close()
-            conn.close()
     except Exception as e:
         logger.error(f"Error saving filter stocks: {str(e)}")
-        import traceback
         traceback.print_exc()
         return {"status": "error", "msg": str(e)}
 
 # ==============================================
-# 9. 获取数据库中的筛选结果(type=2)
+# 12. 获取数据库中的筛选结果(type=2)
 # ==============================================
 @app.get("/get-filter-stocks")
 def get_filter_stocks():
@@ -754,10 +707,7 @@ def get_filter_stocks():
     logger.info("API get-filter-stocks called")
     
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        try:
+        with get_db_cursor() as cursor:
             cursor.execute("""
                 SELECT code, stock_name, max_gain, max_daily_gain
                 FROM filter_results 
@@ -777,15 +727,12 @@ def get_filter_stocks():
             
             logger.info(f"Returning {len(results)} filter stocks from database (type=2)")
             return results
-        finally:
-            cursor.close()
-            conn.close()
     except Exception as e:
         logger.error(f"Error reading filter stocks from database: {str(e)}")
         return []
 
 # ==============================================
-# 10. 获取板块列表
+# 13. 获取板块列表
 # ==============================================
 @app.get("/get-block-list")
 def get_block_list():
@@ -796,10 +743,7 @@ def get_block_list():
     logger.info("API get-block-list called")
     
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        try:
+        with get_db_cursor() as cursor:
             cursor.execute("SELECT block_code, block_name FROM block_info ORDER BY block_code")
             rows = cursor.fetchall()
             
@@ -812,14 +756,8 @@ def get_block_list():
             
             logger.info(f"Returning {len(blocks)} blocks from database")
             return blocks
-            
-        finally:
-            cursor.close()
-            conn.close()
-        
     except Exception as e:
         logger.error(f"Error in get-block-list: {str(e)}")
-        import traceback
         traceback.print_exc()
         return []
 
