@@ -8,10 +8,12 @@
 
 import pandas as pd
 from datetime import datetime, timedelta
-from baostock_data.trade_date_util import TradeDateUtil
 from typing import Optional, Dict, Any, List
+
+from baostock_data.trade_date_util import TradeDateUtil
 from stock_sqlite.database import get_db_connection, get_db_cursor
 from external_data.ext_data_query_handle import get_query_handler, QUERY_API_TYPE
+from common.stock_code_convert import to_pure_code, get_exchange
 
 
 # 创建 TradeDateUtil 实例
@@ -97,8 +99,6 @@ class StockDataCache:
         """
         获取股票名称
         """
-        from common.stock_code_convert import to_pure_code
-
         pure_code = to_pure_code(symbol)
 
         # 先从数据库查找
@@ -125,7 +125,6 @@ class StockDataCache:
     def _save_stock_info(self, code: str, name: str):
         """保存股票信息到数据库"""
         try:
-            from common.stock_code_convert import get_exchange
             pure_code = code.split('.')[-1] if '.' in code else code
             exchange = get_exchange(pure_code)
             update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -142,8 +141,6 @@ class StockDataCache:
         """
         批量获取股票名称
         """
-        from common.stock_code_convert import to_pure_code
-
         result = {}
 
         # 将symbols转换为纯数字code
@@ -199,8 +196,6 @@ class StockDataCache:
         Returns:
             包含单条记录的 DataFrame，如果未找到则返回 None
         """
-        from common.stock_code_convert import to_pure_code
-        
         date_key = trade_date.strftime('%Y-%m-%d')
         pure_code = to_pure_code(symbol)
         
@@ -238,8 +233,6 @@ class StockDataCache:
         """
         获取股票最近N日的历史数据（从数据库读取）
         """
-        from common.stock_code_convert import to_pure_code
-
         if trade_date is None:
             latest_trade_date = trade_date_util.get_latest_trade_date()
             if latest_trade_date:
@@ -291,44 +284,48 @@ class StockDataCache:
             traceback.print_exc()
             return None
 
-    def _read_daily_from_db(self, code: str, days: int, date_key: str) -> Optional[pd.DataFrame]:
-        """从数据库读取日线数据"""
+    def _read_from_db(self, query: str, params: tuple, columns: list) -> Optional[pd.DataFrame]:
+        """从数据库读取数据的通用方法"""
         try:
             with get_db_cursor() as cursor:
-                cursor.execute("""
-                    SELECT trade_date, open, close, high, low, volume, amount, pre_close, eob
-                    FROM stock_daily
-                    WHERE code = ? AND trade_date <= ?
-                    ORDER BY trade_date DESC
-                    LIMIT ?
-                """, (code, date_key, days))
-
+                cursor.execute(query, params)
                 rows = cursor.fetchall()
                 if rows:
-                    df = pd.DataFrame(rows, columns=['trade_date', 'open', 'close', 'high', 'low', 'volume', 'amount', 'pre_close', 'eob'])
+                    df = pd.DataFrame(rows, columns=columns)
                     return df
         except Exception as e:
-            print(f"[StockCache] 从数据库读取日线数据失败: {e}")
+            print(f"[StockCache] 从数据库读取数据失败: {e}")
         return None
+
+    def _process_time_field(self, value) -> str:
+        """处理时间字段，转换为字符串格式"""
+        if hasattr(value, 'strftime'):
+            return value.strftime('%Y-%m-%d %H:%M:%S')
+        return str(value)
+
+    def _read_daily_from_db(self, code: str, days: int, date_key: str) -> Optional[pd.DataFrame]:
+        """从数据库读取日线数据"""
+        query = """
+            SELECT trade_date, open, close, high, low, volume, amount, pre_close, eob
+            FROM stock_daily
+            WHERE code = ? AND trade_date <= ?
+            ORDER BY trade_date DESC
+            LIMIT ?
+        """
+        columns = ['trade_date', 'open', 'close', 'high', 'low', 'volume', 'amount', 'pre_close', 'eob']
+        return self._read_from_db(query, (code, date_key, days), columns)
 
     def _read_single_day_from_db(self, code: str, date_key: str) -> Optional[pd.DataFrame]:
         """从数据库读取指定日期的单条日线数据"""
-        try:
-            with get_db_cursor() as cursor:
-                cursor.execute("""
-                    SELECT trade_date, open, close, high, low, volume, amount, pre_close, eob
-                    FROM stock_daily
-                    WHERE code = ? AND trade_date = ?
-                    LIMIT 1
-                """, (code, date_key))
-
-                row = cursor.fetchone()
-                if row:
-                    df = pd.DataFrame([row], columns=['trade_date', 'open', 'close', 'high', 'low', 'volume', 'amount', 'pre_close', 'eob'])
-                    return df
-        except Exception as e:
-            print(f"[StockCache] 从数据库读取单日数据失败: {e}")
-        return None
+        query = """
+            SELECT trade_date, open, close, high, low, volume, amount, pre_close, eob
+            FROM stock_daily
+            WHERE code = ? AND trade_date = ?
+            LIMIT 1
+        """
+        columns = ['trade_date', 'open', 'close', 'high', 'low', 'volume', 'amount', 'pre_close', 'eob']
+        result = self._read_from_db(query, (code, date_key), columns)
+        return result if result is not None and not result.empty else None
 
     def _save_daily_to_db(self, code: str, data: pd.DataFrame):
         """保存日线数据到数据库"""
@@ -341,13 +338,8 @@ class StockDataCache:
             with get_db_cursor() as cursor:
                 for _, row in data.iterrows():
                     # 处理 eob 字段，确保是字符串
-                    eob_value = row['eob']
-                    if hasattr(eob_value, 'strftime'):
-                        eob_str = eob_value.strftime('%Y-%m-%d %H:%M:%S')
-                        trade_date = eob_value.strftime('%Y-%m-%d')
-                    else:
-                        eob_str = str(eob_value)
-                        trade_date = eob_str[:10] if len(eob_str) >= 10 else ''
+                    eob_str = self._process_time_field(row['eob'])
+                    trade_date = eob_str[:10] if len(eob_str) >= 10 else ''
                     
                     cursor.execute("""
                         INSERT OR REPLACE INTO stock_daily
@@ -373,8 +365,6 @@ class StockDataCache:
 
     def get_minute_data(self, symbol: str, trade_date: datetime, start_time_str: str, end_time_str: str) -> Optional[pd.DataFrame]:
         """获取指定时间段的分钟数据（带缓存）"""
-        from common.stock_code_convert import to_pure_code
-
         date_key = trade_date.strftime('%Y-%m-%d')
 
         # 将symbol转换为纯数字code
@@ -404,22 +394,15 @@ class StockDataCache:
 
     def _read_minute_from_db(self, code: str, date_key: str, start_time_str: str, end_time_str: str) -> Optional[pd.DataFrame]:
         """从数据库读取分钟数据"""
-        try:
-            with get_db_cursor() as cursor:
-                cursor.execute("""
-                    SELECT eob, open, close, high, low, volume, amount
-                    FROM stock_minute
-                    WHERE code = ? AND trade_date = ? AND eob >= ? AND eob <= ?
-                    ORDER BY eob
-                """, (code, date_key, f"{date_key} {start_time_str}", f"{date_key} {end_time_str}"))
-
-                rows = cursor.fetchall()
-                if rows:
-                    df = pd.DataFrame(rows, columns=['eob', 'open', 'close', 'high', 'low', 'volume', 'amount'])
-                    return df
-        except Exception as e:
-            print(f"[StockCache] 从数据库读取分钟数据失败: {e}")
-        return None
+        query = """
+            SELECT eob, open, close, high, low, volume, amount
+            FROM stock_minute
+            WHERE code = ? AND trade_date = ? AND eob >= ? AND eob <= ?
+            ORDER BY eob
+        """
+        columns = ['eob', 'open', 'close', 'high', 'low', 'volume', 'amount']
+        params = (code, date_key, f"{date_key} {start_time_str}", f"{date_key} {end_time_str}")
+        return self._read_from_db(query, params, columns)
 
     def _save_minute_to_db(self, code: str, date_key: str, data: pd.DataFrame):
         """保存分钟数据到数据库"""
@@ -432,11 +415,7 @@ class StockDataCache:
             with get_db_cursor() as cursor:
                 for _, row in data.iterrows():
                     # 处理 eob 字段
-                    eob_value = row['eob']
-                    if hasattr(eob_value, 'strftime'):
-                        eob_str = eob_value.strftime('%Y-%m-%d %H:%M:%S')
-                    else:
-                        eob_str = str(eob_value)
+                    eob_str = self._process_time_field(row['eob'])
                     
                     cursor.execute("""
                         INSERT OR REPLACE INTO stock_minute
@@ -457,23 +436,39 @@ class StockDataCache:
         except Exception as e:
             print(f"[StockCache] 保存分钟数据失败: {e}")
 
+    def _is_date_in_recent_trade_dates(self, date_key: str, days: int = 6) -> bool:
+        """检查日期是否在最近N个交易日内"""
+        recent_trade_dates = trade_date_util.get_recent_trade_dates(days)
+        if recent_trade_dates:
+            if date_key not in recent_trade_dates:
+                print(f"[StockCache] 查询超出最近{days}个交易日范围: {date_key}，跳过查询")
+                return False
+        return True
+
+    def _is_auction_time(self, start_time_str: str, end_time_str: str) -> bool:
+        """检查是否是竞价相关的时间范围（9:25-9:31）"""
+        try:
+            start_time = datetime.strptime(start_time_str, '%H:%M:%S').time()
+            end_time = datetime.strptime(end_time_str, '%H:%M:%S').time()
+            if start_time <= datetime.strptime('09:25:00', '%H:%M:%S').time() and \
+               end_time >= datetime.strptime('09:31:00', '%H:%M:%S').time():
+                return True
+        except:
+            pass
+        return False
+
     def get_tick_data(self, symbol: str, trade_date: datetime, start_time_str: str, end_time_str: str) -> Optional[pd.DataFrame]:
         """
         获取指定时间段的tick数据
         限制：只允许查询包含今日在内的最近6个交易日
         """
-        from common.stock_code_convert import to_pure_code
-
         date_key = trade_date.strftime('%Y-%m-%d')
 
         # 将symbol转换为纯数字code
         pure_code = to_pure_code(symbol)
 
-        recent_6_trade_dates = trade_date_util.get_filtered_trade_dates(6)
-        if recent_6_trade_dates:
-            if date_key not in recent_6_trade_dates:
-                print(f"[StockCache] tick数据查询超出最近6个交易日范围: {date_key}，跳过查询")
-                return None
+        if not self._is_date_in_recent_trade_dates(date_key, 6):
+            return None
 
         # 从数据库读取
         cached_data = self._read_tick_from_db(pure_code, date_key, start_time_str, end_time_str)
@@ -491,15 +486,7 @@ class StockDataCache:
 
             if data is not None and not data.empty:
                 # 检查是否是竞价相关的时间范围（9:25-9:31）
-                is_auction_time = False
-                try:
-                    start_time = datetime.strptime(start_time_str, '%H:%M:%S').time()
-                    end_time = datetime.strptime(end_time_str, '%H:%M:%S').time()
-                    if start_time <= datetime.strptime('09:25:00', '%H:%M:%S').time() and \
-                       end_time >= datetime.strptime('09:31:00', '%H:%M:%S').time():
-                        is_auction_time = True
-                except:
-                    pass
+                is_auction_time = self._is_auction_time(start_time_str, end_time_str)
                 
                 if is_auction_time:
                     # 只保存9:30前后的两个快照
@@ -535,22 +522,15 @@ class StockDataCache:
 
     def _read_tick_from_db(self, code: str, date_key: str, start_time_str: str, end_time_str: str) -> Optional[pd.DataFrame]:
         """从数据库读取tick数据"""
-        try:
-            with get_db_cursor() as cursor:
-                cursor.execute("""
-                    SELECT created_at, price, volume, cum_amount, cum_volume
-                    FROM stock_tick
-                    WHERE code = ? AND trade_date = ? AND created_at >= ? AND created_at <= ?
-                    ORDER BY created_at
-                """, (code, date_key, f"{date_key} {start_time_str}", f"{date_key} {end_time_str}"))
-
-                rows = cursor.fetchall()
-                if rows:
-                    df = pd.DataFrame(rows, columns=['created_at', 'price', 'volume', 'cum_amount', 'cum_volume'])
-                    return df
-        except Exception as e:
-            print(f"[StockCache] 从数据库读取tick数据失败: {e}")
-        return None
+        query = """
+            SELECT created_at, price, volume, cum_amount, cum_volume
+            FROM stock_tick
+            WHERE code = ? AND trade_date = ? AND created_at >= ? AND created_at <= ?
+            ORDER BY created_at
+        """
+        columns = ['created_at', 'price', 'volume', 'cum_amount', 'cum_volume']
+        params = (code, date_key, f"{date_key} {start_time_str}", f"{date_key} {end_time_str}")
+        return self._read_from_db(query, params, columns)
 
     def _save_tick_to_db(self, code: str, date_key: str, data: pd.DataFrame):
         """保存tick数据到数据库"""
@@ -563,11 +543,7 @@ class StockDataCache:
             with get_db_cursor() as cursor:
                 for _, row in data.iterrows():
                     # 处理 created_at 字段
-                    created_at = row.get('created_at', '')
-                    if hasattr(created_at, 'strftime'):
-                        created_at_str = created_at.strftime('%Y-%m-%d %H:%M:%S')
-                    else:
-                        created_at_str = str(created_at)
+                    created_at_str = self._process_time_field(row.get('created_at', ''))
                     
                     # 处理 volume 字段，确保存在
                     volume = row.get('volume', 0)
@@ -608,8 +584,6 @@ class StockDataCache:
         - 早盘竞价金额：9:30前最后一个快照的累计成交额
         - 开盘成交额：9:30第一个快照的累计成交额
         """
-        from common.stock_code_convert import to_pure_code
-
         date_key = trade_date.strftime('%Y-%m-%d')
 
         # 将symbol转换为纯数字code

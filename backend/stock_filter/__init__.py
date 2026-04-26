@@ -29,6 +29,40 @@ class StockFilter:
         self.cache = get_stock_cache()
         self.trade_date_util = TradeDateUtil()
     
+    def _calculate_price_ratio(self, data: pd.DataFrame) -> float:
+        """计算股价相对于近期最高价的比例"""
+        high_prices = data['high'].dropna()
+        if len(high_prices) == 0:
+            return 0.0
+        recent_high = high_prices.max()
+        current_price = data.iloc[-1]['close']
+        if recent_high > 0:
+            return (current_price / recent_high) * 100
+        return 0.0
+
+    def _calculate_period_gain(self, data: pd.DataFrame) -> float:
+        """计算区间最大涨幅（首尾收盘价）"""
+        first_close = data.iloc[0]['close']
+        last_close = data.iloc[-1]['close']
+        if first_close > 0:
+            return ((last_close - first_close) / first_close) * 100
+        return 0.0
+
+    def _calculate_max_daily_gain(self, data: pd.DataFrame, day_max_gain_days: int) -> float:
+        """计算日内最大涨幅"""
+        max_daily_gain = 0.0
+        if len(data) >= 2:
+            for i in range(1, min(day_max_gain_days + 1, len(data))):
+                current_row = data.iloc[-i]
+                prev_row = data.iloc[-i - 1]
+                current_high = current_row['high']
+                prev_close = prev_row['close']
+                if prev_close > 0:
+                    day_gain = ((current_high - prev_close) / prev_close) * 100
+                    if day_gain > max_daily_gain:
+                        max_daily_gain = day_gain
+        return max_daily_gain
+
     def check_performance(self, symbol: str, trade_date: datetime, 
                         recent_interval_days: int = 10, 
                         recent_interval_max_gain: float = 15, 
@@ -66,43 +100,17 @@ class StockFilter:
                 data = data.tail(recent_interval_days)
                 
                 # 1. 计算股价相对于近期最高价的比例
-                high_prices = data['high'].dropna()
-                if len(high_prices) == 0:
-                    return False, 0, 0, 0
-                
-                recent_high = high_prices.max()
-                current_price = data.iloc[-1]['close']
-                
-                price_ratio = 0.0
-                if recent_high > 0:
-                    price_ratio = (current_price / recent_high) * 100
+                price_ratio = self._calculate_price_ratio(data)
                 
                 # 如果设置了股价比例阈值，检查是否满足
                 if price_to_high_ratio > 0 and price_ratio < price_to_high_ratio:
                     return False, 0, 0, round(price_ratio, 2)
                 
                 # 2. 计算区间最大涨幅（首尾收盘价）
-                first_close = data.iloc[0]['close']
-                last_close = data.iloc[-1]['close']
-                
-                period_gain = 0.0
-                if first_close > 0:
-                    period_gain = ((last_close - first_close) / first_close) * 100
+                period_gain = self._calculate_period_gain(data)
                 
                 # 3. 计算日内最大涨幅
-                max_daily_gain = 0.0
-                if len(data) >= 2:
-                    for i in range(1, min(day_max_gain_days + 1, len(data))):
-                        current_row = data.iloc[-i]
-                        prev_row = data.iloc[-i - 1]
-                        
-                        current_high = current_row['high']
-                        prev_close = prev_row['close']
-                        
-                        if prev_close > 0:
-                            day_gain = ((current_high - prev_close) / prev_close) * 100
-                            if day_gain > max_daily_gain:
-                                max_daily_gain = day_gain
+                max_daily_gain = self._calculate_max_daily_gain(data, day_max_gain_days)
                 
                 # 保留小数点后2位
                 period_gain = round(period_gain, 2)
