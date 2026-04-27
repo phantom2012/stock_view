@@ -255,12 +255,7 @@ const loadBlockList = async () => {
   try {
     const response = await axios.get('http://127.0.0.1:8000/get-block-list')
     blockList.value = response.data || []
-    
-    // 设置默认选中的板块
-    const defaultBlocks = blockList.value.filter(block => 
-      defaultBlockCodes.includes(block.code)
-    )
-    selectedBlocks.value = defaultBlocks
+    await loadFilterConfig()
   } catch (error) {
     console.error('加载板块列表失败:', error)
     ElMessage.error('加载板块列表失败')
@@ -361,14 +356,14 @@ const handleFilter = async () => {
   
   try {
     const blockCodes = selectedBlocks.value.map(b => b.code)
-    const response = await axios.get('http://127.0.0.1:8000/filter-stocks', {
+    const response = await axios.get('http://127.0.0.1:8000/refresh-filter-2-result', {
       params: {
         interval_days: filterForm.value.recentDays,
         interval_max_rise: filterForm.value.maxGain,
         recent_days: filterForm.value.dailyGainDays,
         recent_max_day_rise: filterForm.value.dailyGainThreshold,
         prev_high_price_rate: filterForm.value.priceRatio,
-        block_codes: blockCodes.join(','),
+        select_blocks: blockCodes.join(','),
         only_main_board: filterForm.value.onlyMainBoard
       }
     })
@@ -579,10 +574,34 @@ onMounted(() => {
   loadFilterStocks()
 })
 
+// 从数据库加载筛选配置(type=2)
+const loadFilterConfig = async () => {
+  try {
+    const response = await axios.get('http://127.0.0.1:8000/get-filter-config', {
+      params: { config_type: 2 }
+    })
+    if (response.data) {
+      filterForm.value.recentDays = response.data.interval_days
+      filterForm.value.maxGain = response.data.interval_max_rise
+      filterForm.value.dailyGainDays = response.data.recent_days
+      filterForm.value.dailyGainThreshold = response.data.recent_max_day_rise
+      filterForm.value.priceRatio = response.data.prev_high_price_rate
+
+      if (response.data.select_blocks) {
+        const blockCodes = response.data.select_blocks.split(',')
+        const blocks = blockList.value.filter(block => blockCodes.includes(block.code))
+        selectedBlocks.value = blocks
+      }
+    }
+  } catch (error) {
+    console.error('加载筛选配置失败:', error)
+  }
+}
+
 // 从数据库加载筛选结果(type=2)
 const loadFilterStocks = async () => {
   try {
-    const response = await axios.get('http://127.0.0.1:8000/get-filter-stocks')
+    const response = await axios.get('http://127.0.0.1:8000/get-filter-2-result')
     if (response.data && response.data.length > 0) {
       filteredStocks.value = response.data
       // 按区间涨幅倒序排列

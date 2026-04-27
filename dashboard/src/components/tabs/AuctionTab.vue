@@ -1,6 +1,55 @@
 <template>
   <div>
     <div style="background-color: white; border: 1px solid #e0e0e0;" class="rounded-lg p-4 mb-6 shadow-lg">
+      <!-- 筛选条件区域 -->
+      <div class="filter-form mb-4">
+        <el-form :inline="true" :model="filterForm" class="demo-form-inline">
+          <!-- 第一行：筛选条件 -->
+          <el-form-item>
+            <span class="mr-2">最近</span>
+            <el-input 
+              v-model.number="filterForm.recentDays" 
+              placeholder="天数"
+              style="width: 50px;"
+              @input="handleDaysInput"
+            />
+            <span class="mx-2">日内最大涨幅</span>
+            <el-input 
+              v-model.number="filterForm.maxGain" 
+              placeholder="百分比"
+              style="width: 50px;"
+              @input="handleGainInput"
+            />
+            <span class="ml-1 mr-4">%</span>
+            
+            <span class="mr-2">最近</span>
+            <el-input 
+              v-model.number="filterForm.dailyGainDays" 
+              placeholder="天数"
+              style="width: 40px;"
+              @input="handleDailyGainDaysInput"
+            />
+            <span class="mx-2">日单日最大涨幅></span>
+            <el-input 
+              v-model.number="filterForm.dailyGainThreshold" 
+              placeholder="百分比"
+              style="width: 40px;"
+              @input="handleDailyGainThresholdInput"
+            />
+            <span class="ml-1 mr-4">%</span>
+            
+            <span class="mr-2">股价不低于近期高点</span>
+            <el-input 
+              v-model.number="filterForm.priceRatio" 
+              placeholder="百分比"
+              style="width: 100px;"
+              @input="handleRatioInput"
+            />
+            <span class="ml-1 mr-4">%</span>
+          </el-form-item>
+        </el-form>
+      </div>
+      
       <!-- 第一行：日期选择和复选框 -->
       <div style="display: flex; align-items: center; gap: 24px; flex-wrap: nowrap; width: 100%; margin-bottom: 16px;">
         <!-- 日期选择器 -->
@@ -19,9 +68,12 @@
         </div>
 
         <!-- 复选框 -->
-        <el-checkbox v-model="filters.weipan_exceed" class="!text-gray-800">尾盘超预期</el-checkbox>
         <el-checkbox v-model="filters.zaopan_exceed" class="!text-gray-800">早盘超预期</el-checkbox>
+        <el-checkbox v-model="filters.weipan_exceed" class="!text-gray-800">尾盘超预期</el-checkbox>
         <el-checkbox v-model="filters.rising_wave" class="!text-gray-800">上升形态</el-checkbox>
+        
+        <!-- 仅筛选主板 -->
+        <el-checkbox v-model="filterForm.onlyMainBoard" class="!text-gray-800">仅筛选主板</el-checkbox>
       </div>
       
       <!-- 第二行：板块选择和刷新按钮 -->
@@ -133,7 +185,7 @@
         </el-table-column>
         <el-table-column label="开盘量比" width="80">
           <template #default="scope">
-            {{ scope.row.open_volume_ratio || '-' }}
+            {{ scope.row.auction_volume_ratio || '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="interval_max_rise" label="最大涨幅" width="80" />
@@ -177,6 +229,16 @@ const filters = ref({
   'rising_wave': true  // 默认勾选上升形态
 })
 
+// 筛选表单
+const filterForm = ref({
+  recentDays: 50,
+  maxGain: 30,
+  dailyGainDays: 5,
+  dailyGainThreshold: 7,
+  priceRatio: 80,
+  onlyMainBoard: true  // 默认勾选仅筛选主板
+})
+
 // 使用板块选择 composable
 const { 
   blockList, 
@@ -188,15 +250,112 @@ const {
   removeBlock
 } = useBlockSelection()
 
-// 设置默认板块代码
-setDefaultBlockCodes(['880656', '880670', '880550', '880672', '880669']) // CPO概念, 光通信, PCB概念, 存储芯片，算力租赁
+// 从数据库加载筛选配置(type=1)
+const loadFilterConfig = async () => {
+  try {
+    const response = await axios.get('http://127.0.0.1:8000/get-filter-config', {
+      params: { config_type: 1 }
+    })
+    if (response.data) {
+      filterForm.value.recentDays = response.data.interval_days
+      filterForm.value.maxGain = response.data.interval_max_rise
+      filterForm.value.dailyGainDays = response.data.recent_days
+      filterForm.value.dailyGainThreshold = response.data.recent_max_day_rise
+      filterForm.value.priceRatio = response.data.prev_high_price_rate
+
+      if (response.data.select_blocks) {
+        const blockCodes = response.data.select_blocks.split(',')
+        const blocks = blockList.value.filter(block => blockCodes.includes(block.code))
+        selectedBlocks.value = blocks
+      }
+    }
+  } catch (error) {
+    console.error('加载筛选配置失败:', error)
+  }
+}
 
 const handleDateChange = (date) => {
   selectedDate.value = date
 }
 
+// 处理天数输入，限制为1-365的数字
+const handleDaysInput = (value) => {
+  const numValue = parseInt(value)
+  if (isNaN(numValue)) {
+    filterForm.value.recentDays = ''
+    return
+  }
+  
+  if (numValue < 1) {
+    filterForm.value.recentDays = 1
+  } else if (numValue > 365) {
+    filterForm.value.recentDays = 365
+  }
+}
+
+// 处理涨幅输入，不限制上限
+const handleGainInput = (value) => {
+  const numValue = parseFloat(value)
+  if (isNaN(numValue)) {
+    filterForm.value.maxGain = ''
+    return
+  }
+  
+  if (numValue < 0) {
+    filterForm.value.maxGain = 0
+  }
+}
+
+// 处理高点比例输入，限制为0-100的数字
+const handleRatioInput = (value) => {
+  const numValue = parseFloat(value)
+  if (isNaN(numValue)) {
+    filterForm.value.priceRatio = ''
+    return
+  }
+  
+  if (numValue < 0) {
+    filterForm.value.priceRatio = 0
+  } else if (numValue > 100) {
+    filterForm.value.priceRatio = 100
+  }
+}
+
+// 处理日内最大涨幅阈值输入，不限制上限
+const handleDailyGainThresholdInput = (value) => {
+  const numValue = parseFloat(value)
+  if (isNaN(numValue)) {
+    filterForm.value.dailyGainThreshold = ''
+    return
+  }
+  
+  if (numValue < 0) {
+    filterForm.value.dailyGainThreshold = 0
+  }
+}
+
+// 处理日内最大涨幅天数输入，限制为1-30的数字
+const handleDailyGainDaysInput = (value) => {
+  const numValue = parseInt(value)
+  if (isNaN(numValue)) {
+    filterForm.value.dailyGainDays = ''
+    return
+  }
+  
+  if (numValue < 1) {
+    filterForm.value.dailyGainDays = 1
+  } else if (numValue > 30) {
+    filterForm.value.dailyGainDays = 30
+  }
+}
+
 // 加载板块列表（由composable提供）
-// 已在 onMounted 中调用 loadBlockList()
+// 重写loadBlockList，加载完成后获取筛选配置
+const originalLoadBlockList = loadBlockList
+const loadBlockListWithConfig = async () => {
+  await originalLoadBlockList()
+  await loadFilterConfig()
+}
 
 // 处理板块选择（由composable提供）
 // 已在模板中调用 handleBlockSelect
@@ -217,9 +376,17 @@ const runStrategy = async () => {
     // 添加板块筛选参数
     if (selectedBlocks.value.length > 0) {
       const blockCodes = selectedBlocks.value.map(b => b.code).join(',')
-      params.append('block_codes', blockCodes)
+      params.append('select_blocks', blockCodes)
     }
-    await axios.get(`${API_BASE_URL}/run-strategy?${params.toString()}`)
+    // 添加筛选条件参数
+    params.append('interval_days', filterForm.value.recentDays)
+    params.append('interval_max_rise', filterForm.value.maxGain)
+    params.append('recent_days', filterForm.value.dailyGainDays)
+    params.append('recent_max_day_rise', filterForm.value.dailyGainThreshold)
+    params.append('prev_high_price_rate', filterForm.value.priceRatio)
+    params.append('only_main_board', filterForm.value.onlyMainBoard ? '1' : '0')
+    
+    await axios.get(`${API_BASE_URL}/refresh-exceed-list?${params.toString()}`)
     await getData()
     lastUpdate.value = new Date().toLocaleString()
   } finally {
@@ -228,7 +395,7 @@ const runStrategy = async () => {
 }
 
 const getData = async () => {
-  const res = await axios.get(`${API_BASE_URL}/get-data`)
+  const res = await axios.get(`${API_BASE_URL}/get-exceed-list`)
   let data = res.data || []
   data.sort((a, b) => {
     const scoreA = parseFloat(a.higher_score) || 0
@@ -259,7 +426,7 @@ const handleRowClick = (row, column, event) => {
 }
 
 onMounted(async () => {
-  await loadBlockList()  // 加载板块列表
+  await loadBlockListWithConfig()  // 加载板块列表和筛选配置
   await getData()
 })
 </script>

@@ -2,9 +2,10 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 
+from models import StockResult, FilterResult, get_db
+from models.filter_params import FilterParams
 from stock_cache import get_stock_cache
 from stock_filter import get_stock_filter
-from stock_sqlite.database import get_db_connection, get_db_cursor
 from common.block_stock_util import get_stocks_by_blocks
 from common.stock_code_convert import to_goldminer_symbol, to_pure_code
 from baostock_data.trade_date_util import TradeDateUtil
@@ -26,18 +27,14 @@ class StrategyService:
 
     def run_strategy(
         self,
-        trade_date: Optional[str] = None,
-        weipan_exceed: int = 0,
-        zaopan_exceed: int = 0,
-        rising_wave: int = 0,
-        block_codes: Optional[List[str]] = None
+        params: FilterParams
     ) -> Dict[str, Any]:
         try:
-            logger.info(f"Starting strategy execution: trade_date={trade_date}, weipan={weipan_exceed}, zaopan={zaopan_exceed}, rising={rising_wave}, block_codes={block_codes}")
+            logger.info(f"Starting strategy execution: {params.model_dump()}")
 
-            target_date = self._parse_trade_date(trade_date)
+            target_date = self._parse_trade_date(params.trade_date)
 
-            selected_block_codes = self._parse_block_codes(block_codes)
+            selected_block_codes = self._parse_block_codes(params.select_blocks)
 
             stocks_to_filter = get_stocks_by_blocks(selected_block_codes)
 
@@ -49,6 +46,12 @@ class StrategyService:
             if not stocks_to_filter:
                 return {"status": "error", "msg": "未从数据库加载到股票数据"}
 
+            # 主板过滤
+            if params.only_main_board:
+                main_board_stocks = [code for code in stocks_to_filter if stock_filter.check_is_main_board(code)]
+                logger.info(f"主板过滤：从 {len(stocks_to_filter)} 只股票中筛选出 {len(main_board_stocks)} 只主板股票")
+                stocks_to_filter = main_board_stocks
+
             stock_symbols = [to_goldminer_symbol(code) for code in stocks_to_filter]
 
             logger.info(f"准备筛选 {len(stock_symbols)} 只股票")
@@ -57,11 +60,11 @@ class StrategyService:
                 return {"status": "error", "msg": "未加载到股票数据"}
 
             config = {
-                'interval_days': 40,
-                'interval_max_rise': 40,
-                'recent_days': 10,
-                'recent_max_day_rise': 7,
-                'prev_high_price_rate': 80,
+                'interval_days': params.interval_days,
+                'interval_max_rise': params.interval_max_rise,
+                'recent_days': params.recent_days,
+                'recent_max_day_rise': params.recent_max_day_rise,
+                'prev_high_price_rate': params.prev_high_price_rate,
             }
 
             logger.info(f"Filtering {len(stock_symbols)} stocks...")
@@ -73,9 +76,9 @@ class StrategyService:
             results = stock_filter.filter_stocks(
                 symbols=stock_symbols,
                 trade_date=target_date,
-                weipan_exceed=weipan_exceed,
-                zaopan_exceed=zaopan_exceed,
-                rising_wave=rising_wave,
+                weipan_exceed=params.weipan_exceed,
+                zaopan_exceed=params.zaopan_exceed,
+                rising_wave=params.rising_wave,
                 config=config
             )
 
@@ -114,55 +117,67 @@ class StrategyService:
                 return list(block_codes)
         return None
 
-    def _save_results_to_db(self, results: List[Dict[str, Any]]):
+    def _save_results_to_db(self, results: List[Any]):
         save_start = datetime.now()
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        db = next(get_db())
         try:
-            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-            cursor.execute("DELETE FROM filter_results WHERE type = 1")
+            # 删除旧数据
+            db.query(FilterResult).filter(FilterResult.type == 1).delete()
 
             insert_count = 0
             for stock in results:
-                # 提取字段值
-                symbol = stock.get('symbol', '')
-                code = symbol.split('.')[-1] if '.' in symbol else symbol
-                stock_name = stock.get('stock_name', '')
-                pre_avg_price = stock.get('pre_avg_price', 0)
-                pre_close_price = stock.get('pre_close_price', 0)
-                pre_price_gain = stock.get('pre_price_gain', 0)
-                auction_start_price = stock.get('auction_start_price', 0)
-                auction_end_price = stock.get('auction_end_price', 0)
-                price_diff = stock.get('price_diff', 0)
-                volume_ratio = stock.get('volume_ratio', 0)
-                interval_max_rise = stock.get('interval_max_rise', 0)
-                max_day_rise = stock.get('max_day_rise', 0)
-                today_gain = stock.get('today_gain', 0)
-                next_day_gain = stock.get('next_day_gain', 0)
-                trade_date = stock.get('trade_date', '')
-                higher_score = stock.get('higher_score', 0)
-                rising_wave_score = stock.get('rising_wave_score', 0)
-                weipan_exceed = stock.get('weipan_exceed', 0)
-                zaopan_exceed = stock.get('zaopan_exceed', 0)
-                rising_wave = stock.get('rising_wave', 0)
-
-                cursor.execute(
-                    "INSERT OR REPLACE INTO filter_results (type, symbol, code, stock_name, pre_avg_price, pre_close_price, pre_price_gain, auction_start_price, auction_end_price, price_diff, volume_ratio, interval_max_rise, max_day_rise, today_gain, next_day_gain, trade_date, higher_score, rising_wave_score, weipan_exceed, zaopan_exceed, rising_wave, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (1, symbol, code, stock_name, pre_avg_price, pre_close_price, pre_price_gain, auction_start_price, auction_end_price, price_diff, volume_ratio, interval_max_rise, max_day_rise, today_gain, next_day_gain, trade_date, higher_score, rising_wave_score, weipan_exceed, zaopan_exceed, rising_wave, current_time)
+                # 使用Pydantic模型自动解析数据
+                if hasattr(stock, 'to_dict'):
+                    # 如果是StockFilterResult对象，先转换为字典
+                    stock_data = stock.to_dict()
+                else:
+                    # 直接使用字典
+                    stock_data = stock
+                
+                # 使用Pydantic模型自动解析字典，处理类型转换和默认值
+                stock_obj = StockResult.parse_obj(stock_data)
+                
+                # 创建FilterResult ORM对象
+                filter_result = FilterResult(
+                    type=1,
+                    symbol=stock_obj.symbol,
+                    code=stock_obj.code,
+                    stock_name=stock_obj.stock_name,
+                    pre_avg_price=stock_obj.pre_avg_price,
+                    pre_close_price=stock_obj.pre_close_price,
+                    pre_price_gain=stock_obj.pre_price_gain,
+                    open_price=stock_obj.open_price,
+                    close_price=stock_obj.close_price,
+                    next_close_price=stock_obj.next_close_price,
+                    auction_start_price=stock_obj.auction_start_price,
+                    auction_end_price=stock_obj.auction_end_price,
+                    price_diff=stock_obj.price_diff,
+                    volume_ratio=stock_obj.volume_ratio,
+                    interval_max_rise=stock_obj.interval_max_rise,
+                    max_day_rise=stock_obj.max_day_rise,
+                    trade_date=stock_obj.trade_date,
+                    higher_score=stock_obj.higher_score,
+                    rising_wave_score=stock_obj.rising_wave_score,
+                    weipan_exceed=stock_obj.weipan_exceed,
+                    zaopan_exceed=stock_obj.zaopan_exceed,
+                    rising_wave=stock_obj.rising_wave,
+                    update_time=datetime.now()
                 )
+                
+                # 添加到数据库会话
+                db.add(filter_result)
                 insert_count += 1
 
-            conn.commit()
+            # 提交事务
+            db.commit()
             save_end = datetime.now()
             save_duration = (save_end - save_start).total_seconds()
             logger.info(f"Results saved to database ({insert_count} records), elapsed time: {save_duration:.3f} seconds")
         except Exception as e:
-            conn.rollback()
+            db.rollback()
             logger.error(f"Error saving results to database: {str(e)}")
         finally:
-            cursor.close()
-            conn.close()
+            db.close()
 
 
 _strategy_service: Optional[StrategyService] = None

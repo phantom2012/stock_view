@@ -3,7 +3,7 @@ import pandas as pd
 import logging
 from datetime import datetime
 from typing import List, Dict, Any
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -11,7 +11,8 @@ from stock_cache import get_stock_cache
 from services.strategy_service import get_strategy_service
 from services.stock_filter_service import get_stock_filter_service
 from services.auction_data_service import get_auction_data_service
-from stock_sqlite.database import get_db_connection, get_db_cursor
+from models.filter_params import FilterParams
+from stock_sqlite.database import get_db_cursor
 from common.stock_code_convert import to_goldminer_symbol
 from gm.api import get_instruments
 
@@ -56,23 +57,35 @@ except Exception as e:
     logger.error(f"Error starting scheduler: {str(e)}")
 
 # 筛选超预期策略股票
-@app.get("/run-strategy")
-def api_run_strategy(trade_date: str = None, weipan_exceed: int = 0, zaopan_exceed: int = 0, rising_wave: int = 0, block_codes: str = None):
-    logger.info(f"API run-strategy called with trade_date={trade_date}, weipan_exceed={weipan_exceed}, zaopan_exceed={zaopan_exceed}, rising_wave={rising_wave}, block_codes={block_codes}")
-    return strategy_service.run_strategy(trade_date, weipan_exceed, zaopan_exceed, rising_wave, block_codes)
+@app.get("/refresh-exceed-list")
+def api_refresh_exceed_list(params: FilterParams = Depends()):
+    logger.info(f"API refresh-exceed-list called with {params.model_dump()}")
+    
+    # 保存筛选配置到filter_config表 (type=1)
+    stock_filter_service.update_filter_config(
+        config_type=1,
+        interval_days=params.interval_days,
+        interval_max_rise=params.interval_max_rise,
+        recent_days=params.recent_days,
+        recent_max_day_rise=params.recent_max_day_rise,
+        prev_high_price_rate=params.prev_high_price_rate,
+        block_codes=params.select_blocks or ""
+    )
+    
+    return strategy_service.run_strategy(params)
 
 
-@app.get("/get-data")
-def get_data():
-    logger.info("API get-data called")
+@app.get("/get-exceed-list")
+def get_exceed_list():
+    logger.info("API get-exceed-list called")
 
     try:
         with get_db_cursor() as cursor:
             cursor.execute("""
-                SELECT fr.symbol, fr.code, fr.stock_name, fr.pre_avg_price, fr.pre_close_price, fr.pre_price_gain, fr.auction_start_price, fr.auction_end_price,
-                       fr.price_diff, fr.interval_max_rise, fr.max_day_rise, fr.today_gain, fr.next_day_gain,
-                       fr.trade_date, fr.higher_score, fr.rising_wave_score,
-                       COALESCE(sa.volume_ratio, 0) as volume_ratio
+                SELECT fr.symbol, fr.code, fr.stock_name, fr.pre_avg_price, fr.pre_close_price, fr.pre_price_gain, fr.open_price, fr.close_price, fr.next_close_price,
+                       fr.auction_start_price, fr.auction_end_price, fr.price_diff, fr.interval_max_rise, fr.max_day_rise,
+                       fr.trade_date, fr.higher_score, fr.rising_wave_score, fr.volume_ratio,
+                       COALESCE(sa.volume_ratio, 0) as auction_volume_ratio
                 FROM filter_results fr
                 LEFT JOIN stock_auction sa ON fr.code = sa.code AND fr.trade_date = sa.trade_date
                 WHERE fr.type = 1
@@ -85,40 +98,41 @@ def get_data():
                 symbol = row[0]
                 code = row[1]
                 stock_name = row[2]
-                pre_avg_price = row[3]
-                pre_close_price = row[4]
+                pre_avg_price = row[3] or 0
+                pre_close_price = row[4] or 0
                 pre_price_gain = round(row[5], 2) if row[5] else 0
-                auction_start_price = row[6]
-                auction_end_price = row[7]
-                price_diff = row[8]
-                interval_max_rise = row[9]
-                max_day_rise = row[10]
-                today_gain = row[11]
-                next_day_gain = row[12]
-                trade_date = row[13]
-                higher_score = row[14]
-                rising_wave_score = row[15]
-                volume_ratio = round(row[16], 2) if row[16] else 0
+                open_price = row[6] or 0
+                close_price = row[7] or 0
+                next_close_price = row[8] or 0
+                auction_start_price = row[9] or 0
+                auction_end_price = row[10] or 0
+                price_diff = row[11] or 0
+                interval_max_rise = row[12] or 0
+                max_day_rise = row[13] or 0
+                trade_date = row[14]
+                higher_score = row[15] or 0
+                rising_wave_score = row[16] or 0
+                volume_ratio = round(row[17], 2) if row[17] else 0
+                auction_volume_ratio = round(row[18], 2) if row[18] else 0
+                
+                # 计算今日涨幅和次日涨幅
+                today_gain = 0
+                if pre_close_price > 0 and close_price > 0:
+                    today_gain = round((close_price - pre_close_price) / pre_close_price * 100, 2)
+                
+                next_day_gain = 0
+                if close_price > 0 and next_close_price > 0:
+                    next_day_gain = round((next_close_price - close_price) / close_price * 100, 2)
                 
                 # 计算昨乖离率
                 yesterday_bias = 0
                 if pre_avg_price > 0:
                     yesterday_bias = round((pre_close_price - pre_avg_price) / pre_avg_price * 100, 2)
                 
-                # 计算今开盘价和开盘涨幅
-                today_open = 0
+                # 计算开盘涨幅
                 open_gain = 0
-                try:
-                    # 获取指定交易日的数据
-                    trade_date_obj = datetime.strptime(trade_date, '%Y-%m-%d')
-                    data = stock_cache.get_stock_day_data(symbol, trade_date_obj)
-                    if data is not None and not data.empty:
-                        today_open = data.iloc[-1].get('open', 0)
-                        # 开盘涨幅 = (今开盘价 - 昨收盘价) / 昨收盘价 * 100
-                        if pre_close_price > 0:
-                            open_gain = round((today_open - pre_close_price) / pre_close_price * 100, 2)
-                except Exception as e:
-                    logger.error(f"Error calculating open price for {symbol}: {e}")
+                if pre_close_price > 0 and open_price > 0:
+                    open_gain = round((open_price - pre_close_price) / pre_close_price * 100, 2)
                 
                 results.append({
                     'symbol': symbol,
@@ -139,12 +153,15 @@ def get_data():
                     'yesterday_close': pre_close_price,
                     'yesterday_bias': yesterday_bias,
                     'yesterday_gain': pre_price_gain,
-                    'today_open': today_open,
+                    'today_open': open_price,
+                    'today_close': close_price,
+                    'next_close': next_close_price,
                     'open_gain': open_gain,
-                    'open_volume_ratio': volume_ratio
+                    'volume_ratio': volume_ratio,
+                    'auction_volume_ratio': auction_volume_ratio
                 })
 
-            logger.info(f"Returning {len(results)} rows from database")
+            logger.info(f"Returning {len(results)} rows from get-exceed-list")
             return results
     except Exception as e:
         logger.error(f"Error reading from database: {str(e)}")
@@ -330,10 +347,10 @@ def get_stock_history(code: str, days: int = 10):
         return []
 
 
-@app.get("/filter-stocks")
-def filter_stocks(interval_days: int = 10, interval_max_rise: float = 20, recent_days: int = 5, recent_max_day_rise: float = 7, prev_high_price_rate: float = 90, block_codes: str = "", only_main_board: bool = False):
-    logger.info(f"API filter-stocks called with interval_days={interval_days}, interval_max_rise={interval_max_rise}, recent_days={recent_days}, recent_max_day_rise={recent_max_day_rise}, prev_high_price_rate={prev_high_price_rate}, block_codes={block_codes}, only_main_board={only_main_board}")
-    return stock_filter_service.filter_stocks(interval_days, interval_max_rise, recent_days, recent_max_day_rise, prev_high_price_rate, block_codes, only_main_board)
+@app.get("/refresh-filter-2-result")
+def refresh_filter_2_result(params: FilterParams = Depends()):
+    logger.info(f"API refresh-filter-2-result called with {params.model_dump()}")
+    return stock_filter_service.filter_stocks(params)
 
 
 @app.post("/load-auction-data")
@@ -348,9 +365,9 @@ def save_filter_stocks(stocks: List[Dict[str, Any]]):
     return auction_data_service.save_filter_stocks(stocks)
 
 
-@app.get("/get-filter-stocks")
-def get_filter_stocks():
-    logger.info("API get-filter-stocks called")
+@app.get("/get-filter-2-result")
+def get_filter_2_result():
+    logger.info("API get-filter-2-result called")
 
     try:
         with get_db_cursor() as cursor:
@@ -371,10 +388,10 @@ def get_filter_stocks():
                     'max_day_rise': row[3]
                 })
 
-            logger.info(f"Returning {len(results)} filter stocks from database (type=2)")
+            logger.info(f"Returning {len(results)} filter 2 results from database (type=2)")
             return results
     except Exception as e:
-        logger.error(f"Error reading filter stocks from database: {str(e)}")
+        logger.error(f"Error reading filter 2 results from database: {str(e)}")
         return []
 
 
@@ -401,6 +418,35 @@ def get_block_list():
         import traceback
         traceback.print_exc()
         return []
+
+
+@app.get("/get-filter-config")
+def get_filter_config(config_type: int = 2):
+    logger.info(f"API get-filter-config called with config_type={config_type}")
+
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT interval_days, interval_max_rise, recent_days, recent_max_day_rise, 
+                       prev_high_price_rate, select_blocks
+                FROM filter_config
+                WHERE type = ?
+            """, (config_type,))
+            row = cursor.fetchone()
+
+            if row:
+                return {
+                    'interval_days': row[0],
+                    'interval_max_rise': row[1],
+                    'recent_days': row[2],
+                    'recent_max_day_rise': row[3],
+                    'prev_high_price_rate': row[4],
+                    'select_blocks': row[5]
+                }
+            return None
+    except Exception as e:
+        logger.error(f"Error reading filter config: {str(e)}")
+        return None
 
 
 if __name__ == "__main__":

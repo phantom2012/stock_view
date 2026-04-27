@@ -131,20 +131,17 @@ def init_database():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         code TEXT NOT NULL,               -- 股票代码(纯数字)
         trade_date TEXT NOT NULL,         -- 交易日期(YYYY-MM-DD)
-        price REAL,                       -- 竞价价格(早盘竞价成交价)
-        amount REAL,                      -- 竞价成交额(元)
-        volume INTEGER,                   -- 竞价成交量(股数)
+        open_price REAL,                  -- 早盘竞价价格(早盘竞价成交价)
+        open_amount REAL,                 -- 早盘竞价成交额(元)
+        open_volume INTEGER,              -- 早盘竞价成交量(股数)
         pre_close REAL,                   -- 前收盘价
         turn_over_rate REAL,              -- 换手率(%)
         volume_ratio REAL,                -- 量比
         float_share REAL,                 -- 流通股本(万股)
-        auction_price REAL,               -- 早盘竞价价格(=price)
-        auction_amount REAL,              -- 早盘竞价成交额(=amount)
-        open_price REAL,                  -- 开盘价(=price)
-        open_amount REAL,                 -- 开盘成交额(=amount)
         tail_57_price REAL,               -- 尾盘(14:57)竞价价格
-        close_price REAL,                 -- 收盘价
         tail_amount REAL,                 -- 尾盘竞价金额
+        tail_volume INTEGER,              -- 尾盘竞价成交量(股数)
+        close_price REAL,                 -- 收盘价
         avg_5d_price REAL,                -- 5日均价
         avg_10d_price REAL,               -- 10日均价
         update_time TEXT,                 -- 更新时间
@@ -190,22 +187,22 @@ def init_database():
     # 筛选结果表（存储超预期选股结果）
     cursor.execute("""
     CREATE TABLE filter_results (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
         type INTEGER NOT NULL DEFAULT 1,      -- 筛选类型：1=竞价超预期选股
-        symbol TEXT NOT NULL,               -- 股票代码(如: SHSE.600666)
         code TEXT NOT NULL,                 -- 纯数字代码(如: 600666)
+        symbol TEXT NOT NULL,               -- 股票代码(如: SHSE.600666)
         stock_name TEXT,                    -- 股票名称
         pre_avg_price REAL,                 -- 昨均价
         pre_close_price REAL,               -- 昨收盘价
         pre_price_gain REAL,                -- 昨涨幅
+        open_price REAL,                    -- 今开盘价
+        close_price REAL,                   -- 今收盘价
+        next_close_price REAL,              -- 次日收盘价
         auction_start_price REAL,           -- 竞价开始价
         auction_end_price REAL,             -- 竞价结束价
         price_diff REAL,                    -- 价格差异
         volume_ratio REAL,                  -- 量比
-        interval_max_rise REAL,            -- 区间最大涨幅
-        max_day_rise REAL,                -- 日内最大涨幅
-        today_gain REAL,                  -- 当日涨幅 今日涨幅
-        next_day_gain REAL,                 -- 次日涨幅
+        interval_max_rise REAL,             -- 区间最大涨幅
+        max_day_rise REAL,                  -- 日内最大涨幅
         trade_date TEXT,                    -- 交易日期
         higher_score REAL,                  -- 超预期得分
         rising_wave_score INTEGER,          -- 升浪形态得分
@@ -231,6 +228,7 @@ def init_database():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS filter_config (
         type INTEGER PRIMARY KEY,             -- 筛选配置类型: type=1为超预期tab页面筛选
+        select_blocks TEXT,                   -- 选中的板块代码(逗号分隔)
         interval_days INTEGER,                -- 最大涨跌区间天数
         interval_max_rise REAL,               -- 区间最大涨幅
         recent_days INTEGER,                  -- 最近最大涨幅天数

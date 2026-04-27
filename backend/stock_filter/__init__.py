@@ -12,6 +12,9 @@ import pandas as pd
 # 导入掘金 API
 from gm.api import get_instruments
 
+# 导入数据模型
+from models import StockFilterResult, StockPerformance
+
 # 导入后端缓存
 from stock_cache import get_stock_cache
 # 导入交易日工具
@@ -68,7 +71,7 @@ class StockFilter:
                         interval_max_rise: float = 15,
                         recent_days: int = 6,
                         recent_max_day_rise: float = 8,
-                        prev_high_price_rate: float = 0.0) -> Tuple[bool, float, float, float]:
+                        prev_high_price_rate: float = 0.0) -> StockPerformance:
         """
         检查股票近N个交易日的表现
 
@@ -82,7 +85,7 @@ class StockFilter:
             prev_high_price_rate: 当前股价不低于近期最高价的百分比（如90表示不低于90%）
 
         Returns:
-            Tuple[是否符合条件, 区间最大涨幅, 单日最大涨幅, 股价相对近期高点比例]
+            StockPerformance对象
         """
         # 打印所有入参数值
         print(f"[StockFilter.check_performance] symbol={symbol}, trade_date={trade_date}, "
@@ -104,7 +107,7 @@ class StockFilter:
 
                 # 如果设置了股价比例阈值，检查是否满足
                 if prev_high_price_rate > 0 and price_ratio < prev_high_price_rate:
-                    return False, 0, 0, round(price_ratio, 2)
+                    return StockPerformance(is_pass=False, interval_max_rise=0, max_day_rise=0, prev_high_price_rate=round(price_ratio, 2))
 
                 # 2. 计算区间最大涨幅（首尾收盘价）
                 interval_max_rise_value = self._calculate_period_gain(data)
@@ -118,15 +121,13 @@ class StockFilter:
                 price_ratio = round(price_ratio, 2)
 
                 # 检查条件：区间涨幅和日内涨幅都需要大于阈值
-                if abs(interval_max_rise_value) >= interval_max_rise and max_day_rise >= recent_max_day_rise:
-                    return True, interval_max_rise_value, max_day_rise, price_ratio
+                is_pass = abs(interval_max_rise_value) >= interval_max_rise and max_day_rise >= recent_max_day_rise
+                return StockPerformance(is_pass=is_pass, interval_max_rise=interval_max_rise_value, max_day_rise=max_day_rise, prev_high_price_rate=price_ratio)
 
-                return False, interval_max_rise_value, max_day_rise, price_ratio
-
-            return False, 0, 0, 0
+            return StockPerformance(is_pass=False, interval_max_rise=0, max_day_rise=0, prev_high_price_rate=0)
         except Exception as e:
             print(f"[StockFilter] Error checking performance for {symbol}: {e}")
-            return False, 0, 0, 0
+            return StockPerformance(is_pass=False, interval_max_rise=0, max_day_rise=0, prev_high_price_rate=0)
     
     def calculate_rising_wave_score(self, symbol: str, trade_date: datetime,
                                    recent_days: int = 10) -> int:
@@ -395,7 +396,7 @@ class StockFilter:
                      weipan_exceed: int = 0, 
                      zaopan_exceed: int = 0, 
                      rising_wave: int = 0, 
-                     config: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+                     config: Optional[Dict[str, Any]] = None) -> List[StockFilterResult]:
         """
         综合筛选股票
         
@@ -426,7 +427,7 @@ class StockFilter:
                 continue
             
             # 检查性能条件
-            performance_ok, interval_max_rise_value, max_day_rise, prev_high_price_rate_value = self.check_performance(
+            performance = self.check_performance(
                 symbol, trade_date,
                 config['interval_days'],
                 config['interval_max_rise'],
@@ -435,7 +436,7 @@ class StockFilter:
                 config.get('prev_high_price_rate', 90)
             )
 
-            if not performance_ok:
+            if not performance.is_pass:
                 continue
             
             # 只有在勾选了尾盘超预期时才检查尾盘竞价条件
@@ -500,29 +501,61 @@ class StockFilter:
                 except:
                     pass
             
+            # 获取竞价数据以获取volume_ratio
+            volume_ratio = 0
+            try:
+                auction_data_full = self.cache.get_auction_data(symbol, trade_date)
+                volume_ratio = auction_data_full.get('volume_ratio', 0)
+            except Exception as e:
+                print(f"[StockFilter] Error getting auction data for {symbol}: {e}")
+            
+            # 获取当日开盘价和收盘价
+            open_price = 0.0
+            close_price = 0.0
+            next_close_price = 0.0
+            try:
+                # 获取当日日K线数据
+                day_data = self.cache.get_stock_day_data(symbol, trade_date, force_refresh=False)
+                if day_data is not None and not day_data.empty:
+                    row = day_data.iloc[0]
+                    open_price = row.get('open', 0.0)
+                    close_price = row.get('close', 0.0)
+                
+                # 获取次日收盘价
+                if trade_date.date() < datetime.now().date():
+                    next_trade_date_str = self.trade_date_util.get_next_trade_date(trade_date)
+                    if next_trade_date_str:
+                        next_trading_day = datetime.strptime(next_trade_date_str, '%Y-%m-%d')
+                        next_day_data = self.cache.get_stock_day_data(symbol, next_trading_day, force_refresh=False)
+                        if next_day_data is not None and not next_day_data.empty:
+                            next_close_price = next_day_data.iloc[0].get('close', 0.0)
+            except Exception as e:
+                print(f"[StockFilter] Error getting day data for {symbol}: {e}")
+            
             # 构建结果
-            result = {
-                'symbol': symbol,  # 添加symbol字段
-                'code': stock_code,
-                'stock_name': stock_name,
-                'pre_avg_price': pre_avg_price,        # 新增字段：昨均价
-                'pre_close_price': pre_close_price,    # 新增字段：昨收盘价
-                'pre_price_gain': pre_price_gain,       # 新增字段：昨涨幅
-                'auction_start_price': auction_data['auction_start_price'] if auction_data else 0,
-                'auction_end_price': auction_data['auction_end_price'] if auction_data else 0,
-                'price_diff': round(auction_data['auction_end_price'] - auction_data['auction_start_price'], 2) if auction_data else 0,
-                'volume_ratio': 0,                     # 量比暂时设为0
-                'interval_max_rise': interval_max_rise_value,
-                'max_day_rise': max_day_rise,
-                'today_gain': today_gain if today_gain is not None else 0.0,
-                'next_day_gain': next_day_gain if next_day_gain is not None else 0.0,
-                'trade_date': trade_date.strftime('%Y-%m-%d'),
-                'higher_score': higher_score,
-                'rising_wave_score': rising_wave_score,
-                'weipan_exceed': weipan_exceed,
-                'zaopan_exceed': zaopan_exceed,
-                'rising_wave': rising_wave
-            }
+            result = StockFilterResult.create(
+                symbol=symbol,
+                code=stock_code,
+                stock_name=stock_name,
+                auction_data=auction_data,
+                volume_ratio=volume_ratio,
+                interval_max_rise=performance.interval_max_rise,
+                max_day_rise=performance.max_day_rise,
+                today_gain=today_gain if today_gain is not None else 0.0,
+                next_day_gain=next_day_gain if next_day_gain is not None else 0.0,
+                trade_date=trade_date.strftime('%Y-%m-%d'),
+                higher_score=higher_score,
+                rising_wave_score=rising_wave_score,
+                weipan_exceed=weipan_exceed,
+                zaopan_exceed=zaopan_exceed,
+                rising_wave=rising_wave,
+                pre_avg_price=pre_avg_price,
+                pre_close_price=pre_close_price,
+                pre_price_gain=pre_price_gain,
+                open_price=open_price,
+                close_price=close_price,
+                next_close_price=next_close_price
+            )
             
             results.append(result)
         
