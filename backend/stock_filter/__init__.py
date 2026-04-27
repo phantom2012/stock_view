@@ -48,104 +48,104 @@ class StockFilter:
             return ((last_close - first_close) / first_close) * 100
         return 0.0
 
-    def _calculate_max_daily_gain(self, data: pd.DataFrame, day_max_gain_days: int) -> float:
+    def _calculate_max_day_rise(self, data: pd.DataFrame, recent_days: int) -> float:
         """计算日内最大涨幅"""
-        max_daily_gain = 0.0
+        max_day_rise = 0.0
         if len(data) >= 2:
-            for i in range(1, min(day_max_gain_days + 1, len(data))):
+            for i in range(1, min(recent_days + 1, len(data))):
                 current_row = data.iloc[-i]
                 prev_row = data.iloc[-i - 1]
                 current_high = current_row['high']
                 prev_close = prev_row['close']
                 if prev_close > 0:
                     day_gain = ((current_high - prev_close) / prev_close) * 100
-                    if day_gain > max_daily_gain:
-                        max_daily_gain = day_gain
-        return max_daily_gain
+                    if day_gain > max_day_rise:
+                        max_day_rise = day_gain
+        return max_day_rise
 
-    def check_performance(self, symbol: str, trade_date: datetime, 
-                        recent_interval_days: int = 10, 
-                        recent_interval_max_gain: float = 15, 
-                        day_max_gain_days: int = 6,
-                        day_max_gain: float = 8,
-                        price_to_high_ratio: float = 0.0) -> Tuple[bool, float, float, float]:
+    def check_performance(self, symbol: str, trade_date: datetime,
+                        interval_days: int = 10,
+                        interval_max_rise: float = 15,
+                        recent_days: int = 6,
+                        recent_max_day_rise: float = 8,
+                        prev_high_price_rate: float = 0.0) -> Tuple[bool, float, float, float]:
         """
         检查股票近N个交易日的表现
-        
+
         Args:
             symbol: 股票代码
             trade_date: 交易日期
-            recent_interval_days: 近N个交易日
-            recent_interval_max_gain: 区间最大涨幅阈值（首尾收盘价涨幅）
-            day_max_gain_days: 最近N日日内最大涨幅
-            day_max_gain: 日内最大涨幅阈值
-            price_to_high_ratio: 当前股价不低于近期最高价的百分比（如90表示不低于90%）
-            
+            interval_days: 最大涨跌区间天数
+            interval_max_rise: 区间最大涨幅
+            recent_days: 最近最大涨幅天数
+            recent_max_day_rise: 最近最大日涨幅
+            prev_high_price_rate: 当前股价不低于近期最高价的百分比（如90表示不低于90%）
+
         Returns:
             Tuple[是否符合条件, 区间最大涨幅, 单日最大涨幅, 股价相对近期高点比例]
         """
         # 打印所有入参数值
         print(f"[StockFilter.check_performance] symbol={symbol}, trade_date={trade_date}, "
-              f"recent_interval_days={recent_interval_days}, recent_interval_max_gain={recent_interval_max_gain}, "
-              f"day_max_gain_days={day_max_gain_days}, day_max_gain={day_max_gain}, "
-              f"price_to_high_ratio={price_to_high_ratio}")
-        
+              f"interval_days={interval_days}, interval_max_rise={interval_max_rise}, "
+              f"recent_days={recent_days}, recent_max_day_rise={recent_max_day_rise}, "
+              f"prev_high_price_rate={prev_high_price_rate}")
+
         try:
             # 从缓存获取日K线数据（优先从数据库读取）
             # 多获取1天数据，用于计算当日开盘价相对于前一日收盘价的涨跌
-            data = self.cache.get_history_data(symbol, days=recent_interval_days + 1, trade_date=trade_date, force_refresh=False)
-            
+            data = self.cache.get_history_data(symbol, days=interval_days + 1, trade_date=trade_date, force_refresh=False)
+
             if data is not None and len(data) >= 2:
-                # 取最后recent_interval_days条数据用于计算
-                data = data.tail(recent_interval_days)
-                
+                # 取最后interval_days条数据用于计算
+                data = data.tail(interval_days)
+
                 # 1. 计算股价相对于近期最高价的比例
                 price_ratio = self._calculate_price_ratio(data)
-                
+
                 # 如果设置了股价比例阈值，检查是否满足
-                if price_to_high_ratio > 0 and price_ratio < price_to_high_ratio:
+                if prev_high_price_rate > 0 and price_ratio < prev_high_price_rate:
                     return False, 0, 0, round(price_ratio, 2)
-                
+
                 # 2. 计算区间最大涨幅（首尾收盘价）
-                period_gain = self._calculate_period_gain(data)
-                
+                interval_max_rise_value = self._calculate_period_gain(data)
+
                 # 3. 计算日内最大涨幅
-                max_daily_gain = self._calculate_max_daily_gain(data, day_max_gain_days)
-                
+                max_day_rise = self._calculate_max_day_rise(data, recent_days)
+
                 # 保留小数点后2位
-                period_gain = round(period_gain, 2)
-                max_daily_gain = round(max_daily_gain, 2)
+                interval_max_rise_value = round(interval_max_rise_value, 2)
+                max_day_rise = round(max_day_rise, 2)
                 price_ratio = round(price_ratio, 2)
-                
+
                 # 检查条件：区间涨幅和日内涨幅都需要大于阈值
-                if abs(period_gain) >= recent_interval_max_gain and max_daily_gain >= day_max_gain:
-                    return True, period_gain, max_daily_gain, price_ratio
-                
-                return False, period_gain, max_daily_gain, price_ratio
-            
+                if abs(interval_max_rise_value) >= interval_max_rise and max_day_rise >= recent_max_day_rise:
+                    return True, interval_max_rise_value, max_day_rise, price_ratio
+
+                return False, interval_max_rise_value, max_day_rise, price_ratio
+
             return False, 0, 0, 0
         except Exception as e:
             print(f"[StockFilter] Error checking performance for {symbol}: {e}")
             return False, 0, 0, 0
     
     def calculate_rising_wave_score(self, symbol: str, trade_date: datetime,
-                                   recent_interval_days: int = 10) -> int:
+                                   recent_days: int = 10) -> int:
         """
         计算升浪形态得分
-        
+
         Args:
             symbol: 股票代码
             trade_date: 交易日期
-            recent_interval_days: 近N个交易日
-            
+            recent_days: 最近最大涨幅天数
+
         Returns:
             升浪形态得分（0-100）
         """
         try:
-            data = self.cache.get_history_data(symbol, recent_interval_days + 5, force_refresh=False)
-            
-            if data is not None and len(data) >= recent_interval_days:
-                data = data.tail(recent_interval_days).reset_index(drop=True)
+            data = self.cache.get_history_data(symbol, recent_days + 5, force_refresh=False)
+
+            if data is not None and len(data) >= recent_days:
+                data = data.tail(recent_days).reset_index(drop=True)
                 
                 # 找到最低收盘价的索引
                 min_close_loc = data['close'].idxmin()
@@ -412,10 +412,10 @@ class StockFilter:
         """
         if config is None:
             config = {
-                'recent_interval_days': 40,
-                'recent_interval_max_gain': 60,
-                'day_max_gain_days': 6,
-                'day_max_gain': 8,
+                'interval_days': 40,
+                'interval_max_rise': 60,
+                'recent_days': 6,
+                'recent_max_day_rise': 8,
             }
         
         results = []
@@ -426,14 +426,15 @@ class StockFilter:
                 continue
             
             # 检查性能条件
-            performance_ok, max_gain, max_daily_gain, price_ratio_value = self.check_performance(
+            performance_ok, interval_max_rise_value, max_day_rise, prev_high_price_rate_value = self.check_performance(
                 symbol, trade_date,
-                config['recent_interval_days'],
-                config['recent_interval_max_gain'],
-                config['day_max_gain_days'],
-                config['day_max_gain']
+                config['interval_days'],
+                config['interval_max_rise'],
+                config['recent_days'],
+                config['recent_max_day_rise'],
+                config.get('prev_high_price_rate', 90)
             )
-            
+
             if not performance_ok:
                 continue
             
@@ -461,7 +462,7 @@ class StockFilter:
             rising_wave_score = 0
             if rising_wave == 1:
                 rising_wave_score = self.calculate_rising_wave_score(
-                    symbol, trade_date, config['day_max_gain_days']
+                    symbol, trade_date, config['recent_days']
                 )
                 if rising_wave_score <= 0:
                     continue
@@ -511,8 +512,8 @@ class StockFilter:
                 'auction_end_price': auction_data['auction_end_price'] if auction_data else 0,
                 'price_diff': round(auction_data['auction_end_price'] - auction_data['auction_start_price'], 2) if auction_data else 0,
                 'volume_ratio': 0,                     # 量比暂时设为0
-                'max_gain': max_gain,
-                'max_daily_gain': max_daily_gain,
+                'interval_max_rise': interval_max_rise_value,
+                'max_day_rise': max_day_rise,
                 'today_gain': today_gain if today_gain is not None else 0.0,
                 'next_day_gain': next_day_gain if next_day_gain is not None else 0.0,
                 'trade_date': trade_date.strftime('%Y-%m-%d'),

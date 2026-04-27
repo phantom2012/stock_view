@@ -16,11 +16,11 @@ stock_filter = get_stock_filter()
 class StockFilterService:
     def filter_stocks(
         self,
-        recent_days: int = 10,
-        max_gain: float = 20,
-        daily_gain_days: int = 5,
-        daily_gain_threshold: float = 7,
-        price_ratio: float = 90,
+        interval_days: int = 10,
+        interval_max_rise: float = 20,
+        recent_days: int = 5,
+        recent_max_day_rise: float = 7,
+        prev_high_price_rate: float = 90,
         block_codes: str = "",
         only_main_board: bool = False
     ) -> List[Dict[str, Any]]:
@@ -50,14 +50,14 @@ class StockFilterService:
                 symbol = to_goldminer_symbol(code)
 
                 try:
-                    is_pass, period_gain, max_daily_gain, price_ratio_value = stock_filter.check_performance(
+                    is_pass, interval_max_rise_value, max_day_rise, prev_high_price_rate_value = stock_filter.check_performance(
                         symbol=symbol,
                         trade_date=trade_date,
-                        recent_interval_days=recent_days,
-                        recent_interval_max_gain=max_gain,
-                        day_max_gain_days=daily_gain_days,
-                        day_max_gain=daily_gain_threshold,
-                        price_to_high_ratio=price_ratio
+                        interval_days=interval_days,
+                        interval_max_rise=interval_max_rise,
+                        recent_days=recent_days,
+                        recent_max_day_rise=recent_max_day_rise,
+                        prev_high_price_rate=prev_high_price_rate
                     )
 
                     if not is_pass:
@@ -68,9 +68,9 @@ class StockFilterService:
                     filtered_results.append({
                         'code': code,
                         'name': stock_name,
-                        'gain': period_gain,
-                        'max_daily_gain': max_daily_gain,
-                        'price_to_high_ratio': price_ratio_value
+                        'interval_max_rise': interval_max_rise_value,
+                        'max_day_rise': max_day_rise,
+                        'prev_high_price_rate': prev_high_price_rate_value
                     })
 
                 except Exception as e:

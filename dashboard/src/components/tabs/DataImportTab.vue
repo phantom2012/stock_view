@@ -316,8 +316,8 @@ const formatTableData = (stocks, startIndex) => {
         result[row][`index${group + 1}`] = startIndex + index + 1
         result[row][`code${group + 1}`] = stocks[index].code
         result[row][`name${group + 1}`] = stocks[index].name
-        result[row][`gain${group + 1}`] = stocks[index].gain
-        result[row][`maxDailyGain${group + 1}`] = stocks[index].max_daily_gain
+        result[row][`gain${group + 1}`] = stocks[index].interval_max_rise
+        result[row][`maxDailyGain${group + 1}`] = stocks[index].max_day_rise
         result[row][`stockIndex${group + 1}`] = stockIndex
       } else {
         result[row][`index${group + 1}`] = null
@@ -363,11 +363,11 @@ const handleFilter = async () => {
     const blockCodes = selectedBlocks.value.map(b => b.code)
     const response = await axios.get('http://127.0.0.1:8000/filter-stocks', {
       params: {
-        recent_days: filterForm.value.recentDays,
-        max_gain: filterForm.value.maxGain,
-        daily_gain_days: filterForm.value.dailyGainDays,
-        daily_gain_threshold: filterForm.value.dailyGainThreshold,
-        price_ratio: filterForm.value.priceRatio,
+        interval_days: filterForm.value.recentDays,
+        interval_max_rise: filterForm.value.maxGain,
+        recent_days: filterForm.value.dailyGainDays,
+        recent_max_day_rise: filterForm.value.dailyGainThreshold,
+        prev_high_price_rate: filterForm.value.priceRatio,
         block_codes: blockCodes.join(','),
         only_main_board: filterForm.value.onlyMainBoard
       }
@@ -376,7 +376,7 @@ const handleFilter = async () => {
     filteredStocks.value = response.data || []
     
     // 按区间涨幅倒序排列
-    filteredStocks.value.sort((a, b) => (b.gain || 0) - (a.gain || 0))
+    filteredStocks.value.sort((a, b) => (b.interval_max_rise || 0) - (a.interval_max_rise || 0))
     
     // 保存到数据库
     try {
@@ -585,7 +585,8 @@ const loadFilterStocks = async () => {
     const response = await axios.get('http://127.0.0.1:8000/get-filter-stocks')
     if (response.data && response.data.length > 0) {
       filteredStocks.value = response.data
-      filteredStocks.value.sort((a, b) => (b.gain || 0) - (a.gain || 0))
+      // 按区间涨幅倒序排列
+      filteredStocks.value.sort((a, b) => (b.interval_max_rise || b.gain || 0) - (a.interval_max_rise || a.gain || 0))
       hasSearched.value = true
       currentPage.value = 1
     }

@@ -136,7 +136,7 @@
             {{ scope.row.open_volume_ratio || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="max_gain" label="最大涨幅" width="80" />
+        <el-table-column prop="interval_max_rise" label="最大涨幅" width="80" />
         <el-table-column label="次日涨幅" width="80">
           <template #default="scope">
             <span :class="getValueColor(scope.row.next_day_gain)">{{ scope.row.next_day_gain !== undefined && scope.row.next_day_gain !== null ? scope.row.next_day_gain : '-' }}%</span>

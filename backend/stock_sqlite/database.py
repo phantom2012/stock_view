@@ -202,9 +202,9 @@ def init_database():
         auction_end_price REAL,             -- 竞价结束价
         price_diff REAL,                    -- 价格差异
         volume_ratio REAL,                  -- 量比
-        max_gain REAL,                      -- 区间最大涨幅
-        max_daily_gain REAL,                -- 日内最大涨幅
-        today_gain REAL,                    -- 今日涨幅
+        interval_max_rise REAL,            -- 区间最大涨幅
+        max_day_rise REAL,                -- 日内最大涨幅
+        today_gain REAL,                  -- 当日涨幅 今日涨幅
         next_day_gain REAL,                 -- 次日涨幅
         trade_date TEXT,                    -- 交易日期
         higher_score REAL,                  -- 超预期得分
@@ -227,6 +227,20 @@ def init_database():
     ON filter_results(code)
     """)
 
+    # 创建筛选配置表
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS filter_config (
+        type INTEGER PRIMARY KEY,             -- 筛选配置类型: type=1为超预期tab页面筛选
+        interval_days INTEGER,                -- 最大涨跌区间天数
+        interval_max_rise REAL,               -- 区间最大涨幅
+        recent_days INTEGER,                  -- 最近最大涨幅天数
+        recent_max_day_rise REAL,             -- 最近最大日涨幅
+        prev_high_interval_days INTEGER,      -- 前高区间天数
+        prev_high_price_rate REAL,            -- 前高价格百分比
+        update_time TEXT                      -- 更新时间
+    )
+    """)
+
     conn.commit()
     conn.close()
     print(f"[SQLite] 数据库初始化完成: {DATABASE_PATH}")
@@ -244,3 +258,4 @@ if __name__ == "__main__":
     print("6. block_info       - 板块信息表")
     print("7. block_stock      - 板块股票关系表")
     print("8. filter_results   - 筛选结果表")
+    print("9. filter_config    - 筛选配置表")

@@ -70,7 +70,7 @@ def get_data():
         with get_db_cursor() as cursor:
             cursor.execute("""
                 SELECT fr.symbol, fr.code, fr.stock_name, fr.pre_avg_price, fr.pre_close_price, fr.pre_price_gain, fr.auction_start_price, fr.auction_end_price,
-                       fr.price_diff, fr.max_gain, fr.max_daily_gain, fr.today_gain, fr.next_day_gain,
+                       fr.price_diff, fr.interval_max_rise, fr.max_day_rise, fr.today_gain, fr.next_day_gain,
                        fr.trade_date, fr.higher_score, fr.rising_wave_score,
                        COALESCE(sa.volume_ratio, 0) as volume_ratio
                 FROM filter_results fr
@@ -91,8 +91,8 @@ def get_data():
                 auction_start_price = row[6]
                 auction_end_price = row[7]
                 price_diff = row[8]
-                max_gain = row[9]
-                max_daily_gain = row[10]
+                interval_max_rise = row[9]
+                max_day_rise = row[10]
                 today_gain = row[11]
                 next_day_gain = row[12]
                 trade_date = row[13]
@@ -127,8 +127,8 @@ def get_data():
                     'auction_start_price': auction_start_price,
                     'auction_end_price': auction_end_price,
                     'price_diff': price_diff,
-                    'max_gain': max_gain,
-                    'max_daily_gain': max_daily_gain,
+                    'interval_max_rise': interval_max_rise,
+                    'max_day_rise': max_day_rise,
                     'today_gain': today_gain,
                     'next_day_gain': next_day_gain,
                     'trade_date': trade_date,
@@ -183,8 +183,8 @@ def _build_default_stock_info(code: str) -> Dict[str, Any]:
         'auction_start_price': '-',
         'auction_end_price': '-',
         'price_diff': '-',
-        'max_gain': '-',
-        'max_daily_gain': '-',
+        'interval_max_rise': '-',
+        'max_day_rise': '-',
         'next_day_gain': '-',
         'trade_date': datetime.now().strftime('%Y-%m-%d'),
         'higher_score': '-',
@@ -331,9 +331,9 @@ def get_stock_history(code: str, days: int = 10):
 
 
 @app.get("/filter-stocks")
-def filter_stocks(recent_days: int = 10, max_gain: float = 20, daily_gain_days: int = 5, daily_gain_threshold: float = 7, price_ratio: float = 90, block_codes: str = "", only_main_board: bool = False):
-    logger.info(f"API filter-stocks called with recent_days={recent_days}, max_gain={max_gain}, daily_gain_days={daily_gain_days}, daily_gain_threshold={daily_gain_threshold}, price_ratio={price_ratio}, block_codes={block_codes}, only_main_board={only_main_board}")
-    return stock_filter_service.filter_stocks(recent_days, max_gain, daily_gain_days, daily_gain_threshold, price_ratio, block_codes, only_main_board)
+def filter_stocks(interval_days: int = 10, interval_max_rise: float = 20, recent_days: int = 5, recent_max_day_rise: float = 7, prev_high_price_rate: float = 90, block_codes: str = "", only_main_board: bool = False):
+    logger.info(f"API filter-stocks called with interval_days={interval_days}, interval_max_rise={interval_max_rise}, recent_days={recent_days}, recent_max_day_rise={recent_max_day_rise}, prev_high_price_rate={prev_high_price_rate}, block_codes={block_codes}, only_main_board={only_main_board}")
+    return stock_filter_service.filter_stocks(interval_days, interval_max_rise, recent_days, recent_max_day_rise, prev_high_price_rate, block_codes, only_main_board)
 
 
 @app.post("/load-auction-data")
@@ -355,10 +355,10 @@ def get_filter_stocks():
     try:
         with get_db_cursor() as cursor:
             cursor.execute("""
-                SELECT code, stock_name, max_gain, max_daily_gain
+                SELECT code, stock_name, interval_max_rise, max_day_rise
                 FROM filter_results
                 WHERE type = 2
-                ORDER BY max_gain DESC
+                ORDER BY interval_max_rise DESC
             """)
             rows = cursor.fetchall()
 
@@ -367,8 +367,8 @@ def get_filter_stocks():
                 results.append({
                     'code': row[0],
                     'name': row[1],
-                    'gain': row[2],
-                    'max_daily_gain': row[3]
+                    'interval_max_rise': row[2],
+                    'max_day_rise': row[3]
                 })
 
             logger.info(f"Returning {len(results)} filter stocks from database (type=2)")

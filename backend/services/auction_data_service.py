@@ -82,14 +82,14 @@ class AuctionDataService:
                 for stock in stocks:
                     code = stock.get('code', '')
                     name = stock.get('name', '')
-                    gain = stock.get('gain', 0)
-                    max_daily_gain = stock.get('max_daily_gain', 0)
-
+                    interval_max_rise = stock.get('interval_max_rise', 0)
+                    max_day_rise = stock.get('max_day_rise', 0)
+                    
                     symbol = to_goldminer_symbol(code)
-
+                    
                     cursor.execute(
-                        "INSERT INTO filter_results (type, symbol, code, stock_name, max_gain, max_daily_gain, update_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        (2, symbol, code, name, gain, max_daily_gain, current_time)
+                        "INSERT INTO filter_results (type, symbol, code, stock_name, interval_max_rise, max_day_rise, update_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (2, symbol, code, name, interval_max_rise, max_day_rise, current_time)
                     )
                     insert_count += 1
 

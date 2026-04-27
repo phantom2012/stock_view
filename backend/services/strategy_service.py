@@ -57,10 +57,11 @@ class StrategyService:
                 return {"status": "error", "msg": "未加载到股票数据"}
 
             config = {
-                'recent_interval_days': 40,
-                'recent_interval_max_gain': 40,
-                'day_max_gain_days': 10,
-                'day_max_gain': 7,
+                'interval_days': 40,
+                'interval_max_rise': 40,
+                'recent_days': 10,
+                'recent_max_day_rise': 7,
+                'prev_high_price_rate': 80,
             }
 
             logger.info(f"Filtering {len(stock_symbols)} stocks...")
@@ -135,8 +136,8 @@ class StrategyService:
                 auction_end_price = stock.get('auction_end_price', 0)
                 price_diff = stock.get('price_diff', 0)
                 volume_ratio = stock.get('volume_ratio', 0)
-                max_gain = stock.get('max_gain', 0)
-                max_daily_gain = stock.get('max_daily_gain', 0)
+                interval_max_rise = stock.get('interval_max_rise', 0)
+                max_day_rise = stock.get('max_day_rise', 0)
                 today_gain = stock.get('today_gain', 0)
                 next_day_gain = stock.get('next_day_gain', 0)
                 trade_date = stock.get('trade_date', '')
@@ -147,8 +148,8 @@ class StrategyService:
                 rising_wave = stock.get('rising_wave', 0)
 
                 cursor.execute(
-                    "INSERT OR REPLACE INTO filter_results (type, symbol, code, stock_name, pre_avg_price, pre_close_price, pre_price_gain, auction_start_price, auction_end_price, price_diff, volume_ratio, max_gain, max_daily_gain, today_gain, next_day_gain, trade_date, higher_score, rising_wave_score, weipan_exceed, zaopan_exceed, rising_wave, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (1, symbol, code, stock_name, pre_avg_price, pre_close_price, pre_price_gain, auction_start_price, auction_end_price, price_diff, volume_ratio, max_gain, max_daily_gain, today_gain, next_day_gain, trade_date, higher_score, rising_wave_score, weipan_exceed, zaopan_exceed, rising_wave, current_time)
+                    "INSERT OR REPLACE INTO filter_results (type, symbol, code, stock_name, pre_avg_price, pre_close_price, pre_price_gain, auction_start_price, auction_end_price, price_diff, volume_ratio, interval_max_rise, max_day_rise, today_gain, next_day_gain, trade_date, higher_score, rising_wave_score, weipan_exceed, zaopan_exceed, rising_wave, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (1, symbol, code, stock_name, pre_avg_price, pre_close_price, pre_price_gain, auction_start_price, auction_end_price, price_diff, volume_ratio, interval_max_rise, max_day_rise, today_gain, next_day_gain, trade_date, higher_score, rising_wave_score, weipan_exceed, zaopan_exceed, rising_wave, current_time)
                 )
                 insert_count += 1
 
