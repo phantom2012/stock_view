@@ -13,7 +13,8 @@ import pandas as pd
 from gm.api import get_instruments
 
 # 导入数据模型
-from models import StockFilterResult, StockPerformance
+from models import StockResult, StockPerformance
+from models.filter_params import FilterParams
 
 # 导入后端缓存
 from stock_cache import get_stock_cache
@@ -26,12 +27,12 @@ class StockFilter:
     个股过滤器类
     提供各种股票筛选条件的接口
     """
-    
+
     def __init__(self):
         """初始化过滤器"""
         self.cache = get_stock_cache()
         self.trade_date_util = TradeDateUtil()
-    
+
     def _calculate_price_ratio(self, data: pd.DataFrame) -> float:
         """计算股价相对于近期最高价的比例"""
         high_prices = data['high'].dropna()
@@ -67,26 +68,24 @@ class StockFilter:
         return max_day_rise
 
     def check_performance(self, symbol: str, trade_date: datetime,
-                        interval_days: int = 10,
-                        interval_max_rise: float = 15,
-                        recent_days: int = 6,
-                        recent_max_day_rise: float = 8,
-                        prev_high_price_rate: float = 0.0) -> StockPerformance:
+                        params: FilterParams) -> StockPerformance:
         """
         检查股票近N个交易日的表现
 
         Args:
             symbol: 股票代码
             trade_date: 交易日期
-            interval_days: 最大涨跌区间天数
-            interval_max_rise: 区间最大涨幅
-            recent_days: 最近最大涨幅天数
-            recent_max_day_rise: 最近最大日涨幅
-            prev_high_price_rate: 当前股价不低于近期最高价的百分比（如90表示不低于90%）
+            params: 筛选参数对象
 
         Returns:
             StockPerformance对象
         """
+        interval_days = params.interval_days
+        interval_max_rise = params.interval_max_rise
+        recent_days = params.recent_days
+        recent_max_day_rise = params.recent_max_day_rise
+        prev_high_price_rate = params.prev_high_price_rate
+
         # 打印所有入参数值
         print(f"[StockFilter.check_performance] symbol={symbol}, trade_date={trade_date}, "
               f"interval_days={interval_days}, interval_max_rise={interval_max_rise}, "
@@ -128,7 +127,7 @@ class StockFilter:
         except Exception as e:
             print(f"[StockFilter] Error checking performance for {symbol}: {e}")
             return StockPerformance(is_pass=False, interval_max_rise=0, max_day_rise=0, prev_high_price_rate=0)
-    
+
     def calculate_rising_wave_score(self, symbol: str, trade_date: datetime,
                                    recent_days: int = 10) -> int:
         """
@@ -147,19 +146,19 @@ class StockFilter:
 
             if data is not None and len(data) >= recent_days:
                 data = data.tail(recent_days).reset_index(drop=True)
-                
+
                 # 找到最低收盘价的索引
                 min_close_loc = data['close'].idxmin()
                 start_idx = min_close_loc
-                
+
                 if start_idx >= len(data) - 1:
                     return 0
-                
+
                 # 从最低点的下一个交易日开始
                 current_high = data.iloc[start_idx]['close']
                 max_days_to_break = 0
                 current_streak = 1
-                
+
                 for i in range(start_idx + 1, len(data)):
                     current_close = data.iloc[i]['close']
                     if current_close >= current_high:
@@ -169,112 +168,177 @@ class StockFilter:
                         current_streak = 1
                     else:
                         current_streak += 1
-                
+
                 if current_streak > max_days_to_break:
                     max_days_to_break = current_streak
-                
+
                 if max_days_to_break > 4:
                     return 0
-                
+
                 # 根据突破情况打分
                 score_map = {1: 100, 2: 80, 3: 50, 4: 20}
                 return score_map.get(max_days_to_break, 0)
-            
+
             return 0
         except Exception as e:
             print(f"[StockFilter] Error calculating rising wave score for {symbol}: {e}")
             return 0
-    
+
     def check_tail_auction_condition(self, symbol: str, trade_date: datetime) -> Optional[Dict[str, Any]]:
         """
         检查尾盘竞价条件（获取14:57-15:00的尾盘数据，要求价格上涨）
-        
+
         Args:
             symbol: 股票代码
             trade_date: 交易日期
-            
+
         Returns:
             竞价数据字典，如果不符合条件返回None
         """
         try:
             # 调用新接口获取尾盘竞价数据
             tail_data = self.cache.get_tail_auction_data(symbol, trade_date)
-            
+
             if tail_data:
-                auction_start = tail_data['auction_start_price']
-                auction_end = tail_data['auction_end_price']
-                
+                auction_start = tail_data['open_price']
+                auction_end = tail_data['close_price']
+
                 # 竞价结束价 >= 竞价开始价才符合条件
                 if auction_end >= auction_start:
                     return tail_data
-            
+
             return None
         except Exception as e:
             print(f"[StockFilter] Error checking tail auction for {symbol}: {e}")
             return None
-    
+
     def get_stock_day_gain(self, symbol: str, trade_date: datetime) -> Optional[float]:
         """
         获取股票指定日期的涨幅
-        
+
         Args:
             symbol: 股票代码
             trade_date: 交易日期
-            
+
         Returns:
             涨幅百分比，如果无法计算则返回 None
         """
         try:
             # 从缓存获取该日的日K线数据（优先从数据库读取）
             data = self.cache.get_stock_day_data(symbol, trade_date, force_refresh=False)
-            
+
             if data is not None and not data.empty:
                 # 获取第一行数据
                 row = data.iloc[0]
-                
+
                 # 使用当日收盘价和前一日收盘价计算涨幅
                 today_close = row['close']
                 prev_close = row['pre_close']
-                
+
                 # 计算涨幅
                 if prev_close is not None and prev_close != 0:
                     gain = round((today_close - prev_close) / prev_close * 100, 2)
                     return gain
-            
+
             return None
         except Exception as e:
             print(f"[StockFilter] Error getting day gain for {symbol} on {trade_date.strftime('%Y-%m-%d')}: {e}")
             import traceback
             traceback.print_exc()
             return None
-    
+
     def check_is_main_board(self, symbol: str) -> bool:
         """
         检查是否是主板股票
         主板股票定义：排除科创板、创业板、北交所后的股票
-        
+
         Args:
             symbol: 股票代码
-            
+
         Returns:
             bool: 是否是主板股票
         """
         stock_code = symbol.split('.')[-1] if '.' in symbol else symbol
-        
+
         # 排除科创板 (688)
         if stock_code.startswith('688'):
             return False
-        
+
         # 排除创业板 (300, 301)
         if stock_code.startswith('300') or stock_code.startswith('301'):
             return False
-        
+
         # 排除北交所 (8, 4, 92开头)
         if stock_code.startswith('8') or stock_code.startswith('4') or stock_code.startswith('92'):
             return False
-        
+
         # 剩下的就是主板股票（包括60、00、002、003等）
         return True
+
+    def _check_delisted(self, symbol: str) -> bool:
+        """
+        检查股票是否已退市
+
+        Args:
+            symbol: 股票代码
+
+        Returns:
+            bool: True=未退市(有效), False=已退市
+        """
+        try:
+            inst = get_instruments(symbols=[symbol], df=True)
+            if inst is None or inst.empty:
+                print(f"[StockFilter] 股票 {symbol} 在 API 中找不到，视为无效股票，已剔除")
+                return False
+
+            delisted_date = inst.iloc[0].get('delisted_date')
+            if delisted_date is not None and not pd.isna(delisted_date):
+                if isinstance(delisted_date, pd.Timestamp):
+                    if delisted_date < datetime.now():
+                        print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
+                        return False
+                elif isinstance(delisted_date, str) and delisted_date.strip():
+                    try:
+                        delisted_dt = datetime.strptime(delisted_date[:10], '%Y-%m-%d')
+                        if delisted_dt < datetime.now():
+                            print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
+                            return False
+                    except:
+                        pass
+            return True
+        except Exception:
+            return True  # API查询失败时默认通过
+
+    def _fetch_stock_name(self, symbol: str) -> str:
+        """
+        获取股票名称，依次尝试：缓存 -> 刷新缓存 -> API单独查询
+
+        Args:
+            symbol: 股票代码
+
+        Returns:
+            str: 股票名称，获取失败返回'未知'
+        """
+        stock_name = self.cache.get_stock_name(symbol)
+
+        if stock_name == '未知':
+            self.cache._load_instruments_cache()
+            stock_name = self.cache.get_stock_name(symbol)
+
+        if stock_name == '未知':
+            try:
+                inst = get_instruments(symbols=[symbol], df=True)
+                if inst is not None and not inst.empty:
+                    stock_name = inst.iloc[0].get('sec_name', '未知')
+                    print(f"[StockFilter] API 单独查询 {symbol} 名称: {stock_name}")
+                else:
+                    print(f"[StockFilter] 股票 {symbol} 在 API 中也找不到，视为无效股票")
+                    return '未知'
+            except Exception as api_err:
+                print(f"[StockFilter] API 单独查询 {symbol} 失败: {api_err}")
+                return '未知'
+
+        return stock_name
 
     def check_is_10cm(self, symbol: str) -> bool:
         """
@@ -283,173 +347,98 @@ class StockFilter:
         1. 必须是主板股票（60或00开头）
         2. 排除ST、*ST股票
         3. 排除退市股票
-        
+
         Args:
             symbol: 股票代码
-            
+
         Returns:
             bool: 是否符合10cm条件
         """
         # 1. 首先检查是否是主板股票
         if not self.check_is_main_board(symbol):
             return False
-        
-        # 2. 验证股票名称并排除 ST 股票
+
+        # 2. 检查是否退市
+        if not self._check_delisted(symbol):
+            return False
+
+        # 3. 获取股票名称并检查 ST
         try:
-            stock_name = self.cache.get_stock_name(symbol)
-            
-            # 如果缓存中名称未知，尝试强制刷新 instruments 缓存
-            if stock_name == '未知':
-                self.cache._load_instruments_cache()
-                stock_name = self.cache.get_stock_name(symbol)
-            
-            # 如果还是未知，尝试通过 API 单独查询
-            if stock_name == '未知':
-                try:
-                    inst = get_instruments(symbols=[symbol], df=True)
-                    if inst is not None and not inst.empty:
-                        # 1. 获取股票名称
-                        stock_name = inst.iloc[0].get('sec_name', '未知')
-                        print(f"[StockFilter] API 单独查询 {symbol} 名称: {stock_name}")
-                        
-                        # 2. 检查是否是退市股票（使用同一次 API 调用的结果）
-                        delisted_date = inst.iloc[0].get('delisted_date')
-                        if delisted_date is not None and not pd.isna(delisted_date):
-                            if isinstance(delisted_date, pd.Timestamp):
-                                # 如果退市日期早于今天，才是真的退市
-                                if delisted_date < datetime.now():
-                                    print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
-                                    return False
-                            elif isinstance(delisted_date, str) and delisted_date.strip():
-                                # 处理字符串格式的日期
-                                try:
-                                    delisted_dt = datetime.strptime(delisted_date[:10], '%Y-%m-%d')
-                                    if delisted_dt < datetime.now():
-                                        print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
-                                        return False
-                                except:
-                                    pass
-                    else:
-                        print(f"[StockFilter] 股票 {symbol} 在 API 中也找不到，视为无效股票，已剔除")
-                        return False
-                except Exception as api_err:
-                    print(f"[StockFilter] API 单独查询 {symbol} 失败: {api_err}，已剔除")
-                    return False
-            else:
-                # 名称已知时，仍需检查是否退市
-                try:
-                    inst = get_instruments(symbols=[symbol], df=True)
-                    if inst is not None and not inst.empty:
-                        delisted_date = inst.iloc[0].get('delisted_date')
-                        if delisted_date is not None and not pd.isna(delisted_date):
-                            if isinstance(delisted_date, pd.Timestamp):
-                                if delisted_date < datetime.now():
-                                    print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
-                                    return False
-                            elif isinstance(delisted_date, str) and delisted_date.strip():
-                                try:
-                                    delisted_dt = datetime.strptime(delisted_date[:10], '%Y-%m-%d')
-                                    if delisted_dt < datetime.now():
-                                        print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
-                                        return False
-                                except:
-                                    pass
-                except Exception:
-                    pass
-            
+            stock_name = self._fetch_stock_name(symbol)
+
             # 检查是否是 ST 或 *ST 股票
             if stock_name == '未知':
                 print(f"[StockFilter] 警告: 股票 {symbol} 无法获取有效名称，但允许通过筛选")
             elif 'ST' in stock_name or '*ST' in stock_name:
                 print(f"[StockFilter] 股票 {symbol} 是 ST 股票，已剔除")
                 return False
-                
+
         except Exception as e:
             print(f"[StockFilter] 检查10cm股票时出错 {symbol}: {e}，已剔除")
             return False
-        
+
         return True
-    
-    def calculate_higher_score(self, auction_data: Dict[str, Any], 
+
+    def calculate_higher_score(self, auction_data: Dict[str, Any],
                              rising_wave_score: int = 0) -> float:
         """
         计算超预期得分
-        
+
         Args:
             auction_data: 竞价数据
             rising_wave_score: 升浪形态得分
-            
+
         Returns:
             超预期得分（保留2位小数）
         """
-        auction_start_price = auction_data.get('auction_start_price', 0)
-        auction_end_price = auction_data.get('auction_end_price', 0)
-        
-        if auction_start_price != 0:
-            base_score = (auction_end_price - auction_start_price) / auction_start_price * 10000
+        open_price = auction_data.get('open_price', 0)
+        close_price = auction_data.get('close_price', 0)
+
+        if open_price != 0:
+            base_score = (close_price - open_price) / open_price * 10000
             higher_score = base_score + rising_wave_score
             return round(higher_score, 2)
-        
+
         return 0
-    
-    def filter_stocks(self, symbols: List[str], trade_date: datetime, 
-                     weipan_exceed: int = 0, 
-                     zaopan_exceed: int = 0, 
-                     rising_wave: int = 0, 
-                     config: Optional[Dict[str, Any]] = None) -> List[StockFilterResult]:
+
+    def filter_stocks(self, symbols: List[str], trade_date: datetime,
+                     params: FilterParams) -> List[StockResult]:
         """
         综合筛选股票
-        
+
         Args:
             symbols: 股票代码列表
             trade_date: 交易日期
-            weipan_exceed: 尾盘超预期
-            zaopan_exceed: 早盘超预期
-            rising_wave: 上升形态
-            config: 配置参数
-            
+            params: 筛选参数对象
+
         Returns:
             筛选结果列表
         """
-        if config is None:
-            config = {
-                'interval_days': 40,
-                'interval_max_rise': 60,
-                'recent_days': 6,
-                'recent_max_day_rise': 8,
-            }
-        
+
         results = []
-        
+
         for i, symbol in enumerate(symbols):
             # 检查是否为10cm股票
             if not self.check_is_10cm(symbol):
                 continue
-            
+
             # 检查性能条件
-            performance = self.check_performance(
-                symbol, trade_date,
-                config['interval_days'],
-                config['interval_max_rise'],
-                config['recent_days'],
-                config['recent_max_day_rise'],
-                config.get('prev_high_price_rate', 90)
-            )
+            performance = self.check_performance(symbol, trade_date, params)
 
             if not performance.is_pass:
                 continue
-            
+
             # 只有在勾选了尾盘超预期时才检查尾盘竞价条件
             # 注意：早盘超预期的逻辑不是用这个接口
             auction_data = None
-            if weipan_exceed > 0:
+            if params.weipan_exceed > 0:
                 auction_data = self.check_tail_auction_condition(symbol, trade_date)
                 if not auction_data:
                     continue
-            
+
             # 获取当日涨幅
             today_gain = self.get_stock_day_gain(symbol, trade_date)
-            
+
             # 获取次日涨幅（只有当次日不是今天时才获取）
             next_day_gain = None
             if trade_date.date() < datetime.now().date():
@@ -458,22 +447,22 @@ class StockFilter:
                 if next_trade_date_str:
                     next_trading_day = datetime.strptime(next_trade_date_str, '%Y-%m-%d')
                     next_day_gain = self.get_stock_day_gain(symbol, next_trading_day)
-            
+
             # 计算升浪形态得分
             rising_wave_score = 0
-            if rising_wave == 1:
+            if params.rising_wave == 1:
                 rising_wave_score = self.calculate_rising_wave_score(
-                    symbol, trade_date, config['recent_days']
+                    symbol, trade_date, params.recent_days
                 )
                 if rising_wave_score <= 0:
                     continue
-            
+
             # 计算超预期得分（仅在有竞价数据时计算）
             if auction_data:
                 higher_score = self.calculate_higher_score(auction_data, rising_wave_score)
             else:
                 higher_score = 0
-            
+
             # 计算新增字段：昨均价、昨收盘价、昨涨幅
             pre_avg_price = 0
             pre_close_price = 0
@@ -488,11 +477,11 @@ class StockFilter:
                     pre_price_gain = prev_trade_data.get('pre_price_gain', 0)
             except Exception as e:
                 logger.error(f"Error getting previous trade data for {symbol}: {e}")
-            
+
             # 获取股票名称
             stock_name = self.cache.get_stock_name(symbol)
             stock_code = symbol.split('.')[-1] if '.' in symbol else symbol
-            
+
             # 如果名称仍为未知，尝试通过批量接口获取
             if stock_name == '未知':
                 try:
@@ -500,7 +489,7 @@ class StockFilter:
                     stock_name = names_map.get(stock_code, '未知')
                 except:
                     pass
-            
+
             # 获取竞价数据以获取volume_ratio
             volume_ratio = 0
             try:
@@ -508,7 +497,7 @@ class StockFilter:
                 volume_ratio = auction_data_full.get('volume_ratio', 0)
             except Exception as e:
                 print(f"[StockFilter] Error getting auction data for {symbol}: {e}")
-            
+
             # 获取当日开盘价和收盘价
             open_price = 0.0
             close_price = 0.0
@@ -520,7 +509,7 @@ class StockFilter:
                     row = day_data.iloc[0]
                     open_price = row.get('open', 0.0)
                     close_price = row.get('close', 0.0)
-                
+
                 # 获取次日收盘价
                 if trade_date.date() < datetime.now().date():
                     next_trade_date_str = self.trade_date_util.get_next_trade_date(trade_date)
@@ -531,14 +520,14 @@ class StockFilter:
                             next_close_price = next_day_data.iloc[0].get('close', 0.0)
             except Exception as e:
                 print(f"[StockFilter] Error getting day data for {symbol}: {e}")
-            
+
             # 构建结果
-            result = StockFilterResult.create(
+            result = StockResult.create(
                 symbol=symbol,
                 code=stock_code,
                 stock_name=stock_name,
                 auction_data=auction_data,
-                volume_ratio=volume_ratio,
+                open_volume_ratio=volume_ratio,
                 interval_max_rise=performance.interval_max_rise,
                 max_day_rise=performance.max_day_rise,
                 today_gain=today_gain if today_gain is not None else 0.0,
@@ -546,9 +535,9 @@ class StockFilter:
                 trade_date=trade_date.strftime('%Y-%m-%d'),
                 higher_score=higher_score,
                 rising_wave_score=rising_wave_score,
-                weipan_exceed=weipan_exceed,
-                zaopan_exceed=zaopan_exceed,
-                rising_wave=rising_wave,
+                weipan_exceed=params.weipan_exceed,
+                zaopan_exceed=params.zaopan_exceed,
+                rising_wave=params.rising_wave,
                 pre_avg_price=pre_avg_price,
                 pre_close_price=pre_close_price,
                 pre_price_gain=pre_price_gain,
@@ -556,9 +545,9 @@ class StockFilter:
                 close_price=close_price,
                 next_close_price=next_close_price
             )
-            
+
             results.append(result)
-        
+
         return results
 
 
@@ -568,7 +557,7 @@ _stock_filter_instance = None
 def get_stock_filter() -> StockFilter:
     """
     获取StockFilter单例
-    
+
     Returns:
         StockFilter实例
     """

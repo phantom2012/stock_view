@@ -59,14 +59,6 @@ class StrategyService:
             if not stock_symbols:
                 return {"status": "error", "msg": "未加载到股票数据"}
 
-            config = {
-                'interval_days': params.interval_days,
-                'interval_max_rise': params.interval_max_rise,
-                'recent_days': params.recent_days,
-                'recent_max_day_rise': params.recent_max_day_rise,
-                'prev_high_price_rate': params.prev_high_price_rate,
-            }
-
             logger.info(f"Filtering {len(stock_symbols)} stocks...")
 
             instruments = stock_cache._load_instruments_cache()
@@ -76,10 +68,7 @@ class StrategyService:
             results = stock_filter.filter_stocks(
                 symbols=stock_symbols,
                 trade_date=target_date,
-                weipan_exceed=params.weipan_exceed,
-                zaopan_exceed=params.zaopan_exceed,
-                rising_wave=params.rising_wave,
-                config=config
+                params=params
             )
 
             logger.info(f"Strategy completed, found {len(results)} stocks")
@@ -128,42 +117,21 @@ class StrategyService:
             for stock in results:
                 # 使用Pydantic模型自动解析数据
                 if hasattr(stock, 'to_dict'):
-                    # 如果是StockFilterResult对象，先转换为字典
+                    # 如果是StockResult对象，先转换为字典
                     stock_data = stock.to_dict()
                 else:
                     # 直接使用字典
                     stock_data = stock
-                
+
                 # 使用Pydantic模型自动解析字典，处理类型转换和默认值
-                stock_obj = StockResult.parse_obj(stock_data)
-                
-                # 创建FilterResult ORM对象
-                filter_result = FilterResult(
-                    type=1,
-                    symbol=stock_obj.symbol,
-                    code=stock_obj.code,
-                    stock_name=stock_obj.stock_name,
-                    pre_avg_price=stock_obj.pre_avg_price,
-                    pre_close_price=stock_obj.pre_close_price,
-                    pre_price_gain=stock_obj.pre_price_gain,
-                    open_price=stock_obj.open_price,
-                    close_price=stock_obj.close_price,
-                    next_close_price=stock_obj.next_close_price,
-                    auction_start_price=stock_obj.auction_start_price,
-                    auction_end_price=stock_obj.auction_end_price,
-                    price_diff=stock_obj.price_diff,
-                    volume_ratio=stock_obj.volume_ratio,
-                    interval_max_rise=stock_obj.interval_max_rise,
-                    max_day_rise=stock_obj.max_day_rise,
-                    trade_date=stock_obj.trade_date,
-                    higher_score=stock_obj.higher_score,
-                    rising_wave_score=stock_obj.rising_wave_score,
-                    weipan_exceed=stock_obj.weipan_exceed,
-                    zaopan_exceed=stock_obj.zaopan_exceed,
-                    rising_wave=stock_obj.rising_wave,
-                    update_time=datetime.now()
-                )
-                
+                stock_obj = StockResult.model_validate(stock_data)
+
+                # 使用model_dump()自动映射字段，避免逐个赋值
+                stock_dict = stock_obj.model_dump()
+                stock_dict['type'] = 1
+                stock_dict['update_time'] = datetime.now()
+                filter_result = FilterResult(**stock_dict)
+
                 # 添加到数据库会话
                 db.add(filter_result)
                 insert_count += 1

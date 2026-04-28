@@ -50,11 +50,7 @@ class StockFilterService:
                     performance = stock_filter.check_performance(
                         symbol=symbol,
                         trade_date=trade_date,
-                        interval_days=params.interval_days,
-                        interval_max_rise=params.interval_max_rise,
-                        recent_days=params.recent_days,
-                        recent_max_day_rise=params.recent_max_day_rise,
-                        prev_high_price_rate=params.prev_high_price_rate
+                        params=params
                     )
 
                     if not performance.is_pass:
@@ -78,12 +74,7 @@ class StockFilterService:
 
             self.update_filter_config(
                 config_type=2,
-                interval_days=params.interval_days,
-                interval_max_rise=params.interval_max_rise,
-                recent_days=params.recent_days,
-                recent_max_day_rise=params.recent_max_day_rise,
-                prev_high_price_rate=params.prev_high_price_rate,
-                block_codes=params.select_blocks or ""
+                params=params
             )
 
             return filtered_results
@@ -97,12 +88,7 @@ class StockFilterService:
     def update_filter_config(
         self,
         config_type: int,
-        interval_days: int,
-        interval_max_rise: float,
-        recent_days: int,
-        recent_max_day_rise: float,
-        prev_high_price_rate: float,
-        block_codes: str,
+        params: FilterParams,
         trade_date: Optional[str] = None
     ):
         try:
@@ -113,19 +99,19 @@ class StockFilterService:
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 if existing:
                     cursor.execute("""
-                        UPDATE filter_config 
-                        SET interval_days = ?, interval_max_rise = ?, recent_days = ?, 
+                        UPDATE filter_config
+                        SET interval_days = ?, interval_max_rise = ?, recent_days = ?,
                             recent_max_day_rise = ?, prev_high_price_rate = ?, select_blocks = ?, trade_date = ?, update_time = ?
                         WHERE type = ?
-                    """, (interval_days, interval_max_rise, recent_days, recent_max_day_rise, prev_high_price_rate, block_codes, trade_date, now, config_type))
+                    """, (params.interval_days, params.interval_max_rise, params.recent_days, params.recent_max_day_rise, params.prev_high_price_rate, params.select_blocks or "", trade_date, now, config_type))
                     logger.info(f"Updated filter config for type={config_type}")
                 else:
                     cursor.execute("""
-                        INSERT INTO filter_config 
-                        (type, interval_days, interval_max_rise, recent_days, recent_max_day_rise, 
+                        INSERT INTO filter_config
+                        (type, interval_days, interval_max_rise, recent_days, recent_max_day_rise,
                          prev_high_price_rate, select_blocks, trade_date, update_time)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (config_type, interval_days, interval_max_rise, recent_days, recent_max_day_rise, prev_high_price_rate, block_codes, trade_date, now))
+                    """, (config_type, params.interval_days, params.interval_max_rise, params.recent_days, params.recent_max_day_rise, params.prev_high_price_rate, params.select_blocks or "", trade_date, now))
                     logger.info(f"Created filter config for type={config_type}")
         except Exception as e:
             logger.error(f"Error updating filter config: {str(e)}")

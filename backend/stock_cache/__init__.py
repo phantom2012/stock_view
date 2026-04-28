@@ -84,7 +84,7 @@ class StockDataCache:
             # 使用ExternalDataQueryHandler获取股票基本信息
             query_handler = get_query_handler()
             instruments = query_handler.get_instruments()
-            
+
             if instruments is not None and not instruments.empty:
                 self._instruments_cache = instruments
                 self._instruments_loaded = True
@@ -188,35 +188,35 @@ class StockDataCache:
     def get_stock_day_data(self, symbol: str, trade_date: datetime, force_refresh: bool = False) -> Optional[pd.DataFrame]:
         """
         获取股票指定日期的日线数据（单条记录）
-        
+
         Args:
             symbol: 股票代码，如 'SHSE.600105'
             trade_date: 交易日期
             force_refresh: 是否强制从 API 刷新
-            
+
         Returns:
             包含单条记录的 DataFrame，如果未找到则返回 None
         """
         date_key = trade_date.strftime('%Y-%m-%d')
         pure_code = to_pure_code(symbol)
-        
+
         if not force_refresh:
             # 从数据库读取指定日期的数据
             cached_data = self._read_single_day_from_db(pure_code, date_key)
             if cached_data is not None and not cached_data.empty:
                 return cached_data
-        
+
         # 从 API 获取（使用 ExternalDataQueryHandler）
         try:
             # 直接查询指定日期的数据
             date_str = trade_date.strftime('%Y-%m-%d')
-            
+
             data = self._query_handler.get_daily_data(
                 symbol=symbol,
                 start_date=date_str,
                 end_date=date_str
             )
-            
+
             if data is not None and not data.empty:
                 # 保存到数据库
                 self._save_daily_to_db(pure_code, data)
@@ -376,7 +376,7 @@ class StockDataCache:
                     StockDaily.code == code,
                     StockDaily.trade_date <= date_key
                 ).order_by(StockDaily.trade_date.desc()).limit(days).all()
-                
+
                 if daily_data:
                     # 转换为DataFrame
                     data = []
@@ -410,7 +410,7 @@ class StockDataCache:
                     StockDaily.code == code,
                     StockDaily.trade_date == date_key
                 ).first()
-                
+
                 if daily_data:
                     # 转换为DataFrame
                     data = [{
@@ -444,14 +444,14 @@ class StockDataCache:
                     # 处理 eob 字段，确保是字符串
                     eob_str = self._process_time_field(row['eob'])
                     trade_date = eob_str[:10] if len(eob_str) >= 10 else ''
-                    
+
                     # 检查是否已存在
                     existing = db.query(StockDaily).filter(
                         StockDaily.code == code,
                         StockDaily.trade_date == trade_date,
                         StockDaily.eob == eob_str
                     ).first()
-                    
+
                     if existing:
                         # 更新现有记录
                         existing.open = row['open']
@@ -478,7 +478,7 @@ class StockDataCache:
                             update_time=datetime.now()
                         )
                         db.add(new_daily)
-                
+
                 db.commit()
             except Exception as e:
                 db.rollback()
@@ -545,7 +545,7 @@ class StockDataCache:
                 for _, row in data.iterrows():
                     # 处理 eob 字段
                     eob_str = self._process_time_field(row['eob'])
-                    
+
                     cursor.execute("""
                         INSERT OR REPLACE INTO stock_minute
                         (code, trade_date, eob, open, close, high, low, volume, amount, update_time)
@@ -616,16 +616,16 @@ class StockDataCache:
             if data is not None and not data.empty:
                 # 检查是否是竞价相关的时间范围（9:25-9:31）
                 is_auction_time = self._is_auction_time(start_time_str, end_time_str)
-                
+
                 if is_auction_time:
                     # 只保存9:30前后的两个快照
                     data['created_at'] = pd.to_datetime(data['created_at'])
-                    
+
                     # 9:30前的最后一个快照
                     before_930 = data[data['created_at'] < f'{date_key} 09:30:00']
                     # 9:30后的第一个快照
                     after_930 = data[data['created_at'] >= f'{date_key} 09:30:00']
-                    
+
                     filtered_data = pd.DataFrame()
                     if not before_930.empty:
                         last_before = before_930.tail(1)
@@ -635,7 +635,7 @@ class StockDataCache:
                         first_after = after_930.head(1)
                         filtered_data = pd.concat([filtered_data, first_after])
                         print(f"[StockCache] 保存9:30后第一快照: {first_after['created_at'].iloc[0]}")
-                    
+
                     if not filtered_data.empty:
                         print(f"[StockCache] 总共保存 {len(filtered_data)} 个快照")
                         self._save_tick_to_db(pure_code, date_key, filtered_data)
@@ -673,21 +673,21 @@ class StockDataCache:
                 for _, row in data.iterrows():
                     # 处理 created_at 字段
                     created_at_str = self._process_time_field(row.get('created_at', ''))
-                    
+
                     # 处理 volume 字段，确保存在
                     volume = row.get('volume', 0)
                     try:
                         volume_int = int(volume)
                     except (ValueError, TypeError):
                         volume_int = 0
-                    
+
                     # 处理 cum_volume 字段，确保存在
                     cum_volume = row.get('cum_volume', 0)
                     try:
                         cum_volume_int = int(cum_volume)
                     except (ValueError, TypeError):
                         cum_volume_int = 0
-                    
+
                     cursor.execute("""
                         INSERT OR REPLACE INTO stock_tick
                         (code, trade_date, created_at, price, volume, cum_amount, cum_volume, update_time)
@@ -731,7 +731,7 @@ class StockDataCache:
             auction_data = self._query_handler.get_auction_data(symbol, date_key)
             elapsed_time = time.time() - start_time
             print(f"[StockCache] 获取竞价数据耗时: {elapsed_time:.2f} 秒")
-            
+
             if auction_data is not None and not auction_data.empty:
                 # 检查数据格式
                 if 'cum_amount' in auction_data.columns:
@@ -747,12 +747,13 @@ class StockDataCache:
                             open_amount = at_930.iloc[0]['cum_amount']
 
                             # 对于掘金数据，使用默认值填充其他字段
-                            self._save_auction_to_db(
-                                pure_code, date_key, 0, auction_amount, 0, 0, 0, 0, 0
-                            )
+                            self._save_auction_to_db(pure_code, date_key, {
+                                'open_amount': auction_amount,
+                                'amount': auction_amount
+                            })
 
                             return {
-                                'auction_amount': auction_amount,
+                                'open_volume': auction_amount,
                                 'open_amount': open_amount,
                                 'volume_ratio': 0
                             }
@@ -762,7 +763,7 @@ class StockDataCache:
                     # Tushare格式的竞价数据
                     try:
                         row = auction_data.iloc[0]
-                        
+
                         # 确保所有数字字段都是正确的类型
                         price = self.to_float(row.get('price', 0))
                         amount = self.to_float(row.get('amount', 0))
@@ -773,13 +774,19 @@ class StockDataCache:
                         float_share = self.to_float(row.get('float_share', 0))
 
                         # 保存完整的竞价数据到数据库
-                        self._save_auction_to_db(
-                            pure_code, date_key, price, amount, volume, pre_close, turn_over_rate, volume_ratio, float_share
-                        )
+                        self._save_auction_to_db(pure_code, date_key, {
+                            'price': price,
+                            'amount': amount,
+                            'volume': volume,
+                            'pre_close': pre_close,
+                            'turn_over_rate': turn_over_rate,
+                            'volume_ratio': volume_ratio,
+                            'float_share': float_share
+                        })
 
-                        # auction_amount和open_amount都等于竞价成交额amount
+                        # open_volume和open_amount都等于竞价成交额amount
                         return {
-                            'auction_amount': amount,
+                            'open_volume': volume,
                             'open_amount': amount,
                             'volume_ratio': volume_ratio
                         }
@@ -789,7 +796,7 @@ class StockDataCache:
             print(f"[StockCache] 获取竞价数据失败: {e}")
 
         return {
-            'auction_amount': 0,
+            'open_volume': 0,
             'open_amount': 0,
             'volume_ratio': 0
         }
@@ -799,74 +806,97 @@ class StockDataCache:
         try:
             with get_db_cursor() as cursor:
                 cursor.execute("""
-                    SELECT open_amount, volume_ratio
+                    SELECT open_amount, open_volume, volume_ratio
                     FROM stock_auction
                     WHERE code = ? AND trade_date = ?
                 """, (code, date_key))
 
                 row = cursor.fetchone()
                 if row:
-                    amount = row[0]
-                    volume_ratio = row[1]
-                    # 确保amount是数字类型
+                    open_amount = row[0]
+                    open_volume = row[1]
+                    volume_ratio = row[2]
+                    # 确保open_amount是数字类型
                     try:
-                        if amount is None:
-                            amount = 0
-                        elif isinstance(amount, bytes):
-                            # 处理字节串类型
-                            amount = 0
+                        if open_amount is None:
+                            open_amount = 0
+                        elif isinstance(open_amount, bytes):
+                            open_amount = 0
                         else:
-                            amount = float(amount)
+                            open_amount = float(open_amount)
                     except (ValueError, TypeError):
-                        amount = 0
+                        open_amount = 0
+                    # 确保open_volume是数字类型
+                    try:
+                        if open_volume is None:
+                            open_volume = 0
+                        elif isinstance(open_volume, bytes):
+                            open_volume = 0
+                        else:
+                            open_volume = float(open_volume)
+                    except (ValueError, TypeError):
+                        open_volume = 0
                     # 确保volume_ratio是数字类型
                     try:
                         if volume_ratio is None:
                             volume_ratio = 0
                         elif isinstance(volume_ratio, bytes):
-                            # 处理字节串类型
                             volume_ratio = 0
                         else:
                             volume_ratio = float(volume_ratio)
                     except (ValueError, TypeError):
                         volume_ratio = 0
                     return {
-                        'auction_amount': amount,
-                        'open_amount': amount,
+                        'open_volume': open_volume,
+                        'open_amount': open_amount,
                         'volume_ratio': volume_ratio
                     }
         except Exception as e:
             print(f"[StockCache] 从数据库读取竞价数据失败: {e}")
         return None
 
-    def _save_auction_to_db(self, code: str, date_key: str, price: float, amount: float, volume: int, pre_close: float, turn_over_rate: float, volume_ratio: float, float_share: float, tail_57_price: float = 0, close_price: float = 0, tail_amount: float = 0):
-        """保存竞价数据到数据库"""
+    def _save_auction_to_db(self, code: str, date_key: str, auction_data: dict):
+        """保存竞价数据到数据库
+
+        Args:
+            code: 股票代码（纯数字）
+            date_key: 交易日期（YYYY-MM-DD）
+            auction_data: 竞价数据字典，支持字段：
+                - price/open_price: 竞价价格
+                - amount/open_amount: 竞价成交额
+                - volume/open_volume: 竞价成交量
+                - pre_close: 前收盘价
+                - turn_over_rate: 换手率
+                - volume_ratio: 量比
+                - float_share: 流通股本
+                - tail_57_price: 尾盘14:57竞价价格
+                - close_price: 收盘价
+                - tail_amount: 尾盘竞价金额
+        """
         update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        # 确保所有参数都是正确的类型
-        # 转换所有参数
         code = str(code)
-        open_price = self.to_float(price)
-        open_amount = self.to_float(amount)
-        open_volume = self.to_int(volume)
-        pre_close = self.to_float(pre_close)
-        turn_over_rate = self.to_float(turn_over_rate)
-        volume_ratio = self.to_float(volume_ratio)
-        float_share = self.to_float(float_share)
-        tail_57_price = self.to_float(tail_57_price)
-        close_price = self.to_float(close_price)
-        tail_amount = self.to_float(tail_amount)
-        tail_volume = 0  # 默认值
+        open_price = self.to_float(auction_data.get('price', auction_data.get('open_price', 0)))
+        open_amount = self.to_float(auction_data.get('amount', auction_data.get('open_amount', 0)))
+        open_volume = self.to_int(auction_data.get('volume', auction_data.get('open_volume', 0)))
+        pre_close_val = self.to_float(auction_data.get('pre_close', 0))
+        turn_over_rate = self.to_float(auction_data.get('turn_over_rate', 0))
+        vol_ratio = self.to_float(auction_data.get('volume_ratio', 0))
+        float_share = self.to_float(auction_data.get('float_share', 0))
+        tail_57_price = self.to_float(auction_data.get('tail_57_price', 0))
+        close_price = self.to_float(auction_data.get('close_price', 0))
+        tail_amount = self.to_float(auction_data.get('tail_amount', 0))
+        tail_volume = self.to_int(auction_data.get('tail_volume', 0))
 
         try:
             with get_db_cursor() as cursor:
                 cursor.execute("""
                     INSERT OR REPLACE INTO stock_auction
-                    (code, trade_date, open_price, open_amount, open_volume, pre_close, turn_over_rate, volume_ratio, float_share, 
+                    (code, trade_date, open_price, open_amount, open_volume, pre_close, turn_over_rate, volume_ratio, float_share,
                      tail_57_price, tail_amount, tail_volume, close_price, avg_5d_price, avg_10d_price, update_time)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    code, date_key, open_price, open_amount, open_volume, pre_close, turn_over_rate, volume_ratio, float_share,
+                    code, date_key, open_price, open_amount, open_volume, pre_close_val, turn_over_rate, vol_ratio, float_share,
                     tail_57_price, tail_amount, tail_volume, close_price, 0, 0, update_time
                 ))
         except Exception as e:
@@ -875,7 +905,7 @@ class StockDataCache:
     def _update_auction_tail_data(self, code: str, date_key: str, tail_57_price: float, close_price: float, tail_amount: float):
         """
         更新竞价数据表中的尾盘竞价字段
-        
+
         Args:
             code: 股票代码（纯数字）
             date_key: 交易日期（YYYY-MM-DD）
@@ -884,12 +914,12 @@ class StockDataCache:
             tail_amount: 尾盘竞价金额
         """
         update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
+
         tail_57_price = self.to_float(tail_57_price)
         close_price = self.to_float(close_price)
         tail_amount = self.to_float(tail_amount)
         tail_volume = 0  # 默认值
-        
+
         try:
             with get_db_cursor() as cursor:
                 cursor.execute("""
@@ -907,11 +937,11 @@ class StockDataCache:
     def get_tail_auction_data(self, symbol: str, trade_date: datetime) -> Optional[Dict[str, Any]]:
         """
         获取尾盘竞价数据（14:57-15:00的分钟数据）
-        
+
         Args:
             symbol: 股票代码（如: SZSE.002990）
             trade_date: 交易日期
-            
+
         Returns:
             尾盘竞价数据字典，如果无数据返回None
             {
@@ -923,18 +953,18 @@ class StockDataCache:
         try:
             # 通过缓存池获取14:56-15:00的分钟数据:获取到的是14:57,14:58，15:00的min数据
             minute_data = self.get_minute_data(symbol, trade_date, "14:56:00", "15:00:00")
-            
+
             if minute_data is not None and len(minute_data) > 0:
                 auction_start = float(minute_data.iloc[0]['close'])
                 auction_end = float(minute_data.iloc[-1]['close'])
-                
+
                 # 返回尾盘竞价数据
                 return {
                     'auction_start_price': auction_start,
                     'auction_end_price': auction_end,
                     'amount': float(minute_data.iloc[-1]['amount'])
                 }
-            
+
             return None
         except Exception as e:
             print(f"[StockCache] Error getting tail auction data for {symbol}: {e}")

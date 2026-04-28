@@ -27,7 +27,7 @@
           class="mt-0"
         />
       </div>
-      
+
       <el-button
         type="primary"
         icon="Back"
@@ -52,12 +52,12 @@
 
           <div style="display: flex; flex-wrap: wrap; gap: 16px; position: relative; min-height: 100px; align-items: flex-start;">
             <div style="display: flex; align-items: center;">
-              <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">竞价开始价：</span>
-              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ stockInfo.auction_start_price }}</span>
+              <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">开盘价：</span>
+              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ stockInfo.open_price }}</span>
             </div>
             <div style="display: flex; align-items: center;">
-              <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">竞价结束价：</span>
-              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ stockInfo.auction_end_price }}</span>
+              <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">开盘成交量：</span>
+              <span style="font-size: 18px; font-weight: 600; color: #1f2937;">{{ stockInfo.open_volume }}</span>
             </div>
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">价格差异：</span>
@@ -245,13 +245,13 @@ const validateStockCode = () => {
     isValidStockCode.value = false
     return
   }
-  
+
   if (!/^\d{6}$/.test(code)) {
     stockCodeError.value = '请输入6位数字股票代码'
     isValidStockCode.value = false
     return
   }
-  
+
   stockCodeError.value = ''
   isValidStockCode.value = true
 }
@@ -259,14 +259,14 @@ const validateStockCode = () => {
 // 查询个股
 const queryStock = async () => {
   if (!isValidStockCode.value) return
-  
+
   const code = stockCode.value.trim()
-  
+
   try {
     // 先获取股票基本信息
     const infoRes = await axios.get(`http://127.0.0.1:8000/get-stock-info?code=${code}`)
     const stockInfo = infoRes.data
-    
+
     if (stockInfo) {
       // 加载历史数据
       await loadStockHistory(code)
@@ -283,12 +283,12 @@ watch(() => props.selectedStock, async (newStock) => {
   if (newStock) {
     stockCode.value = newStock.code
     validateStockCode()
-    
+
     try {
       // 先获取股票基本信息
       const infoRes = await axios.get(`http://127.0.0.1:8000/get-stock-info?code=${newStock.code}`)
       const stockInfoData = infoRes.data
-      
+
       if (stockInfoData) {
         stockInfo.value = stockInfoData
         // 加载历史数据
@@ -302,5 +302,3 @@ watch(() => props.selectedStock, async (newStock) => {
   }
 }, { immediate: true })
 </script>
-
-

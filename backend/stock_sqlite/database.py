@@ -39,7 +39,7 @@ def init_database():
     # 检查表是否已存在
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='stock_auction'")
     table_exists = cursor.fetchone() is not None
-    
+
     if table_exists:
         print(f"[INFO] 数据库已存在，跳过初始化")
         print(f"[INFO] 如需重新初始化，请手动删除数据库文件: {DATABASE_PATH}")
@@ -195,17 +195,17 @@ def init_database():
         pre_close_price REAL,               -- 昨收盘价
         pre_price_gain REAL,                -- 昨涨幅
         open_price REAL,                    -- 今开盘价
+        tail_57_price REAL,                 -- 尾盘14:57竞价价格
         close_price REAL,                   -- 今收盘价
         next_close_price REAL,              -- 次日收盘价
-        auction_start_price REAL,           -- 竞价开始价
-        auction_end_price REAL,             -- 竞价结束价
         price_diff REAL,                    -- 价格差异
-        volume_ratio REAL,                  -- 量比
+        open_volume REAL,                   -- 开盘成交量
+        open_volume_ratio REAL,             -- 开盘量比
         interval_max_rise REAL,             -- 区间最大涨幅
         max_day_rise REAL,                  -- 日内最大涨幅
         trade_date TEXT,                    -- 交易日期
         higher_score REAL,                  -- 超预期得分
-        rising_wave_score INTEGER,          -- 升浪形态得分
+        rising_wave_score REAL,             -- 升浪形态得分
         weipan_exceed INTEGER,              -- 尾盘超预期阈值
         zaopan_exceed INTEGER,              -- 早盘超预期阈值
         rising_wave INTEGER,                -- 升浪形态标志

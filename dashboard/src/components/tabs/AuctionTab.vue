@@ -7,40 +7,40 @@
           <!-- 第一行：筛选条件 -->
           <el-form-item>
             <span class="mr-2">最近</span>
-            <el-input 
-              v-model.number="filterForm.recentDays" 
+            <el-input
+              v-model.number="filterForm.recentDays"
               placeholder="天数"
               style="width: 50px;"
               @input="handleDaysInput"
             />
             <span class="mx-2">日内最大涨幅</span>
-            <el-input 
-              v-model.number="filterForm.maxGain" 
+            <el-input
+              v-model.number="filterForm.maxGain"
               placeholder="百分比"
               style="width: 50px;"
               @input="handleGainInput"
             />
             <span class="ml-1 mr-4">%</span>
-            
+
             <span class="mr-2">最近</span>
-            <el-input 
-              v-model.number="filterForm.dailyGainDays" 
+            <el-input
+              v-model.number="filterForm.dailyGainDays"
               placeholder="天数"
               style="width: 40px;"
               @input="handleDailyGainDaysInput"
             />
             <span class="mx-2">日单日最大涨幅></span>
-            <el-input 
-              v-model.number="filterForm.dailyGainThreshold" 
+            <el-input
+              v-model.number="filterForm.dailyGainThreshold"
               placeholder="百分比"
               style="width: 40px;"
               @input="handleDailyGainThresholdInput"
             />
             <span class="ml-1 mr-4">%</span>
-            
+
             <span class="mr-2">股价不低于近期高点</span>
-            <el-input 
-              v-model.number="filterForm.priceRatio" 
+            <el-input
+              v-model.number="filterForm.priceRatio"
               placeholder="百分比"
               style="width: 100px;"
               @input="handleRatioInput"
@@ -49,7 +49,7 @@
           </el-form-item>
         </el-form>
       </div>
-      
+
       <!-- 第一行：日期选择和复选框 -->
       <div style="display: flex; align-items: center; gap: 24px; flex-wrap: nowrap; width: 100%; margin-bottom: 16px;">
         <!-- 日期选择器 -->
@@ -71,11 +71,11 @@
         <el-checkbox v-model="filters.zaopan_exceed" class="!text-gray-800">早盘超预期</el-checkbox>
         <el-checkbox v-model="filters.weipan_exceed" class="!text-gray-800">尾盘超预期</el-checkbox>
         <el-checkbox v-model="filters.rising_wave" class="!text-gray-800">上升形态</el-checkbox>
-        
+
         <!-- 仅筛选主板 -->
         <el-checkbox v-model="filterForm.onlyMainBoard" class="!text-gray-800">仅筛选主板</el-checkbox>
       </div>
-      
+
       <!-- 第二行：板块选择和刷新按钮 -->
       <div style="display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; width: 100%;">
         <!-- 板块选择 -->
@@ -99,7 +99,7 @@
             </el-option>
           </el-select>
         </div>
-        
+
         <!-- 已选板块标签 -->
         <div v-if="selectedBlocks.length > 0" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1;">
           <el-tag
@@ -150,42 +150,42 @@
         <el-table-column prop="stock_name" label="名称" width="90" />
         <el-table-column label="昨均价" width="80">
           <template #default="scope">
-            {{ scope.row.yesterday_avg || '-' }}
+            {{ scope.row.pre_avg_price || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="昨收盘价" width="80">
           <template #default="scope">
-            {{ scope.row.yesterday_close || '-' }}
+            {{ scope.row.pre_close_price || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="昨乖离率" width="80">
           <template #default="scope">
-            <span :class="getValueColor(scope.row.yesterday_bias)">{{ scope.row.yesterday_bias !== undefined && scope.row.yesterday_bias !== null ? scope.row.yesterday_bias : '-' }}%</span>
+            <span :class="getValueColor(calcYesterdayBias(scope.row))">{{ calcYesterdayBias(scope.row) !== null ? calcYesterdayBias(scope.row) : '-' }}%</span>
           </template>
         </el-table-column>
         <el-table-column label="昨涨幅" width="80">
           <template #default="scope">
-            <span :class="getValueColor(scope.row.yesterday_gain)">{{ scope.row.yesterday_gain !== undefined && scope.row.yesterday_gain !== null ? scope.row.yesterday_gain : '-' }}%</span>
+            <span :class="getValueColor(scope.row.pre_price_gain)">{{ scope.row.pre_price_gain !== undefined && scope.row.pre_price_gain !== null ? scope.row.pre_price_gain : '-' }}%</span>
           </template>
         </el-table-column>
         <el-table-column label="今开盘价" width="80">
           <template #default="scope">
-            {{ scope.row.today_open || '-' }}
+            {{ scope.row.open_price || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="开盘涨幅" width="80">
           <template #default="scope">
-            <span :class="getValueColor(scope.row.open_gain)">{{ scope.row.open_gain !== undefined && scope.row.open_gain !== null ? scope.row.open_gain : '-' }}%</span>
+            <span :class="getValueColor(calcOpenGain(scope.row))">{{ calcOpenGain(scope.row) !== null ? calcOpenGain(scope.row) : '-' }}%</span>
           </template>
         </el-table-column>
         <el-table-column label="今日涨幅" width="80">
           <template #default="scope">
-            <span :class="getValueColor(scope.row.today_gain)">{{ scope.row.today_gain !== undefined && scope.row.today_gain !== null ? scope.row.today_gain : '-' }}%</span>
+            <span :class="getValueColor(calcTodayGain(scope.row))">{{ calcTodayGain(scope.row) !== null ? calcTodayGain(scope.row) : '-' }}%</span>
           </template>
         </el-table-column>
         <el-table-column label="开盘量比" width="80">
           <template #default="scope">
-            {{ scope.row.auction_volume_ratio || '-' }}
+            {{ scope.row.open_volume_ratio !== undefined && scope.row.open_volume_ratio !== null ? parseFloat(scope.row.open_volume_ratio).toFixed(2) : '-' }}
           </template>
         </el-table-column>
         <el-table-column label="最大涨幅" width="80">
@@ -195,7 +195,7 @@
         </el-table-column>
         <el-table-column label="次日涨幅" width="80">
           <template #default="scope">
-            <span :class="getValueColor(scope.row.next_day_gain)">{{ scope.row.next_day_gain !== undefined && scope.row.next_day_gain !== null ? scope.row.next_day_gain : '-' }}%</span>
+            <span :class="getValueColor(calcNextDayGain(scope.row))">{{ calcNextDayGain(scope.row) !== null ? calcNextDayGain(scope.row) : '-' }}%</span>
           </template>
         </el-table-column>
         <el-table-column prop="trade_date" label="交易日期" width="120" />
@@ -211,6 +211,7 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { getValueColor } from '../../utils/colorUtils.js'
+import { calcTodayGain, calcNextDayGain, calcOpenGain, calcYesterdayBias } from '../../utils/stockCalcUtils.js'
 import { useBlockSelection } from '../../composables/useBlockSelection.js'
 import { API_BASE_URL } from '../../api/config.js'
 
@@ -244,11 +245,11 @@ const filterForm = ref({
 })
 
 // 使用板块选择 composable
-const { 
-  blockList, 
-  selectedBlock, 
-  selectedBlocks, 
-  loadBlockList, 
+const {
+  blockList,
+  selectedBlock,
+  selectedBlocks,
+  loadBlockList,
   setDefaultBlockCodes,
   handleBlockSelect,
   removeBlock
@@ -293,7 +294,7 @@ const handleDaysInput = (value) => {
     filterForm.value.recentDays = ''
     return
   }
-  
+
   if (numValue < 1) {
     filterForm.value.recentDays = 1
   } else if (numValue > 365) {
@@ -308,7 +309,7 @@ const handleGainInput = (value) => {
     filterForm.value.maxGain = ''
     return
   }
-  
+
   if (numValue < 0) {
     filterForm.value.maxGain = 0
   }
@@ -321,7 +322,7 @@ const handleRatioInput = (value) => {
     filterForm.value.priceRatio = ''
     return
   }
-  
+
   if (numValue < 0) {
     filterForm.value.priceRatio = 0
   } else if (numValue > 100) {
@@ -336,7 +337,7 @@ const handleDailyGainThresholdInput = (value) => {
     filterForm.value.dailyGainThreshold = ''
     return
   }
-  
+
   if (numValue < 0) {
     filterForm.value.dailyGainThreshold = 0
   }
@@ -349,7 +350,7 @@ const handleDailyGainDaysInput = (value) => {
     filterForm.value.dailyGainDays = ''
     return
   }
-  
+
   if (numValue < 1) {
     filterForm.value.dailyGainDays = 1
   } else if (numValue > 30) {
@@ -393,7 +394,7 @@ const runStrategy = async () => {
     params.append('recent_max_day_rise', filterForm.value.dailyGainThreshold)
     params.append('prev_high_price_rate', filterForm.value.priceRatio)
     params.append('only_main_board', filterForm.value.onlyMainBoard ? '1' : '0')
-    
+
     await axios.get(`${API_BASE_URL}/refresh-exceed-list?${params.toString()}`)
     await getData()
     lastUpdate.value = new Date().toLocaleString()
@@ -417,19 +418,19 @@ const handleRowClick = (row, column, event) => {
   if (!event || !event.target) {
     return
   }
-  
+
   const cell = event.target.closest('td')
   if (!cell) {
     return
   }
-  
+
   const cellIndex = Array.from(cell.parentElement.children).indexOf(cell)
-  
+
   // 检查是否点击的是前两列（序号和股票代码）
   if (cellIndex < 2) {
     return // 前两列不触发跳转
   }
-  
+
   emit('selectStock', row, 'auction')
 }
 

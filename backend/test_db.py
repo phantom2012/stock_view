@@ -13,11 +13,11 @@ try:
     print('Number of rows:', len(rows))
     for row in rows:
         print(row)
-    
+
     # 执行完整查询
     cursor.execute('''
         SELECT fr.symbol, fr.code, fr.stock_name, fr.pre_avg_price, fr.pre_close_price, fr.pre_price_gain, fr.open_price, fr.close_price, fr.next_close_price,
-               fr.auction_start_price, fr.auction_end_price, fr.price_diff, fr.interval_max_rise, fr.max_day_rise,
+               fr.open_volume, fr.price_diff, fr.interval_max_rise, fr.max_day_rise,
                fr.trade_date, fr.higher_score, fr.rising_wave_score, fr.volume_ratio,
                COALESCE(sa.volume_ratio, 0) as auction_volume_ratio
         FROM filter_results fr
