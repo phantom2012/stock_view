@@ -378,6 +378,8 @@ def get_filter_config(config_type: int = 2):
                     'recent_max_day_rise': row[3],
                     'prev_high_price_rate': row[4],
                     'select_blocks': row[5],
+                    'trade_date': row[6],
+                    'select_blocks': row[5],
                     'trade_date': row[6]
                 }
             return None

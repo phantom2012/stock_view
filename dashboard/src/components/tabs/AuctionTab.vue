@@ -3,6 +3,7 @@
     <div style="background-color: white; border: 1px solid #e0e0e0;" class="rounded-lg p-4 mb-6 shadow-lg">
       <!-- 筛选条件区域 -->
       <div class="filter-form mb-1">
+      <div class="filter-form mb-1">
         <el-form :inline="true" :model="filterForm" class="demo-form-inline">
           <!-- 第一行：筛选条件 -->
           <el-form-item>
@@ -137,6 +138,7 @@
         stripe
         style="width: 100%;"
         height="600"
+        height="600"
         header-row-class-name="bg-gray-50 text-gray-800"
         row-class-name="bg-white hover:bg-gray-50 cursor-pointer"
         @row-click="handleRowClick"
@@ -267,6 +269,10 @@ const loadFilterConfig = async () => {
       filterForm.value.dailyGainDays = response.data.recent_days
       filterForm.value.dailyGainThreshold = response.data.recent_max_day_rise
       filterForm.value.priceRatio = response.data.prev_high_price_rate
+
+      if (response.data.trade_date) {
+        selectedDate.value = response.data.trade_date
+      }
 
       if (response.data.trade_date) {
         selectedDate.value = response.data.trade_date
@@ -407,6 +413,9 @@ const getData = async () => {
   const res = await axios.get(`${API_BASE_URL}/get-exceed-list`)
   let data = res.data || []
   data.sort((a, b) => {
+    const riseA = parseFloat(a.interval_max_rise) || 0
+    const riseB = parseFloat(b.interval_max_rise) || 0
+    return riseB - riseA
     const riseA = parseFloat(a.interval_max_rise) || 0
     const riseB = parseFloat(b.interval_max_rise) || 0
     return riseB - riseA
