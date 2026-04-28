@@ -2,7 +2,7 @@
   <div>
     <div style="background-color: white; border: 1px solid #e0e0e0;" class="rounded-lg p-4 mb-6 shadow-lg">
       <!-- 筛选条件区域 -->
-      <div class="filter-form mb-4">
+      <div class="filter-form mb-1">
         <el-form :inline="true" :model="filterForm" class="demo-form-inline">
           <!-- 第一行：筛选条件 -->
           <el-form-item>
@@ -136,7 +136,7 @@
         :data="list"
         stripe
         style="width: 100%;"
-        height="650"
+        height="600"
         header-row-class-name="bg-gray-50 text-gray-800"
         row-class-name="bg-white hover:bg-gray-50 cursor-pointer"
         @row-click="handleRowClick"
@@ -188,7 +188,11 @@
             {{ scope.row.auction_volume_ratio || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="interval_max_rise" label="最大涨幅" width="80" />
+        <el-table-column label="最大涨幅" width="80">
+          <template #default="scope">
+            <span :class="getValueColor(scope.row.interval_max_rise)">{{ scope.row.interval_max_rise !== undefined && scope.row.interval_max_rise !== null ? parseFloat(scope.row.interval_max_rise).toFixed(1) : '-' }}%</span>
+          </template>
+        </el-table-column>
         <el-table-column label="次日涨幅" width="80">
           <template #default="scope">
             <span :class="getValueColor(scope.row.next_day_gain)">{{ scope.row.next_day_gain !== undefined && scope.row.next_day_gain !== null ? scope.row.next_day_gain : '-' }}%</span>
@@ -262,6 +266,10 @@ const loadFilterConfig = async () => {
       filterForm.value.dailyGainDays = response.data.recent_days
       filterForm.value.dailyGainThreshold = response.data.recent_max_day_rise
       filterForm.value.priceRatio = response.data.prev_high_price_rate
+
+      if (response.data.trade_date) {
+        selectedDate.value = response.data.trade_date
+      }
 
       if (response.data.select_blocks) {
         const blockCodes = response.data.select_blocks.split(',')
@@ -398,9 +406,9 @@ const getData = async () => {
   const res = await axios.get(`${API_BASE_URL}/get-exceed-list`)
   let data = res.data || []
   data.sort((a, b) => {
-    const scoreA = parseFloat(a.higher_score) || 0
-    const scoreB = parseFloat(b.higher_score) || 0
-    return scoreB - scoreA
+    const riseA = parseFloat(a.interval_max_rise) || 0
+    const riseB = parseFloat(b.interval_max_rise) || 0
+    return riseB - riseA
   })
   list.value = data
 }
