@@ -102,7 +102,8 @@ class StockFilterService:
         recent_days: int,
         recent_max_day_rise: float,
         prev_high_price_rate: float,
-        block_codes: str
+        block_codes: str,
+        trade_date: Optional[str] = None
     ):
         try:
             with get_db_cursor() as cursor:
@@ -114,17 +115,17 @@ class StockFilterService:
                     cursor.execute("""
                         UPDATE filter_config 
                         SET interval_days = ?, interval_max_rise = ?, recent_days = ?, 
-                            recent_max_day_rise = ?, prev_high_price_rate = ?, select_blocks = ?, update_time = ?
+                            recent_max_day_rise = ?, prev_high_price_rate = ?, select_blocks = ?, trade_date = ?, update_time = ?
                         WHERE type = ?
-                    """, (interval_days, interval_max_rise, recent_days, recent_max_day_rise, prev_high_price_rate, block_codes, now, config_type))
+                    """, (interval_days, interval_max_rise, recent_days, recent_max_day_rise, prev_high_price_rate, block_codes, trade_date, now, config_type))
                     logger.info(f"Updated filter config for type={config_type}")
                 else:
                     cursor.execute("""
                         INSERT INTO filter_config 
                         (type, interval_days, interval_max_rise, recent_days, recent_max_day_rise, 
-                         prev_high_price_rate, select_blocks, update_time)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (config_type, interval_days, interval_max_rise, recent_days, recent_max_day_rise, prev_high_price_rate, block_codes, now))
+                         prev_high_price_rate, select_blocks, trade_date, update_time)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (config_type, interval_days, interval_max_rise, recent_days, recent_max_day_rise, prev_high_price_rate, block_codes, trade_date, now))
                     logger.info(f"Created filter config for type={config_type}")
         except Exception as e:
             logger.error(f"Error updating filter config: {str(e)}")

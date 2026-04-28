@@ -69,7 +69,8 @@ def api_refresh_exceed_list(params: FilterParams = Depends()):
         recent_days=params.recent_days,
         recent_max_day_rise=params.recent_max_day_rise,
         prev_high_price_rate=params.prev_high_price_rate,
-        block_codes=params.select_blocks or ""
+        block_codes=params.select_blocks or "",
+        trade_date=params.trade_date
     )
     
     return strategy_service.run_strategy(params)
@@ -428,7 +429,7 @@ def get_filter_config(config_type: int = 2):
         with get_db_cursor() as cursor:
             cursor.execute("""
                 SELECT interval_days, interval_max_rise, recent_days, recent_max_day_rise, 
-                       prev_high_price_rate, select_blocks
+                       prev_high_price_rate, select_blocks, trade_date
                 FROM filter_config
                 WHERE type = ?
             """, (config_type,))
@@ -441,7 +442,8 @@ def get_filter_config(config_type: int = 2):
                     'recent_days': row[2],
                     'recent_max_day_rise': row[3],
                     'prev_high_price_rate': row[4],
-                    'select_blocks': row[5]
+                    'select_blocks': row[5],
+                    'trade_date': row[6]
                 }
             return None
     except Exception as e:
