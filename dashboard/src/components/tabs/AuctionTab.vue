@@ -199,7 +199,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="trade_date" label="交易日期" width="120" />
-        <el-table-column prop="higher_score" label="超预期分" width="80" />
+        <el-table-column prop="exp_score" label="预期分" width="80" />
       </el-table>
       <div class="text-sm text-gray-400 mt-2">总选出数量：{{ list.length }}</div>
     </el-card>

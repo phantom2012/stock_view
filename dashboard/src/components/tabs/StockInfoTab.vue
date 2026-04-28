@@ -65,7 +65,7 @@
             </div>
             <div style="position: absolute; bottom: 10px; right: 10px; display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">超预期分：</span>
-              <span style="font-size: 18px; font-weight: 600; color: #3b82f6;">{{ stockInfo.higher_score }}</span>
+              <span style="font-size: 18px; font-weight: 600; color: #3b82f6;">{{ stockInfo.exp_score }}</span>
             </div>
           </div>
         </el-card>

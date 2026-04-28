@@ -204,7 +204,6 @@ def init_database():
         interval_max_rise REAL,             -- 区间最大涨幅
         max_day_rise REAL,                  -- 日内最大涨幅
         trade_date TEXT,                    -- 交易日期
-        higher_score REAL,                  -- 超预期得分
         rising_wave_score REAL,             -- 升浪形态得分
         weipan_exceed INTEGER,              -- 尾盘超预期阈值
         zaopan_exceed INTEGER,              -- 早盘超预期阈值

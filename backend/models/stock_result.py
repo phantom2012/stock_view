@@ -29,7 +29,7 @@ class StockResult(BaseModel):
 
     trade_date: str = ""
 
-    higher_score: float = 0.0
+    exp_score: float = 0.0
     rising_wave_score: float = 0.0
 
     weipan_exceed: int = 0
@@ -58,7 +58,7 @@ class StockResult(BaseModel):
         today_gain: float = 0.0,
         next_day_gain: float = 0.0,
         trade_date: str = '',
-        higher_score: float = 0.0,
+        exp_score: float = 0.0,
         rising_wave_score: float = 0.0,
         weipan_exceed: int = 0,
         zaopan_exceed: int = 0,
@@ -84,7 +84,7 @@ class StockResult(BaseModel):
             today_gain: 当日涨幅
             next_day_gain: 次日涨幅
             trade_date: 交易日期
-            higher_score: 超预期得分
+            exp_score: 预期得分（取rising_wave_score的值）
             rising_wave_score: 升浪形态得分
             weipan_exceed: 尾盘超预期
             zaopan_exceed: 早盘超预期

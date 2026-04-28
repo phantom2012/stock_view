@@ -87,13 +87,15 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
         if filter_type == 1:
             db = next(get_db())
             try:
-                rows = db.query(FilterResult).filter(FilterResult.type == 1).order_by(FilterResult.higher_score.desc()).all()
+                rows = db.query(FilterResult).filter(FilterResult.type == 1).all()
             finally:
                 db.close()
 
             results = []
             for fr in rows:
                 fr_dict = {c.name: getattr(fr, c.name) for c in fr.__table__.columns}
+                # 将 rising_wave_score 的值赋给 exp_score
+                fr_dict['exp_score'] = fr_dict.get('rising_wave_score', 0.0)
                 results.append(StockResult.model_validate(fr_dict).model_dump())
         else:
             with get_db_cursor() as cursor:
@@ -164,7 +166,7 @@ def _build_default_stock_info(code: str) -> Dict[str, Any]:
         'max_day_rise': '-',
         'next_day_gain': '-',
         'trade_date': datetime.now().strftime('%Y-%m-%d'),
-        'higher_score': '-',
+        'exp_score': '-',
         'rising_wave_score': '-',
         'weipan_exceed': False,
         'zaopan_exceed': False,

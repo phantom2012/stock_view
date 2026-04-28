@@ -379,25 +379,25 @@ class StockFilter:
 
         return True
 
-    def calculate_higher_score(self, auction_data: Dict[str, Any],
-                             rising_wave_score: int = 0) -> float:
+    def calculate_exp_score(self, auction_data: Dict[str, Any],
+                           rising_wave_score: int = 0) -> float:
         """
-        计算超预期得分
+        计算预期得分
 
         Args:
             auction_data: 竞价数据
             rising_wave_score: 升浪形态得分
 
         Returns:
-            超预期得分（保留2位小数）
+            预期得分（保留2位小数）
         """
-        open_price = auction_data.get('open_price', 0)
-        close_price = auction_data.get('close_price', 0)
+        begin_price = auction_data.get('begin_price', auction_data.get('open_price', 0))
+        end_price = auction_data.get('end_price', auction_data.get('close_price', 0))
 
-        if open_price != 0:
-            base_score = (close_price - open_price) / open_price * 10000
-            higher_score = base_score + rising_wave_score
-            return round(higher_score, 2)
+        if begin_price != 0:
+            base_score = (end_price - begin_price) / begin_price * 10000
+            exp_score = base_score + rising_wave_score
+            return round(exp_score, 2)
 
         return 0
 
@@ -457,11 +457,8 @@ class StockFilter:
                 if rising_wave_score <= 0:
                     continue
 
-            # 计算超预期得分（仅在有竞价数据时计算）
-            if auction_data:
-                higher_score = self.calculate_higher_score(auction_data, rising_wave_score)
-            else:
-                higher_score = 0
+            # exp_score 取 rising_wave_score 的值
+            exp_score = rising_wave_score
 
             # 计算新增字段：昨均价、昨收盘价、昨涨幅
             pre_avg_price = 0
@@ -533,7 +530,7 @@ class StockFilter:
                 today_gain=today_gain if today_gain is not None else 0.0,
                 next_day_gain=next_day_gain if next_day_gain is not None else 0.0,
                 trade_date=trade_date.strftime('%Y-%m-%d'),
-                higher_score=higher_score,
+                exp_score=exp_score,
                 rising_wave_score=rising_wave_score,
                 weipan_exceed=params.weipan_exceed,
                 zaopan_exceed=params.zaopan_exceed,
