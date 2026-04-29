@@ -80,39 +80,30 @@ class StockFilter:
         Returns:
             StockPerformance对象
         """
-        interval_days = params.interval_days
-        interval_max_rise = params.interval_max_rise
-        recent_days = params.recent_days
-        recent_max_day_rise = params.recent_max_day_rise
-        prev_high_price_rate = params.prev_high_price_rate
-
         # 打印所有入参数值
-        print(f"[StockFilter.check_performance] symbol={symbol}, trade_date={trade_date}, "
-              f"interval_days={interval_days}, interval_max_rise={interval_max_rise}, "
-              f"recent_days={recent_days}, recent_max_day_rise={recent_max_day_rise}, "
-              f"prev_high_price_rate={prev_high_price_rate}")
+        print(f"[StockFilter.check_performance] symbol={symbol}, trade_date={trade_date}")
 
         try:
             # 从缓存获取日K线数据（优先从数据库读取）
             # 多获取1天数据，用于计算当日开盘价相对于前一日收盘价的涨跌
-            data = self.cache.get_history_data(symbol, days=interval_days + 1, trade_date=trade_date, force_refresh=False)
+            data = self.cache.get_history_data(symbol, days=params.interval_days + 1, trade_date=trade_date, force_refresh=False)
 
             if data is not None and len(data) >= 2:
                 # 取最后interval_days条数据用于计算
-                data = data.tail(interval_days)
+                data = data.tail(params.interval_days)
 
                 # 1. 计算股价相对于近期最高价的比例
                 price_ratio = self._calculate_price_ratio(data)
 
                 # 如果设置了股价比例阈值，检查是否满足
-                if prev_high_price_rate > 0 and price_ratio < prev_high_price_rate:
+                if params.prev_high_price_rate > 0 and price_ratio < params.prev_high_price_rate:
                     return StockPerformance(is_pass=False, interval_max_rise=0, max_day_rise=0, prev_high_price_rate=round(price_ratio, 2))
 
                 # 2. 计算区间最大涨幅（首尾收盘价）
                 interval_max_rise_value = self._calculate_period_gain(data)
 
                 # 3. 计算日内最大涨幅
-                max_day_rise = self._calculate_max_day_rise(data, recent_days)
+                max_day_rise = self._calculate_max_day_rise(data, params.recent_days)
 
                 # 保留小数点后2位
                 interval_max_rise_value = round(interval_max_rise_value, 2)
@@ -120,7 +111,7 @@ class StockFilter:
                 price_ratio = round(price_ratio, 2)
 
                 # 检查条件：区间涨幅和日内涨幅都需要大于阈值
-                is_pass = abs(interval_max_rise_value) >= interval_max_rise and max_day_rise >= recent_max_day_rise
+                is_pass = abs(interval_max_rise_value) >= params.interval_max_rise and max_day_rise >= params.recent_max_day_rise
                 return StockPerformance(is_pass=is_pass, interval_max_rise=interval_max_rise_value, max_day_rise=max_day_rise, prev_high_price_rate=price_ratio)
 
             return StockPerformance(is_pass=False, interval_max_rise=0, max_day_rise=0, prev_high_price_rate=0)

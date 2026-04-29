@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 
-from models import StockResult, FilterResult, get_db
+from models import StockResult, FilterResult, get_session
 from models.filter_params import FilterParams
 from stock_cache import get_stock_cache
 from stock_filter import get_stock_filter
@@ -108,8 +108,7 @@ class StrategyService:
 
     def _save_results_to_db(self, results: List[Any]):
         save_start = datetime.now()
-        db = next(get_db())
-        try:
+        with get_session() as db:
             # 删除旧数据
             db.query(FilterResult).filter(FilterResult.type == 1).delete()
 
@@ -136,16 +135,9 @@ class StrategyService:
                 db.add(filter_result)
                 insert_count += 1
 
-            # 提交事务
-            db.commit()
             save_end = datetime.now()
             save_duration = (save_end - save_start).total_seconds()
             logger.info(f"Results saved to database ({insert_count} records), elapsed time: {save_duration:.3f} seconds")
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Error saving results to database: {str(e)}")
-        finally:
-            db.close()
 
 
 _strategy_service: Optional[StrategyService] = None

@@ -19,18 +19,17 @@ def create_tables():
     Base.metadata.create_all(bind=engine)
 
 
-def get_db():
-    """获取数据库会话（用于 FastAPI 依赖注入）"""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 from .filter_result import FilterResult
 from .stock_auction import StockAuction
 from .stock_daily import StockDaily
+from .stock_money_flow import StockMoneyFlow
+from .block_info import BlockInfo
+from .block_stock import BlockStock
+from .filter_config import FilterConfig
+from .stock_info import StockInfo
+from .stock_minute import StockMinute
+from .stock_tick import StockTick
+from .db_session import get_session, get_session_ro
 
 __all__ = [
     'Base',
@@ -39,6 +38,14 @@ __all__ = [
     'FilterResult',
     'StockAuction',
     'StockDaily',
-    'get_db',
+    'StockMoneyFlow',
+    'BlockInfo',
+    'BlockStock',
+    'FilterConfig',
+    'StockInfo',
+    'StockMinute',
+    'StockTick',
+    'get_session',
+    'get_session_ro',
     'create_tables'
 ]

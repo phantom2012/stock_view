@@ -11,10 +11,9 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
 from baostock_data.trade_date_util import TradeDateUtil
-from stock_sqlite.database import get_db_connection, get_db_cursor
 from external_data.ext_data_query_handle import get_query_handler, QUERY_API_TYPE
 from common.stock_code_convert import to_pure_code, get_exchange
-from models import StockDaily, get_db
+from models import StockDaily, StockAuction, StockInfo, StockMinute, StockTick, get_session, get_session_ro
 
 
 # 创建 TradeDateUtil 实例
@@ -104,11 +103,10 @@ class StockDataCache:
 
         # 先从数据库查找
         try:
-            with get_db_cursor() as cursor:
-                cursor.execute("SELECT name FROM stock_info WHERE code = ?", (pure_code,))
-                result = cursor.fetchone()
-                if result and result[0]:
-                    return result[0]
+            with get_session_ro() as db:
+                row = db.query(StockInfo).filter(StockInfo.code == pure_code).first()
+                if row and row.name:
+                    return row.name
         except Exception as e:
             print(f"[StockCache] 从数据库获取股票名称失败: {e}")
 
@@ -128,13 +126,20 @@ class StockDataCache:
         try:
             pure_code = code.split('.')[-1] if '.' in code else code
             exchange = get_exchange(pure_code)
-            update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-            with get_db_cursor() as cursor:
-                cursor.execute("""
-                    INSERT OR REPLACE INTO stock_info (code, name, exchange, update_time)
-                    VALUES (?, ?, ?, ?)
-                """, (pure_code, name, exchange, update_time))
+            with get_session() as db:
+                existing = db.query(StockInfo).filter(StockInfo.code == pure_code).first()
+                if existing:
+                    existing.name = name
+                    existing.exchange = exchange
+                    existing.update_time = datetime.now()
+                else:
+                    db.add(StockInfo(
+                        code=pure_code,
+                        name=name,
+                        exchange=exchange,
+                        update_time=datetime.now()
+                    ))
         except Exception as e:
             print(f"[StockCache] 保存股票信息失败: {e}")
 
@@ -149,12 +154,10 @@ class StockDataCache:
 
         # 先从数据库批量查找
         try:
-            with get_db_cursor() as cursor:
-                placeholders = ','.join(['?' for _ in pure_codes])
-                cursor.execute(f"SELECT code, name FROM stock_info WHERE code IN ({placeholders})", pure_codes)
-                db_results = cursor.fetchall()
-                for row in db_results:
-                    result[row[0]] = row[1]
+            with get_session_ro() as db:
+                rows = db.query(StockInfo).filter(StockInfo.code.in_(pure_codes)).all()
+                for row in rows:
+                    result[row.code] = row.name
         except Exception as e:
             print(f"[StockCache] 从数据库批量获取股票名称失败: {e}")
 
@@ -347,19 +350,6 @@ class StockDataCache:
             traceback.print_exc()
             return None
 
-    def _read_from_db(self, query: str, params: tuple, columns: list) -> Optional[pd.DataFrame]:
-        """从数据库读取数据的通用方法"""
-        try:
-            with get_db_cursor() as cursor:
-                cursor.execute(query, params)
-                rows = cursor.fetchall()
-                if rows:
-                    df = pd.DataFrame(rows, columns=columns)
-                    return df
-        except Exception as e:
-            print(f"[StockCache] 从数据库读取数据失败: {e}")
-        return None
-
     def _process_time_field(self, value) -> str:
         """处理时间字段，转换为字符串格式"""
         if hasattr(value, 'strftime'):
@@ -369,8 +359,7 @@ class StockDataCache:
     def _read_daily_from_db(self, code: str, days: int, date_key: str) -> Optional[pd.DataFrame]:
         """从数据库读取日线数据"""
         try:
-            db = next(get_db())
-            try:
+            with get_session_ro() as db:
                 # 使用SQLAlchemy ORM查询
                 daily_data = db.query(StockDaily).filter(
                     StockDaily.code == code,
@@ -394,8 +383,6 @@ class StockDataCache:
                         })
                     df = pd.DataFrame(data)
                     return df
-            finally:
-                db.close()
         except Exception as e:
             print(f"[StockCache] 从数据库读取日线数据失败: {e}")
         return None
@@ -403,8 +390,7 @@ class StockDataCache:
     def _read_single_day_from_db(self, code: str, date_key: str) -> Optional[pd.DataFrame]:
         """从数据库读取指定日期的单条日线数据"""
         try:
-            db = next(get_db())
-            try:
+            with get_session_ro() as db:
                 # 使用SQLAlchemy ORM查询
                 daily_data = db.query(StockDaily).filter(
                     StockDaily.code == code,
@@ -426,8 +412,6 @@ class StockDataCache:
                     }]
                     df = pd.DataFrame(data)
                     return df
-            finally:
-                db.close()
         except Exception as e:
             print(f"[StockCache] 从数据库读取单条日线数据失败: {e}")
         return None
@@ -438,8 +422,7 @@ class StockDataCache:
             return
 
         try:
-            db = next(get_db())
-            try:
+            with get_session() as db:
                 for _, row in data.iterrows():
                     # 处理 eob 字段，确保是字符串
                     eob_str = self._process_time_field(row['eob'])
@@ -478,15 +461,6 @@ class StockDataCache:
                             update_time=datetime.now()
                         )
                         db.add(new_daily)
-
-                db.commit()
-            except Exception as e:
-                db.rollback()
-                print(f"[StockCache] 保存日线数据失败: {e}")
-                import traceback
-                traceback.print_exc()
-            finally:
-                db.close()
         except Exception as e:
             print(f"[StockCache] 保存日线数据失败: {e}")
             import traceback
@@ -523,45 +497,59 @@ class StockDataCache:
 
     def _read_minute_from_db(self, code: str, date_key: str, start_time_str: str, end_time_str: str) -> Optional[pd.DataFrame]:
         """从数据库读取分钟数据"""
-        query = """
-            SELECT eob, open, close, high, low, volume, amount
-            FROM stock_minute
-            WHERE code = ? AND trade_date = ? AND eob >= ? AND eob <= ?
-            ORDER BY eob
-        """
-        columns = ['eob', 'open', 'close', 'high', 'low', 'volume', 'amount']
-        params = (code, date_key, f"{date_key} {start_time_str}", f"{date_key} {end_time_str}")
-        return self._read_from_db(query, params, columns)
+        try:
+            with get_session_ro() as db:
+                rows = db.query(StockMinute).filter(
+                    StockMinute.code == code,
+                    StockMinute.trade_date == date_key,
+                    StockMinute.eob >= f"{date_key} {start_time_str}",
+                    StockMinute.eob <= f"{date_key} {end_time_str}"
+                ).order_by(StockMinute.eob).all()
+
+                if rows:
+                    data = [{c.name: getattr(r, c.name) for c in StockMinute.__table__.columns if c.name in ('eob', 'open', 'close', 'high', 'low', 'volume', 'amount')} for r in rows]
+                    return pd.DataFrame(data)
+        except Exception as e:
+            print(f"[StockCache] 从数据库读取分钟数据失败: {e}")
+        return None
 
     def _save_minute_to_db(self, code: str, date_key: str, data: pd.DataFrame):
         """保存分钟数据到数据库"""
         if data is None or data.empty:
             return
 
-        update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
         try:
-            with get_db_cursor() as cursor:
+            with get_session() as db:
                 for _, row in data.iterrows():
-                    # 处理 eob 字段
                     eob_str = self._process_time_field(row['eob'])
 
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO stock_minute
-                        (code, trade_date, eob, open, close, high, low, volume, amount, update_time)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        code,
-                        date_key,
-                        eob_str,
-                        row['open'],
-                        row['close'],
-                        row['high'],
-                        row['low'],
-                        int(row['volume']),
-                        row['amount'],
-                        update_time
-                    ))
+                    existing = db.query(StockMinute).filter(
+                        StockMinute.code == code,
+                        StockMinute.trade_date == date_key,
+                        StockMinute.eob == eob_str
+                    ).first()
+
+                    if existing:
+                        existing.open = row['open']
+                        existing.close = row['close']
+                        existing.high = row['high']
+                        existing.low = row['low']
+                        existing.volume = int(row['volume'])
+                        existing.amount = row['amount']
+                        existing.update_time = datetime.now()
+                    else:
+                        db.add(StockMinute(
+                            code=code,
+                            trade_date=date_key,
+                            eob=eob_str,
+                            open=row['open'],
+                            close=row['close'],
+                            high=row['high'],
+                            low=row['low'],
+                            volume=int(row['volume']),
+                            amount=row['amount'],
+                            update_time=datetime.now()
+                        ))
         except Exception as e:
             print(f"[StockCache] 保存分钟数据失败: {e}")
 
@@ -651,57 +639,57 @@ class StockDataCache:
 
     def _read_tick_from_db(self, code: str, date_key: str, start_time_str: str, end_time_str: str) -> Optional[pd.DataFrame]:
         """从数据库读取tick数据"""
-        query = """
-            SELECT created_at, price, volume, cum_amount, cum_volume
-            FROM stock_tick
-            WHERE code = ? AND trade_date = ? AND created_at >= ? AND created_at <= ?
-            ORDER BY created_at
-        """
-        columns = ['created_at', 'price', 'volume', 'cum_amount', 'cum_volume']
-        params = (code, date_key, f"{date_key} {start_time_str}", f"{date_key} {end_time_str}")
-        return self._read_from_db(query, params, columns)
+        try:
+            with get_session_ro() as db:
+                rows = db.query(StockTick).filter(
+                    StockTick.code == code,
+                    StockTick.trade_date == date_key,
+                    StockTick.created_at >= f"{date_key} {start_time_str}",
+                    StockTick.created_at <= f"{date_key} {end_time_str}"
+                ).order_by(StockTick.created_at).all()
+
+                if rows:
+                    data = [{c.name: getattr(r, c.name) for c in StockTick.__table__.columns if c.name in ('created_at', 'price', 'volume', 'cum_amount', 'cum_volume')} for r in rows]
+                    return pd.DataFrame(data)
+        except Exception as e:
+            print(f"[StockCache] 从数据库读取tick数据失败: {e}")
+        return None
 
     def _save_tick_to_db(self, code: str, date_key: str, data: pd.DataFrame):
         """保存tick数据到数据库"""
         if data is None or data.empty:
             return
 
-        update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
         try:
-            with get_db_cursor() as cursor:
+            with get_session() as db:
                 for _, row in data.iterrows():
-                    # 处理 created_at 字段
                     created_at_str = self._process_time_field(row.get('created_at', ''))
+                    volume_int = self.to_int(row.get('volume', 0))
+                    cum_volume_int = self.to_int(row.get('cum_volume', 0))
 
-                    # 处理 volume 字段，确保存在
-                    volume = row.get('volume', 0)
-                    try:
-                        volume_int = int(volume)
-                    except (ValueError, TypeError):
-                        volume_int = 0
+                    existing = db.query(StockTick).filter(
+                        StockTick.code == code,
+                        StockTick.trade_date == date_key,
+                        StockTick.created_at == created_at_str
+                    ).first()
 
-                    # 处理 cum_volume 字段，确保存在
-                    cum_volume = row.get('cum_volume', 0)
-                    try:
-                        cum_volume_int = int(cum_volume)
-                    except (ValueError, TypeError):
-                        cum_volume_int = 0
-
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO stock_tick
-                        (code, trade_date, created_at, price, volume, cum_amount, cum_volume, update_time)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        code,
-                        date_key,
-                        created_at_str,
-                        row.get('price', 0),
-                        volume_int,
-                        row.get('cum_amount', 0),
-                        cum_volume_int,
-                        update_time
-                    ))
+                    if existing:
+                        existing.price = row.get('price', 0)
+                        existing.volume = volume_int
+                        existing.cum_amount = row.get('cum_amount', 0)
+                        existing.cum_volume = cum_volume_int
+                        existing.update_time = datetime.now()
+                    else:
+                        db.add(StockTick(
+                            code=code,
+                            trade_date=date_key,
+                            created_at=created_at_str,
+                            price=row.get('price', 0),
+                            volume=volume_int,
+                            cum_amount=row.get('cum_amount', 0),
+                            cum_volume=cum_volume_int,
+                            update_time=datetime.now()
+                        ))
         except Exception as e:
             print(f"[StockCache] 保存tick数据失败: {e}")
             import traceback
@@ -804,52 +792,17 @@ class StockDataCache:
     def _read_auction_from_db(self, code: str, date_key: str) -> Optional[Dict[str, float]]:
         """从数据库读取竞价数据"""
         try:
-            with get_db_cursor() as cursor:
-                cursor.execute("""
-                    SELECT open_amount, open_volume, volume_ratio
-                    FROM stock_auction
-                    WHERE code = ? AND trade_date = ?
-                """, (code, date_key))
+            with get_session_ro() as db:
+                row = db.query(StockAuction).filter(
+                    StockAuction.code == code,
+                    StockAuction.trade_date == date_key
+                ).first()
 
-                row = cursor.fetchone()
                 if row:
-                    open_amount = row[0]
-                    open_volume = row[1]
-                    volume_ratio = row[2]
-                    # 确保open_amount是数字类型
-                    try:
-                        if open_amount is None:
-                            open_amount = 0
-                        elif isinstance(open_amount, bytes):
-                            open_amount = 0
-                        else:
-                            open_amount = float(open_amount)
-                    except (ValueError, TypeError):
-                        open_amount = 0
-                    # 确保open_volume是数字类型
-                    try:
-                        if open_volume is None:
-                            open_volume = 0
-                        elif isinstance(open_volume, bytes):
-                            open_volume = 0
-                        else:
-                            open_volume = float(open_volume)
-                    except (ValueError, TypeError):
-                        open_volume = 0
-                    # 确保volume_ratio是数字类型
-                    try:
-                        if volume_ratio is None:
-                            volume_ratio = 0
-                        elif isinstance(volume_ratio, bytes):
-                            volume_ratio = 0
-                        else:
-                            volume_ratio = float(volume_ratio)
-                    except (ValueError, TypeError):
-                        volume_ratio = 0
                     return {
-                        'open_volume': open_volume,
-                        'open_amount': open_amount,
-                        'volume_ratio': volume_ratio
+                        'open_volume': self.to_float(row.open_volume),
+                        'open_amount': self.to_float(row.open_amount),
+                        'volume_ratio': self.to_float(row.volume_ratio)
                     }
         except Exception as e:
             print(f"[StockCache] 从数据库读取竞价数据失败: {e}")
@@ -873,32 +826,66 @@ class StockDataCache:
                 - close_price: 收盘价
                 - tail_amount: 尾盘竞价金额
         """
-        update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
         code = str(code)
-        open_price = self.to_float(auction_data.get('price', auction_data.get('open_price', 0)))
-        open_amount = self.to_float(auction_data.get('amount', auction_data.get('open_amount', 0)))
-        open_volume = self.to_int(auction_data.get('volume', auction_data.get('open_volume', 0)))
-        pre_close_val = self.to_float(auction_data.get('pre_close', 0))
-        turn_over_rate = self.to_float(auction_data.get('turn_over_rate', 0))
-        vol_ratio = self.to_float(auction_data.get('volume_ratio', 0))
-        float_share = self.to_float(auction_data.get('float_share', 0))
-        tail_57_price = self.to_float(auction_data.get('tail_57_price', 0))
-        close_price = self.to_float(auction_data.get('close_price', 0))
-        tail_amount = self.to_float(auction_data.get('tail_amount', 0))
-        tail_volume = self.to_int(auction_data.get('tail_volume', 0))
+
+        # 字段映射：auction_data中的key -> StockAuction模型字段名
+        field_map = {
+            'price': 'open_price',
+            'open_price': 'open_price',
+            'amount': 'open_amount',
+            'open_amount': 'open_amount',
+            'volume': 'open_volume',
+            'open_volume': 'open_volume',
+            'pre_close': 'pre_close',
+            'turn_over_rate': 'turn_over_rate',
+            'volume_ratio': 'volume_ratio',
+            'float_share': 'float_share',
+            'tail_57_price': 'tail_57_price',
+            'close_price': 'close_price',
+            'tail_amount': 'tail_amount',
+            'tail_volume': 'tail_volume',
+        }
+
+        # 类型映射：字段名 -> (转换函数, 默认值)
+        type_map = {
+            'open_price': (self.to_float, 0),
+            'open_amount': (self.to_float, 0),
+            'open_volume': (self.to_int, 0),
+            'pre_close': (self.to_float, 0),
+            'turn_over_rate': (self.to_float, 0),
+            'volume_ratio': (self.to_float, 0),
+            'float_share': (self.to_float, 0),
+            'tail_57_price': (self.to_float, 0),
+            'close_price': (self.to_float, 0),
+            'tail_amount': (self.to_float, 0),
+            'tail_volume': (self.to_int, 0),
+        }
+
+        # 构建模型字段值字典
+        model_values = {}
+        for data_key, model_field in field_map.items():
+            if data_key in auction_data:
+                converter, default = type_map.get(model_field, (self.to_float, 0))
+                model_values[model_field] = converter(auction_data[data_key])
 
         try:
-            with get_db_cursor() as cursor:
-                cursor.execute("""
-                    INSERT OR REPLACE INTO stock_auction
-                    (code, trade_date, open_price, open_amount, open_volume, pre_close, turn_over_rate, volume_ratio, float_share,
-                     tail_57_price, tail_amount, tail_volume, close_price, avg_5d_price, avg_10d_price, update_time)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    code, date_key, open_price, open_amount, open_volume, pre_close_val, turn_over_rate, vol_ratio, float_share,
-                    tail_57_price, tail_amount, tail_volume, close_price, 0, 0, update_time
-                ))
+            with get_session() as db:
+                existing = db.query(StockAuction).filter(
+                    StockAuction.code == code,
+                    StockAuction.trade_date == date_key
+                ).first()
+
+                if existing:
+                    for field, value in model_values.items():
+                        setattr(existing, field, value)
+                    existing.update_time = datetime.now()
+                else:
+                    model_values['code'] = code
+                    model_values['trade_date'] = date_key
+                    model_values['avg_5d_price'] = 0
+                    model_values['avg_10d_price'] = 0
+                    model_values['update_time'] = datetime.now()
+                    db.add(StockAuction(**model_values))
         except Exception as e:
             print(f"[StockCache] 保存竞价数据失败: {e}")
 
@@ -913,24 +900,19 @@ class StockDataCache:
             close_price: 收盘价
             tail_amount: 尾盘竞价金额
         """
-        update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-        tail_57_price = self.to_float(tail_57_price)
-        close_price = self.to_float(close_price)
-        tail_amount = self.to_float(tail_amount)
-        tail_volume = 0  # 默认值
-
         try:
-            with get_db_cursor() as cursor:
-                cursor.execute("""
-                    UPDATE stock_auction
-                    SET tail_57_price = ?,
-                        tail_amount = ?,
-                        tail_volume = ?,
-                        close_price = ?,
-                        update_time = ?
-                    WHERE code = ? AND trade_date = ?
-                """, (tail_57_price, tail_amount, tail_volume, close_price, update_time, code, date_key))
+            with get_session() as db:
+                existing = db.query(StockAuction).filter(
+                    StockAuction.code == code,
+                    StockAuction.trade_date == date_key
+                ).first()
+
+                if existing:
+                    existing.tail_57_price = self.to_float(tail_57_price)
+                    existing.tail_amount = self.to_float(tail_amount)
+                    existing.tail_volume = 0
+                    existing.close_price = self.to_float(close_price)
+                    existing.update_time = datetime.now()
         except Exception as e:
             print(f"[StockCache] 更新尾盘竞价数据失败: {e}")
 

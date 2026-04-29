@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div style="background-color: white; border: 1px solid #e0e0e0;" class="rounded-lg p-4 mb-6 shadow-lg">
+    <div style="background-color: white; border: 1px solid #e0e0e0;" class="rounded-lg p-4 mb-3 shadow-lg">
       <!-- 筛选条件区域 -->
       <div class="filter-form mb-1">
         <el-form :inline="true" :model="filterForm" class="demo-form-inline">
@@ -140,6 +140,7 @@
         header-row-class-name="bg-gray-50 text-gray-800"
         row-class-name="bg-white hover:bg-gray-50 cursor-pointer"
         @row-click="handleRowClick"
+        @sort-change="handleSortChange"
       >
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column label="股票代码" width="80">
@@ -188,7 +189,7 @@
             {{ scope.row.open_volume_ratio !== undefined && scope.row.open_volume_ratio !== null ? parseFloat(scope.row.open_volume_ratio).toFixed(2) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="最大涨幅" width="80">
+        <el-table-column prop="interval_max_rise" label="最大涨幅" width="80" sortable="custom">
           <template #default="scope">
             <span :class="getValueColor(scope.row.interval_max_rise)">{{ scope.row.interval_max_rise !== undefined && scope.row.interval_max_rise !== null ? parseFloat(scope.row.interval_max_rise).toFixed(1) : '-' }}%</span>
           </template>
@@ -199,7 +200,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="trade_date" label="交易日期" width="120" />
-        <el-table-column prop="exp_score" label="预期分" width="80" />
+        <el-table-column prop="exp_score" label="预期分" width="80" sortable="custom" />
       </el-table>
       <div class="text-sm text-gray-400 mt-2">总选出数量：{{ list.length }}</div>
     </el-card>
@@ -414,6 +415,25 @@ const getData = async () => {
   list.value = data
 }
 
+const handleSortChange = (sort) => {
+  if (!sort.prop || !sort.order) {
+    return
+  }
+
+  const { prop, order } = sort
+
+  list.value.sort((a, b) => {
+    let valA = parseFloat(a[prop]) || 0
+    let valB = parseFloat(b[prop]) || 0
+
+    if (order === 'ascending') {
+      return valB - valA
+    } else {
+      return valA - valB
+    }
+  })
+}
+
 const handleRowClick = (row, column, event) => {
   if (!event || !event.target) {
     return
@@ -439,3 +459,14 @@ onMounted(async () => {
   await getData()
 })
 </script>
+
+<style scoped>
+:deep(.el-table__sort-icon),
+:deep(.caret-wrapper),
+:deep(.el-icon-caret-top),
+:deep(.el-icon-caret-bottom),
+:deep(.el-icon-arrow-up),
+:deep(.el-icon-arrow-down) {
+  display: none !important;
+}
+</style>

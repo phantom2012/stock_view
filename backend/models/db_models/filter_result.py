@@ -28,6 +28,7 @@ class FilterResult(Base):
     max_day_rise = Column(Float, default=0.0)
     trade_date = Column(String(10), default='')
     rising_wave_score = Column(Float, default=0.0)
+    exp_score = Column(Float, default=0.0)
     weipan_exceed = Column(Integer, default=0)
     zaopan_exceed = Column(Integer, default=0)
     rising_wave = Column(Integer, default=0)

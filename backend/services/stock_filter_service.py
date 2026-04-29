@@ -2,13 +2,12 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
-from models import StockPerformance
+from models import StockPerformance, get_session, get_session_ro
 from models.filter_params import FilterParams
 from stock_cache import get_stock_cache
 from stock_filter import get_stock_filter
 from common.block_stock_util import get_stocks_by_blocks
 from common.stock_code_convert import to_goldminer_symbol
-from stock_sqlite.database import get_db_cursor
 
 logger = logging.getLogger(__name__)
 
@@ -92,26 +91,23 @@ class StockFilterService:
         trade_date: Optional[str] = None
     ):
         try:
-            with get_db_cursor() as cursor:
-                cursor.execute("SELECT * FROM filter_config WHERE type = ?", (config_type,))
-                existing = cursor.fetchone()
+            from models.db_models.filter_config import FilterConfig
 
-                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with get_session() as db:
+                existing = db.query(FilterConfig).filter(FilterConfig.type == config_type).first()
+
+                now = datetime.now()
+                config_data = params.model_dump()
+                config_data['trade_date'] = trade_date
+                config_data['update_time'] = now
+
                 if existing:
-                    cursor.execute("""
-                        UPDATE filter_config
-                        SET interval_days = ?, interval_max_rise = ?, recent_days = ?,
-                            recent_max_day_rise = ?, prev_high_price_rate = ?, select_blocks = ?, trade_date = ?, update_time = ?
-                        WHERE type = ?
-                    """, (params.interval_days, params.interval_max_rise, params.recent_days, params.recent_max_day_rise, params.prev_high_price_rate, params.select_blocks or "", trade_date, now, config_type))
+                    for key, value in config_data.items():
+                        setattr(existing, key, value)
                     logger.info(f"Updated filter config for type={config_type}")
                 else:
-                    cursor.execute("""
-                        INSERT INTO filter_config
-                        (type, interval_days, interval_max_rise, recent_days, recent_max_day_rise,
-                         prev_high_price_rate, select_blocks, trade_date, update_time)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (config_type, params.interval_days, params.interval_max_rise, params.recent_days, params.recent_max_day_rise, params.prev_high_price_rate, params.select_blocks or "", trade_date, now))
+                    config_data['type'] = config_type
+                    db.add(FilterConfig(**config_data))
                     logger.info(f"Created filter config for type={config_type}")
         except Exception as e:
             logger.error(f"Error updating filter config: {str(e)}")

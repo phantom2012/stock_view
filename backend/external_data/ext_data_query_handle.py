@@ -27,6 +27,7 @@ RATE_LIMIT_CONFIG = {
     'get_minute_data': 1000,    # 分钟数据接口：500次/分钟
     'get_tick_data': 1000,      # Tick数据接口：500次/分钟
     'get_instruments': 120,    # 股票基本信息接口：500次/分钟
+    'get_money_flow_data': 120, # 资金流向数据接口：120次/分钟
 }
 
 
@@ -35,11 +36,11 @@ class RateLimiter:
     限流器：基于滑动窗口算法，限制每分钟内的请求次数
     采用阻塞等待机制，超过限流时自动等待直到有可用配额
     """
-    
+
     def __init__(self, max_requests: int, window_seconds: int = 60):
         """
         初始化限流器
-        
+
         Args:
             max_requests: 窗口期内最大请求次数
             window_seconds: 窗口期大小（秒），默认60秒（1分钟）
@@ -48,11 +49,11 @@ class RateLimiter:
         self.window_seconds = window_seconds
         self.requests = []  # 记录请求时间戳
         self.lock = threading.Lock()  # 线程锁
-    
+
     def acquire(self) -> bool:
         """
         尝试获取请求许可（非阻塞）
-        
+
         Returns:
             bool: True表示允许请求，False表示需要等待
         """
@@ -60,13 +61,13 @@ class RateLimiter:
             now = time.time()
             # 移除窗口期外的请求记录
             self.requests = [t for t in self.requests if now - t < self.window_seconds]
-            
+
             if len(self.requests) < self.max_requests:
                 self.requests.append(now)
                 return True
             else:
                 return False
-    
+
     def wait_and_acquire(self) -> None:
         """
         阻塞等待并获取请求许可
@@ -79,7 +80,7 @@ class RateLimiter:
                 if wait_count > 0:
                     print(f"[RateLimiter] 等待完成，继续执行请求（等待了{wait_count}次）")
                 return
-            
+
             # 计算需要等待的时间：找到最早的请求时间，等待到它超出窗口期
             with self.lock:
                 if self.requests:
@@ -126,7 +127,7 @@ class ExternalDataQueryHandler:
 
         self._api_token_set = False
         self._tushare_pro = None
-        
+
         # 初始化各接口的限流器
         self._rate_limiters = {}
         for api_name, max_requests in RATE_LIMIT_CONFIG.items():
@@ -160,10 +161,10 @@ class ExternalDataQueryHandler:
             DataFrame，格式与掘金history接口返回一致
         """
         print(f"[ExternalData] 调用 get_daily_data - symbol={symbol}, start_date={start_date}, end_date={end_date}, fields={fields}")
-        
+
         # 限流检查（阻塞等待直到有可用配额）
         self._rate_limiters['get_daily_data'].wait_and_acquire()
-        
+
         from gm.api import history, ADJUST_PREV
 
         start_time = f"{start_date} 00:00:00"
@@ -193,10 +194,10 @@ class ExternalDataQueryHandler:
             DataFrame，格式与掘金history接口返回一致
         """
         print(f"[ExternalData] 调用 get_minute_data - symbol={symbol}, trade_date={trade_date}, start_time={start_time}, end_time={end_time}")
-        
+
         # 限流检查（阻塞等待直到有可用配额）
         self._rate_limiters['get_minute_data'].wait_and_acquire()
-        
+
         from gm.api import history
 
         full_start = f"{trade_date} {start_time}"
@@ -225,10 +226,10 @@ class ExternalDataQueryHandler:
             DataFrame，格式与掘金history接口返回一致
         """
         print(f"[ExternalData] 调用 get_tick_data - symbol={symbol}, trade_date={trade_date}, start_time={start_time}, end_time={end_time}")
-        
+
         # 限流检查（阻塞等待直到有可用配额）
         self._rate_limiters['get_tick_data'].wait_and_acquire()
-        
+
         from gm.api import history
 
         full_start = f"{trade_date} {start_time}"
@@ -255,24 +256,24 @@ class ExternalDataQueryHandler:
             DataFrame，包含竞价成交信息
         """
         print(f"[ExternalData] 调用 get_auction_data - symbol={symbol}, trade_date={trade_date}")
-        
+
         # 限流检查（阻塞等待直到有可用配额）
         self._rate_limiters['get_auction_data'].wait_and_acquire()
-        
+
         try:
             import time
             start_time = time.time()
-            
+
             if QUERY_API_TYPE == "tushare" and self._tushare_pro:
                 ts_code = self._symbol_to_tushare(symbol)
                 date_str = trade_date.replace('-', '')
-                
+
                 # Tushare的stk_auction接口（参考tushare_data_get.py mode=1）
                 df = self._tushare_pro.stk_auction(
                     ts_code=ts_code,
                     trade_date=date_str
                 )
-                
+
                 if df is not None and not df.empty:
                     # 转换为统一格式
                     df['symbol'] = df['ts_code'].apply(self._tushare_to_symbol)
@@ -280,7 +281,7 @@ class ExternalDataQueryHandler:
                     duration = time.time() - start_time
                     print(f"[ExternalData] Tushare获取竞价数据耗时: {duration:.3f}s")
                     return df
-            
+
             # 默认使用掘金API
             from gm.api import history
             data = history(
@@ -291,10 +292,10 @@ class ExternalDataQueryHandler:
                 fields='open,close,high,low,volume,amount,pre_close,eob',
                 df=True
             )
-            
+
             duration = time.time() - start_time
             print(f"[ExternalData] get_auction_data 耗时: {duration:.3f}s")
-            
+
             return data
         except Exception as e:
             print(f"[ExternalData] get_auction_data 失败: {e}")
@@ -310,18 +311,18 @@ class ExternalDataQueryHandler:
             DataFrame，包含股票基本信息（symbol, sec_name, exchange等）
         """
         print(f"[ExternalData] 调用 get_instruments")
-        
+
         # 限流检查（阻塞等待直到有可用配额）
         self._rate_limiters['get_instruments'].wait_and_acquire()
-        
+
         try:
             import time
             start_time = time.time()
-            
+
             if QUERY_API_TYPE == "tushare" and self._tushare_pro:
                 # 使用Tushare获取股票列表
                 df = self._tushare_pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,market,list_date')
-                
+
                 if df is not None and not df.empty:
                     # 转换为统一格式
                     result_list = []
@@ -334,7 +335,7 @@ class ExternalDataQueryHandler:
                             symbol = f"SZSE.{ts_code.replace('.SZ', '')}"
                         else:
                             continue
-                        
+
                         result_list.append({
                             'symbol': symbol,
                             'sec_name': row.get('name', '未知'),
@@ -345,20 +346,20 @@ class ExternalDataQueryHandler:
                             'market': row.get('market', ''),
                             'list_date': row.get('list_date', ''),
                         })
-                    
+
                     result_df = pd.DataFrame(result_list)
                     duration = time.time() - start_time
                     print(f"[ExternalData] get_instruments 耗时: {duration:.3f}s, 获取 {len(result_df)} 条数据")
                     return result_df
-            
+
             # 默认使用掘金API
             from gm.api import get_instruments
             instruments = get_instruments(exchanges=['SHSE', 'SZSE'], sec_types=[1], df=True)
-            
+
             duration = time.time() - start_time
             if instruments is not None and not instruments.empty:
                 print(f"[ExternalData] get_instruments 耗时: {duration:.3f}s, 获取 {len(instruments)} 条数据")
-            
+
             return instruments
         except Exception as e:
             print(f"[ExternalData] get_instruments 失败: {e}")
@@ -397,6 +398,59 @@ class ExternalDataQueryHandler:
         elif exchange == 'SZ':
             return f"SZSE.{code}"
         return ts_code
+
+    def get_money_flow_data(self, symbol: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
+        """
+        获取资金流向数据（使用Tushare的moneyflow_ths接口）
+
+        Args:
+            symbol: 股票代码 (掘金格式: SHSE.600487)
+            start_date: 开始日期 (YYYY-MM-DD)
+            end_date: 结束日期 (YYYY-MM-DD)
+
+        Returns:
+            DataFrame，包含资金流向信息
+        """
+        print(f"[ExternalData] 调用 get_money_flow_data - symbol={symbol}, start_date={start_date}, end_date={end_date}")
+
+        # 限流检查（阻塞等待直到有可用配额）
+        self._rate_limiters['get_money_flow_data'].wait_and_acquire()
+
+        try:
+            import time
+            start_time = time.time()
+
+            if self._tushare_pro:
+                ts_code = self._symbol_to_tushare(symbol)
+                start_date_str = start_date.replace('-', '')
+                end_date_str = end_date.replace('-', '')
+
+                # 使用Tushare的moneyflow_ths接口获取资金流向数据
+                df = self._tushare_pro.moneyflow_ths(
+                    ts_code=ts_code,
+                    start_date=start_date_str,
+                    end_date=end_date_str
+                )
+
+                if df is not None and not df.empty:
+                    # 转换为统一格式
+                    df['symbol'] = df['ts_code'].apply(self._tushare_to_symbol)
+                    df['trade_date'] = pd.to_datetime(df['trade_date']).dt.strftime('%Y-%m-%d')
+                    duration = time.time() - start_time
+                    print(f"[ExternalData] Tushare获取资金流向数据耗时: {duration:.3f}s")
+                    return df
+                else:
+                    print(f"[ExternalData] Tushare未获取到资金流向数据: {ts_code}")
+                    return None
+            else:
+                print(f"[ExternalData] Tushare API未初始化")
+                return None
+
+        except Exception as e:
+            print(f"[ExternalData] get_money_flow_data 失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
 
 # 创建全局单例实例

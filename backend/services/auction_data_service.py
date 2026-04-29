@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 from stock_cache import get_stock_cache
-from stock_sqlite.database import get_db_cursor
+from models import get_session, get_session_ro
 from baostock_data.trade_date_util import TradeDateUtil
 from common.stock_code_convert import to_goldminer_symbol, to_pure_code
 
@@ -73,10 +73,10 @@ class AuctionDataService:
 
     def save_filter_stocks(self, stocks: List[Dict[str, Any]]) -> Dict[str, Any]:
         try:
-            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            from models.db_models.filter_result import FilterResult
 
-            with get_db_cursor() as cursor:
-                cursor.execute("DELETE FROM filter_results WHERE type = 2")
+            with get_session() as db:
+                db.query(FilterResult).filter(FilterResult.type == 2).delete()
 
                 insert_count = 0
                 for stock in stocks:
@@ -84,13 +84,19 @@ class AuctionDataService:
                     name = stock.get('name', '')
                     interval_max_rise = stock.get('interval_max_rise', 0)
                     max_day_rise = stock.get('max_day_rise', 0)
-                    
+
                     symbol = to_goldminer_symbol(code)
-                    
-                    cursor.execute(
-                        "INSERT INTO filter_results (type, symbol, code, stock_name, interval_max_rise, max_day_rise, update_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        (2, symbol, code, name, interval_max_rise, max_day_rise, current_time)
+
+                    filter_result = FilterResult(
+                        type=2,
+                        symbol=symbol,
+                        code=code,
+                        stock_name=name,
+                        interval_max_rise=interval_max_rise,
+                        max_day_rise=max_day_rise,
+                        update_time=datetime.now()
                     )
+                    db.add(filter_result)
                     insert_count += 1
 
                 logger.info(f"Saved {insert_count} filter stocks to database (type=2)")

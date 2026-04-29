@@ -5,16 +5,15 @@ from datetime import datetime
 from typing import List, Dict, Any
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from apscheduler.schedulers.background import BackgroundScheduler
 
 from stock_cache import get_stock_cache
 from services.strategy_service import get_strategy_service
 from services.stock_filter_service import get_stock_filter_service
 from services.auction_data_service import get_auction_data_service
+from services.money_flow_service import get_money_flow_service
 from models.filter_params import FilterParams
 from models.db_models.filter_result import FilterResult
-from models import get_db, StockResult
-from stock_sqlite.database import get_db_cursor
+from models import get_session_ro, StockResult, BlockInfo, FilterResult, FilterConfig
 from common.stock_code_convert import to_goldminer_symbol
 from gm.api import get_instruments
 
@@ -41,22 +40,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
-
 strategy_service = get_strategy_service()
 stock_filter_service = get_stock_filter_service()
 auction_data_service = get_auction_data_service()
-
-
-def run_strategy_task():
-    strategy_service.run_strategy()
-
-scheduler.add_job(run_strategy_task, "cron", hour=9, minute=25)
-try:
-    scheduler.start()
-    logger.info("Scheduler started")
-except Exception as e:
-    logger.error(f"Error starting scheduler: {str(e)}")
+money_flow_service = get_money_flow_service()
 
 # 筛选超预期策略股票
 @app.get("/refresh-exceed-list")
@@ -85,11 +72,8 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
     """
     try:
         if filter_type == 1:
-            db = next(get_db())
-            try:
+            with get_session_ro() as db:
                 rows = db.query(FilterResult).filter(FilterResult.type == 1).all()
-            finally:
-                db.close()
 
             results = []
             for fr in rows:
@@ -98,21 +82,17 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
                 fr_dict['exp_score'] = fr_dict.get('rising_wave_score', 0.0)
                 results.append(StockResult.model_validate(fr_dict).model_dump())
         else:
-            with get_db_cursor() as cursor:
-                cursor.execute("""
-                    SELECT code, stock_name, interval_max_rise, max_day_rise
-                    FROM filter_results
-                    WHERE type = ?
-                    ORDER BY interval_max_rise DESC
-                """, (filter_type,))
-                rows = cursor.fetchall()
+            with get_session_ro() as db:
+                rows = db.query(FilterResult).filter(
+                    FilterResult.type == filter_type
+                ).order_by(FilterResult.interval_max_rise.desc()).all()
 
             results = [
                 {
-                    'code': row[0],
-                    'name': row[1],
-                    'interval_max_rise': row[2],
-                    'max_day_rise': row[3]
+                    'code': row.code,
+                    'name': row.stock_name,
+                    'interval_max_rise': row.interval_max_rise,
+                    'max_day_rise': row.max_day_rise
                 }
                 for row in rows
             ]
@@ -321,6 +301,12 @@ def load_auction_data(stocks: List[Dict[str, Any]], days: int = 30):
     return auction_data_service.load_auction_data(stocks, days)
 
 
+@app.post("/load-money-flow")
+def load_money_flow(stocks: List[Dict[str, Any]], days: int = 30):
+    logger.info(f"API load-money-flow called with {len(stocks)} stocks, days={days}")
+    return money_flow_service.load_money_flow_data(stocks, days)
+
+
 @app.post("/save-filter-stocks")
 def save_filter_stocks(stocks: List[Dict[str, Any]]):
     logger.info(f"API save-filter-stocks called with {len(stocks)} stocks")
@@ -338,16 +324,16 @@ def get_block_list():
     logger.info("API get-block-list called")
 
     try:
-        with get_db_cursor() as cursor:
-            cursor.execute("SELECT block_code, block_name FROM block_info ORDER BY block_code")
-            rows = cursor.fetchall()
+        with get_session_ro() as db:
+            rows = db.query(BlockInfo).order_by(BlockInfo.block_code).all()
 
-            blocks = []
-            for row in rows:
-                blocks.append({
-                    'code': row[0],
-                    'name': row[1]
-                })
+            blocks = [
+                {
+                    'code': row.block_code,
+                    'name': row.block_name
+                }
+                for row in rows
+            ]
 
             logger.info(f"Returning {len(blocks)} blocks from database")
             return blocks
@@ -363,27 +349,11 @@ def get_filter_config(config_type: int = 2):
     logger.info(f"API get-filter-config called with config_type={config_type}")
 
     try:
-        with get_db_cursor() as cursor:
-            cursor.execute("""
-                SELECT interval_days, interval_max_rise, recent_days, recent_max_day_rise,
-                       prev_high_price_rate, select_blocks, trade_date
-                FROM filter_config
-                WHERE type = ?
-            """, (config_type,))
-            row = cursor.fetchone()
+        with get_session_ro() as db:
+            row = db.query(FilterConfig).filter(FilterConfig.type == config_type).first()
 
             if row:
-                return {
-                    'interval_days': row[0],
-                    'interval_max_rise': row[1],
-                    'recent_days': row[2],
-                    'recent_max_day_rise': row[3],
-                    'prev_high_price_rate': row[4],
-                    'select_blocks': row[5],
-                    'trade_date': row[6],
-                    'select_blocks': row[5],
-                    'trade_date': row[6]
-                }
+                return {c.name: getattr(row, c.name) for c in row.__table__.columns}
             return None
     except Exception as e:
         logger.error(f"Error reading filter config: {str(e)}")

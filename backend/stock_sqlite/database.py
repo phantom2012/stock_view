@@ -1,34 +1,16 @@
 import sqlite3
 import os
-from contextlib import contextmanager
-from typing import Optional, Generator
 
 DATABASE_PATH = r"F:\gupiao\_sqlite_stock_data\stock.db"
 
 
 def get_db_connection() -> sqlite3.Connection:
-    """获取数据库连接"""
+    """获取数据库连接（仅用于 init_database 初始化表结构）"""
     conn = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
     conn.execute("PRAGMA cache_size = -512000;")
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA synchronous = NORMAL;")
     return conn
-
-
-@contextmanager
-def get_db_cursor() -> Generator:
-    """获取数据库连接的上下文管理器"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        yield cursor
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        raise e
-    finally:
-        cursor.close()
-        conn.close()
 
 
 def init_database():

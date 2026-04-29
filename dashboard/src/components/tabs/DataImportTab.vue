@@ -5,46 +5,46 @@
       <template #header>
         <span class="text-lg font-semibold text-gray-800">股票筛选条件</span>
       </template>
-      
+
       <div class="filter-form">
         <el-form :inline="true" :model="filterForm" class="demo-form-inline">
           <!-- 第一行：筛选条件 -->
           <el-form-item>
             <span class="mr-2">最近</span>
-            <el-input 
-              v-model.number="filterForm.recentDays" 
+            <el-input
+              v-model.number="filterForm.recentDays"
               placeholder="天数"
               style="width: 50px;"
               @input="handleDaysInput"
             />
             <span class="mx-2">日内最大涨幅</span>
-            <el-input 
-              v-model.number="filterForm.maxGain" 
+            <el-input
+              v-model.number="filterForm.maxGain"
               placeholder="百分比"
               style="width: 50px;"
               @input="handleGainInput"
             />
             <span class="ml-1 mr-4">%</span>
-            
+
             <span class="mr-2">最近</span>
-            <el-input 
-              v-model.number="filterForm.dailyGainDays" 
+            <el-input
+              v-model.number="filterForm.dailyGainDays"
               placeholder="天数"
               style="width: 40px;"
               @input="handleDailyGainDaysInput"
             />
             <span class="mx-2">日单日最大涨幅></span>
-            <el-input 
-              v-model.number="filterForm.dailyGainThreshold" 
+            <el-input
+              v-model.number="filterForm.dailyGainThreshold"
               placeholder="百分比"
               style="width: 40px;"
               @input="handleDailyGainThresholdInput"
             />
             <span class="ml-1 mr-4">%</span>
-            
+
             <span class="mr-2">股价不低于近期高点</span>
-            <el-input 
-              v-model.number="filterForm.priceRatio" 
+            <el-input
+              v-model.number="filterForm.priceRatio"
               placeholder="百分比"
               style="width: 100px;"
               @input="handleRatioInput"
@@ -52,7 +52,7 @@
             <span class="ml-1 mr-4">%</span>
           </el-form-item>
         </el-form>
-        
+
         <!-- 第二行：板块选择、主板勾选项和按钮 -->
         <div class="flex items-center justify-between mt-4">
           <div class="flex items-center gap-4">
@@ -76,16 +76,16 @@
                 </el-option>
               </el-select>
             </div>
-            
+
             <!-- 仅筛选主板勾选项 -->
             <el-checkbox v-model="filterForm.onlyMainBoard" size="large">
               仅筛选主板
             </el-checkbox>
           </div>
-          
+
           <div class="flex items-center gap-2">
-            <el-button 
-              type="primary" 
+            <el-button
+              type="primary"
               @click="handleFilter"
               :loading="loading"
               icon="Search"
@@ -95,13 +95,21 @@
             <el-button @click="resetFilter" icon="Refresh">
               重置
             </el-button>
-            <el-button 
-              type="success" 
+            <el-button
+              type="success"
               @click="loadAuctionData"
               :loading="loadingAuction"
               icon="Download"
             >
               加载竞价
+            </el-button>
+            <el-button
+              type="success"
+              @click="loadMoneyFlowData"
+              :loading="loadingMoneyFlow"
+              icon="Wallet"
+            >
+              加载资金
             </el-button>
           </div>
         </div>
@@ -173,8 +181,8 @@
             </template>
           </el-table-column>
           <!-- 单日涨幅列（最后一组不加group-end）-->
-          <el-table-column 
-            label="单日最大涨幅" 
+          <el-table-column
+            label="单日最大涨幅"
             width="group < 3 ? 160 : 110"
             :class-name="group < 3 ? 'group-end' : ''"
           >
@@ -203,8 +211,8 @@
     </el-card>
 
     <!-- 无结果提示 -->
-    <el-empty 
-      v-else-if="!loading && hasSearched" 
+    <el-empty
+      v-else-if="!loading && hasSearched"
       description="未找到符合条件的股票"
       class="mt-8"
     />
@@ -245,6 +253,7 @@ const defaultBlockCodes = ['880656', '880670', '880550', '880672', '880491'] // 
 // 状态管理
 const loading = ref(false)
 const loadingAuction = ref(false)
+const loadingMoneyFlow = ref(false)
 const hasSearched = ref(false)
 const filteredStocks = ref([])
 const currentPage = ref(1)
@@ -290,18 +299,18 @@ const currentPageData = computed(() => {
 const formatTableData = (stocks, startIndex) => {
   const groupsCount = TABLE_COLS_PER_PAGE // 列数
   const totalStocks = stocks.length
-  
+
   // 动态计算需要的行数：总数据量除以列数，向上取整
   const rowsNeeded = Math.ceil(totalStocks / groupsCount)
   const rowsPerPage = Math.min(rowsNeeded, TABLE_ROWS_PER_PAGE) // 最多显示的行数
-  
+
   const result = []
-  
+
   // 初始化行数据
   for (let i = 0; i < rowsPerPage; i++) {
     result.push({})
   }
-  
+
   // 按列填充数据
   for (let group = 0; group < groupsCount; group++) {
     for (let row = 0; row < rowsPerPage; row++) {
@@ -324,7 +333,7 @@ const formatTableData = (stocks, startIndex) => {
       }
     }
   }
-  
+
   return result
 }
 
@@ -350,10 +359,10 @@ const handleFilter = async () => {
     ElMessage.warning('请至少选择一个板块')
     return
   }
-  
+
   loading.value = true
   hasSearched.value = true
-  
+
   try {
     const blockCodes = selectedBlocks.value.map(b => b.code)
     const response = await axios.get('http://127.0.0.1:8000/refresh-filter-2-result', {
@@ -367,21 +376,21 @@ const handleFilter = async () => {
         only_main_board: filterForm.value.onlyMainBoard
       }
     })
-    
+
     filteredStocks.value = response.data || []
-    
+
     // 按区间涨幅倒序排列
     filteredStocks.value.sort((a, b) => (b.interval_max_rise || 0) - (a.interval_max_rise || 0))
-    
+
     // 保存到数据库
     try {
       await axios.post('http://127.0.0.1:8000/save-filter-stocks', filteredStocks.value)
     } catch (error) {
       console.error('保存筛选结果失败:', error)
     }
-    
+
     currentPage.value = 1 // 重置到第一页
-    
+
     if (filteredStocks.value.length > 0) {
       ElMessage.success(`找到 ${filteredStocks.value.length} 只符合条件的股票`)
     } else {
@@ -419,23 +428,23 @@ const loadAuctionData = async () => {
     ElMessage.warning('请先筛选股票后再加载竞价数据')
     return
   }
-  
+
   loadingAuction.value = true
-  
+
   // 显示加载提示
   const loadingMsg = ElMessage({
     message: `正在加载竞价数据，共 ${filteredStocks.value.length} 只股票...`,
     type: 'info',
     duration: 0  // 不自动关闭
   })
-  
+
   try {
     const response = await axios.post('http://127.0.0.1:8000/load-auction-data', filteredStocks.value, {
       params: { days: 30 }
     })
-    
+
     loadingMsg.close()
-    
+
     if (response.data.status === 'success') {
       const result = response.data.data
       ElMessage.success(`加载竞价数据完成：成功 ${result.success} 只，失败 ${result.failed} 只，总计 ${result.total} 只股票`)
@@ -451,6 +460,44 @@ const loadAuctionData = async () => {
   }
 }
 
+// 加载资金流向数据
+const loadMoneyFlowData = async () => {
+  if (filteredStocks.value.length === 0) {
+    ElMessage.warning('请先筛选股票后再加载资金流向数据')
+    return
+  }
+
+  loadingMoneyFlow.value = true
+
+  // 显示加载提示
+  const loadingMsg = ElMessage({
+    message: `正在加载资金流向数据，共 ${filteredStocks.value.length} 只股票...`,
+    type: 'info',
+    duration: 0  // 不自动关闭
+  })
+
+  try {
+    const response = await axios.post('http://127.0.0.1:8000/load-money-flow', filteredStocks.value, {
+      params: { days: filterForm.value.recentDays }
+    })
+
+    loadingMsg.close()
+
+    if (response.data.status === 'success') {
+      const result = response.data.data
+      ElMessage.success(`加载资金流向数据完成：成功 ${result.success} 只，失败 ${result.failed} 只，总计 ${result.total} 只股票`)
+    } else {
+      ElMessage.error('加载资金流向数据失败：' + (response.data.msg || '未知错误'))
+    }
+  } catch (error) {
+    loadingMsg.close()
+    console.error('加载资金流向数据失败:', error)
+    ElMessage.error('加载资金流向数据失败，请稍后重试')
+  } finally {
+    loadingMoneyFlow.value = false
+  }
+}
+
 // 处理天数输入，限制为1-365的数字
 const handleDaysInput = (value) => {
   // 移除非数字字符
@@ -459,7 +506,7 @@ const handleDaysInput = (value) => {
     filterForm.value.recentDays = ''
     return
   }
-  
+
   // 限制范围
   if (numValue < 1) {
     filterForm.value.recentDays = 1
@@ -475,7 +522,7 @@ const handleGainInput = (value) => {
     filterForm.value.maxGain = ''
     return
   }
-  
+
   // 只限制最小值为0
   if (numValue < 0) {
     filterForm.value.maxGain = 0
@@ -489,7 +536,7 @@ const handleRatioInput = (value) => {
     filterForm.value.priceRatio = ''
     return
   }
-  
+
   if (numValue < 0) {
     filterForm.value.priceRatio = 0
   } else if (numValue > 100) {
@@ -504,7 +551,7 @@ const handleDailyGainThresholdInput = (value) => {
     filterForm.value.dailyGainThreshold = ''
     return
   }
-  
+
   // 只限制最小值为0
   if (numValue < 0) {
     filterForm.value.dailyGainThreshold = 0
@@ -518,7 +565,7 @@ const handleDailyGainDaysInput = (value) => {
     filterForm.value.dailyGainDays = ''
     return
   }
-  
+
   // 限制范围
   if (numValue < 1) {
     filterForm.value.dailyGainDays = 1
@@ -543,22 +590,22 @@ const handleRowClick = (row, column, event) => {
   if (!event || !event.target) {
     return
   }
-  
+
   const cell = event.target.closest('td')
   if (!cell) {
     return
   }
-  
+
   const cellIndex = Array.from(cell.parentElement.children).indexOf(cell)
   const colCountPerGroup = 4
   const group = Math.floor(cellIndex / colCountPerGroup) + 1
-  
+
   // 检查是否点击的是股票代码列（每组的第1列，索引为0）
   const relativeCellIndex = cellIndex % colCountPerGroup
   if (relativeCellIndex === 0) {
     return // 股票代码列不触发跳转
   }
-  
+
   const stockIndex = row[`stockIndex${group}`]
   if (stockIndex !== null && stockIndex !== undefined) {
     const stock = filteredStocks.value[stockIndex]
