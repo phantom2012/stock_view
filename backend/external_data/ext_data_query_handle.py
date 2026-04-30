@@ -401,7 +401,7 @@ class ExternalDataQueryHandler:
 
     def get_money_flow_data(self, symbol: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
         """
-        获取资金流向数据（使用Tushare的moneyflow_ths接口）
+        获取资金流向数据（使用Tushare的moneyflow_dc接口）
 
         Args:
             symbol: 股票代码 (掘金格式: SHSE.600487)
@@ -425,8 +425,8 @@ class ExternalDataQueryHandler:
                 start_date_str = start_date.replace('-', '')
                 end_date_str = end_date.replace('-', '')
 
-                # 使用Tushare的moneyflow_ths接口获取资金流向数据
-                df = self._tushare_pro.moneyflow_ths(
+                # 使用Tushare的moneyflow_dc接口获取资金流向数据
+                df = self._tushare_pro.moneyflow_dc(
                     ts_code=ts_code,
                     start_date=start_date_str,
                     end_date=end_date_str

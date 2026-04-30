@@ -18,7 +18,7 @@ export function useBlockSelection() {
   // 加载板块列表
   const loadBlockList = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/get-block-list`)
+      const response = await axios.get(`${API_BASE_URL}/api/config/get-block-list`)
       blockList.value = response.data || []
       
       // 如果设置了默认板块代码，加载默认选中的板块

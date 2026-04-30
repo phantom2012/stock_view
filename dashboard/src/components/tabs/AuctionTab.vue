@@ -113,20 +113,32 @@
           </el-tag>
         </div>
 
-        <!-- 刷新按钮和最后更新（放在行末尾） -->
+        <!-- 按钮组（放在行末尾） -->
         <div class="flex items-center gap-4" style="margin-left: auto;">
           <el-button
             type="primary"
             icon="Refresh"
             :loading="loading"
             @click="runStrategy"
-            class="!bg-blue-600 hover:!bg-blue-700"
           >
-            刷新获取数据
+            筛选
           </el-button>
-          <span class="text-sm text-gray-600 whitespace-nowrap">
-            最后更新：{{ lastUpdate || '未更新' }}
-          </span>
+          <el-button
+            type="success"
+            @click="loadAuctionData"
+            :loading="loadingAuction"
+            icon="Download"
+          >
+            加载竞价
+          </el-button>
+          <el-button
+            type="success"
+            @click="loadMoneyFlowData"
+            :loading="loadingMoneyFlow"
+            icon="Wallet"
+          >
+            加载资金
+          </el-button>
         </div>
       </div>
     </div>
@@ -179,7 +191,7 @@
             <span :class="getValueColor(calcOpenGain(scope.row))">{{ calcOpenGain(scope.row) !== null ? calcOpenGain(scope.row) : '-' }}%</span>
           </template>
         </el-table-column>
-        <el-table-column label="今日涨幅" width="80">
+        <el-table-column label="今日涨幅" width="80" sortable="custom" prop="today_gain">
           <template #default="scope">
             <span :class="getValueColor(calcTodayGain(scope.row))">{{ calcTodayGain(scope.row) !== null ? calcTodayGain(scope.row) : '-' }}%</span>
           </template>
@@ -189,18 +201,23 @@
             {{ scope.row.open_volume_ratio !== undefined && scope.row.open_volume_ratio !== null ? parseFloat(scope.row.open_volume_ratio).toFixed(2) : '-' }}
           </template>
         </el-table-column>
+        <el-table-column label="次日涨幅" width="80">
+          <template #default="scope">
+            <span :class="getValueColor(calcNextDayRise(scope.row))">{{ calcNextDayRise(scope.row) !== null ? calcNextDayRise(scope.row) : '-' }}%</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="interval_max_rise" label="最大涨幅" width="80" sortable="custom">
           <template #default="scope">
             <span :class="getValueColor(scope.row.interval_max_rise)">{{ scope.row.interval_max_rise !== undefined && scope.row.interval_max_rise !== null ? parseFloat(scope.row.interval_max_rise).toFixed(1) : '-' }}%</span>
           </template>
         </el-table-column>
-        <el-table-column label="次日涨幅" width="80">
+        <el-table-column prop="turn_start_net_amount" label="启动净额" width="90" sortable="custom">
           <template #default="scope">
-            <span :class="getValueColor(calcNextDayGain(scope.row))">{{ calcNextDayGain(scope.row) !== null ? calcNextDayGain(scope.row) : '-' }}%</span>
+            <span :class="getValueColor(scope.row.turn_start_net_amount)">{{ formatAmount(scope.row.turn_start_net_amount, 'wan') || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="trade_date" label="交易日期" width="120" />
         <el-table-column prop="exp_score" label="预期分" width="80" sortable="custom" />
+        <el-table-column prop="trade_date" label="交易日期" width="110" />
       </el-table>
       <div class="text-sm text-gray-400 mt-2">总选出数量：{{ list.length }}</div>
     </el-card>
@@ -212,7 +229,8 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { getValueColor } from '../../utils/colorUtils.js'
-import { calcTodayGain, calcNextDayGain, calcOpenGain, calcYesterdayBias } from '../../utils/stockCalcUtils.js'
+import { formatAmount } from '../../utils/commonUtils.js'
+import { calcTodayGain, calcNextDayRise, calcOpenGain, calcYesterdayBias } from '../../utils/stockCalcUtils.js'
 import { useBlockSelection } from '../../composables/useBlockSelection.js'
 import { API_BASE_URL } from '../../api/config.js'
 
@@ -226,8 +244,9 @@ const props = defineProps({
 const emit = defineEmits(['tabChange', 'selectStock'])
 
 const loading = ref(false)
+const loadingAuction = ref(false)
+const loadingMoneyFlow = ref(false)
 const list = ref([])
-const lastUpdate = ref('')
 const selectedDate = ref('')
 const filters = ref({
   'weipan_exceed': false,
@@ -259,7 +278,7 @@ const {
 // 从数据库加载筛选配置(type=1)
 const loadFilterConfig = async () => {
   try {
-    const response = await axios.get('http://127.0.0.1:8000/get-filter-config', {
+    const response = await axios.get('http://127.0.0.1:8000/api/config/get-filter-config', {
       params: { config_type: 1 }
     })
     if (response.data) {
@@ -396,16 +415,18 @@ const runStrategy = async () => {
     params.append('prev_high_price_rate', filterForm.value.priceRatio)
     params.append('only_main_board', filterForm.value.onlyMainBoard ? '1' : '0')
 
-    await axios.get(`${API_BASE_URL}/refresh-exceed-list?${params.toString()}`)
+    const response = await axios.get(`${API_BASE_URL}/api/strategy/refresh-exceed-list?${params.toString()}`)
     await getData()
-    lastUpdate.value = new Date().toLocaleString()
+    ElMessage.success(`筛选完成，共选出 ${list.value.length} 只股票`)
+  } catch (error) {
+    ElMessage.error('筛选失败：' + (error.response?.data?.msg || error.message))
   } finally {
     loading.value = false
   }
 }
 
 const getData = async () => {
-  const res = await axios.get(`${API_BASE_URL}/get-exceed-list`)
+  const res = await axios.get(`${API_BASE_URL}/api/strategy/get-exceed-list`)
   let data = res.data || []
   data.sort((a, b) => {
     const riseA = parseFloat(a.interval_max_rise) || 0
@@ -413,6 +434,80 @@ const getData = async () => {
     return riseB - riseA
   })
   list.value = data
+}
+
+// 加载竞价数据
+const loadAuctionData = async () => {
+  if (list.value.length === 0) {
+    ElMessage.warning('请先筛选股票后再加载竞价数据')
+    return
+  }
+
+  loadingAuction.value = true
+
+  const loadingMsg = ElMessage({
+    message: `正在加载竞价数据，共 ${list.value.length} 只股票...`,
+    type: 'info',
+    duration: 0
+  })
+
+  try {
+    const response = await axios.post('http://127.0.0.1:8000/api/data/load-auction-data', list.value, {
+      params: { days: 30 }
+    })
+
+    loadingMsg.close()
+
+    if (response.data.status === 'success') {
+      const result = response.data.data
+      ElMessage.success(`加载竞价数据完成：成功 ${result.success} 只，失败 ${result.failed} 只，总计 ${result.total} 只股票`)
+    } else {
+      ElMessage.error('加载竞价数据失败：' + (response.data.msg || '未知错误'))
+    }
+  } catch (error) {
+    loadingMsg.close()
+    console.error('加载竞价数据失败:', error)
+    ElMessage.error('加载竞价数据失败，请稍后重试')
+  } finally {
+    loadingAuction.value = false
+  }
+}
+
+// 加载资金流向数据
+const loadMoneyFlowData = async () => {
+  if (list.value.length === 0) {
+    ElMessage.warning('请先筛选股票后再加载资金流向数据')
+    return
+  }
+
+  loadingMoneyFlow.value = true
+
+  const loadingMsg = ElMessage({
+    message: `正在加载资金流向数据，共 ${list.value.length} 只股票...`,
+    type: 'info',
+    duration: 0
+  })
+
+  try {
+    const response = await axios.post('http://127.0.0.1:8000/api/data/load-money-flow', list.value, {
+      params: { days: filterForm.value.recentDays }
+    })
+
+    loadingMsg.close()
+
+    if (response.data.status === 'success') {
+      const result = response.data.data
+      ElMessage.success(`加载资金流向数据完成：成功 ${result.success} 只，失败 ${result.failed} 只，总计 ${result.total} 只股票`)
+    } else {
+      ElMessage.error('加载资金流向数据失败：' + (response.data.msg || '未知错误'))
+    }
+  } catch (error) {
+    loadingMsg.close()
+    console.error('加载资金流向数据失败:', error)
+    ElMessage.error('加载资金流向数据失败，请稍后重试')
+  } finally {
+    loadingMoneyFlow.value = false
+  }
 }
 
 const handleSortChange = (sort) => {
@@ -423,8 +518,15 @@ const handleSortChange = (sort) => {
   const { prop, order } = sort
 
   list.value.sort((a, b) => {
-    let valA = parseFloat(a[prop]) || 0
-    let valB = parseFloat(b[prop]) || 0
+    let valA, valB
+
+    if (prop === 'today_gain') {
+      valA = calcTodayGain(a) || 0
+      valB = calcTodayGain(b) || 0
+    } else {
+      valA = parseFloat(a[prop]) || 0
+      valB = parseFloat(b[prop]) || 0
+    }
 
     if (order === 'ascending') {
       return valB - valA

@@ -1,7 +1,8 @@
 <template>
   <div class="h-auto min-h-screen bg-white text-gray-800">
     <div class="mb-0 w-full border-b border-gray-200 bg-white shadow-sm">
-      <div class="mx-auto w-[83%] px-6" style="padding-left: 20px;">
+      <!-- 顶部导航栏容器：w-[85%] 控制导航栏宽度 -->
+    <div class="mx-auto w-[85%] px-6" style="padding-left: 20px;">
         <el-tabs v-model="activeTab" class="header-tabs w-full !border-0 !bg-transparent" style="min-width: 500px;">
           <el-tab-pane label="超预期选股" name="auction" />
           <el-tab-pane label="个股详情" name="stock_info" />
@@ -12,21 +13,22 @@
       </div>
     </div>
 
-    <div class="mx-auto w-[85%] px-6 pb-6">
-      <AuctionTab 
-        v-if="activeTab === 'auction'" 
+    <!-- 主内容区域容器：w-[88%] 控制筛选条件和表格宽度 -->
+    <div class="mx-auto w-[88%] px-6 pb-6">
+      <AuctionTab
+        v-if="activeTab === 'auction'"
         :activeTab="activeTab"
         @selectStock="handleSelectStock"
       />
-      
-      <StockInfoTab 
-        v-else-if="activeTab === 'stock_info'" 
+
+      <StockInfoTab
+        v-else-if="activeTab === 'stock_info'"
         :selectedStock="selectedStock"
         @back="handleBack"
       />
-      
+
       <DataImportTab v-else-if="activeTab === 'data_import'" @selectStock="handleSelectStock" />
-      
+
       <FlowTab v-else-if="activeTab === 'flow'" />
       <SectorTab v-else-if="activeTab === 'sector'" />
     </div>

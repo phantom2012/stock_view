@@ -34,9 +34,9 @@ export const getAuctionAmountColor = (currentAmount, prevAmount) => {
   if (prev === 0) {
     return ''  // 除数为0时不做比较
   }
-  
+
   const ratio = (current - prev) / prev * 100
-  
+
   if (ratio >= 100) {
     return 'text-red-600'     // 增长>=100%，红色
   }
@@ -70,6 +70,6 @@ export const getAuctionAmountChange = (currentAmount, prevAmount) => {
   const current = parseFloat(currentAmount)
   const prev = parseFloat(prevAmount)
   if (isNaN(current) || isNaN(prev)) return null
-  if (prev === 0) return null  // 除数为0时不做比较
+  if (prev === 0) return null
   return ((current - prev) / prev * 100).toFixed(2)
 }

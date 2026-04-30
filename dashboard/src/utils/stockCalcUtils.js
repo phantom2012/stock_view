@@ -28,7 +28,7 @@ export const calcTodayGain = (row) => {
  * @param {Object} row - 数据行，需包含 next_close_price, close_price
  * @returns {number|null}
  */
-export const calcNextDayGain = (row) => {
+export const calcNextDayRise = (row) => {
   return calcGain(row?.next_close_price, row?.close_price)
 }
 

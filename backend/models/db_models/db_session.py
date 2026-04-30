@@ -2,11 +2,14 @@
 通用数据库会话管理工具
 提供上下文管理器，自动处理会话的提交、回滚和关闭
 """
+import logging
 from contextlib import contextmanager
 from typing import Generator, Callable, Any
 from sqlalchemy import text
 
 from . import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -24,8 +27,11 @@ def get_session() -> Generator:
     try:
         yield db
         db.commit()
-    except Exception:
+    except Exception as e:
         db.rollback()
+        logger.error(f"Database session error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise
     finally:
         db.close()

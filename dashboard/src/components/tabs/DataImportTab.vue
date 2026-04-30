@@ -262,7 +262,7 @@ const pageSize = ref(TABLE_PAGE_SIZE) // 每页显示数量，由常量自动计
 // 加载板块列表
 const loadBlockList = async () => {
   try {
-    const response = await axios.get('http://127.0.0.1:8000/get-block-list')
+    const response = await axios.get('http://127.0.0.1:8000/api/config/get-block-list')
     blockList.value = response.data || []
     await loadFilterConfig()
   } catch (error) {
@@ -365,7 +365,7 @@ const handleFilter = async () => {
 
   try {
     const blockCodes = selectedBlocks.value.map(b => b.code)
-    const response = await axios.get('http://127.0.0.1:8000/refresh-filter-2-result', {
+    const response = await axios.get('http://127.0.0.1:8000/api/strategy/refresh-filter-2-result', {
       params: {
         interval_days: filterForm.value.recentDays,
         interval_max_rise: filterForm.value.maxGain,
@@ -384,7 +384,7 @@ const handleFilter = async () => {
 
     // 保存到数据库
     try {
-      await axios.post('http://127.0.0.1:8000/save-filter-stocks', filteredStocks.value)
+      await axios.post('http://127.0.0.1:8000/api/data/save-filter-stocks', filteredStocks.value)
     } catch (error) {
       console.error('保存筛选结果失败:', error)
     }
@@ -439,7 +439,7 @@ const loadAuctionData = async () => {
   })
 
   try {
-    const response = await axios.post('http://127.0.0.1:8000/load-auction-data', filteredStocks.value, {
+    const response = await axios.post('http://127.0.0.1:8000/api/data/load-auction-data', filteredStocks.value, {
       params: { days: 30 }
     })
 
@@ -477,7 +477,7 @@ const loadMoneyFlowData = async () => {
   })
 
   try {
-    const response = await axios.post('http://127.0.0.1:8000/load-money-flow', filteredStocks.value, {
+    const response = await axios.post('http://127.0.0.1:8000/api/data/load-money-flow', filteredStocks.value, {
       params: { days: filterForm.value.recentDays }
     })
 
@@ -624,7 +624,7 @@ onMounted(() => {
 // 从数据库加载筛选配置(type=2)
 const loadFilterConfig = async () => {
   try {
-    const response = await axios.get('http://127.0.0.1:8000/get-filter-config', {
+    const response = await axios.get('http://127.0.0.1:8000/api/config/get-filter-config', {
       params: { config_type: 2 }
     })
     if (response.data) {
@@ -648,7 +648,7 @@ const loadFilterConfig = async () => {
 // 从数据库加载筛选结果(type=2)
 const loadFilterStocks = async () => {
   try {
-    const response = await axios.get('http://127.0.0.1:8000/get-filter-2-result')
+    const response = await axios.get('http://127.0.0.1:8000/api/strategy/get-filter-2-result')
     if (response.data && response.data.length > 0) {
       filteredStocks.value = response.data
       // 按区间涨幅倒序排列

@@ -8,6 +8,7 @@ from stock_cache import get_stock_cache
 from stock_filter import get_stock_filter
 from common.block_stock_util import get_stocks_by_blocks
 from common.stock_code_convert import to_goldminer_symbol
+from common.singleton import SingletonMixin
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ stock_cache = get_stock_cache()
 stock_filter = get_stock_filter()
 
 
-class StockFilterService:
+class StockFilterService(SingletonMixin):
     def filter_stocks(
         self,
         params: FilterParams
@@ -118,11 +119,5 @@ class StockFilterService:
         return []
 
 
-_stock_filter_service: Optional[StockFilterService] = None
-
-
 def get_stock_filter_service() -> StockFilterService:
-    global _stock_filter_service
-    if _stock_filter_service is None:
-        _stock_filter_service = StockFilterService()
-    return _stock_filter_service
+    return StockFilterService.get_instance()

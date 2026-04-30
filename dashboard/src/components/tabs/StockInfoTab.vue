@@ -91,7 +91,7 @@
             </div>
             <div style="display: flex; align-items: center;">
               <span style="font-size: 14px; color: #4b5563; margin-right: 8px;">次日涨幅：</span>
-              <span style="font-size: 18px; font-weight: 600;" :class="getGainColor(stockInfo.next_day_gain)">{{ stockInfo.next_day_gain }}%</span>
+              <span style="font-size: 18px; font-weight: 600;" :class="getGainColor(stockInfo.next_day_rise)">{{ stockInfo.next_day_rise }}%</span>
             </div>
           </div>
         </el-card>
@@ -172,7 +172,7 @@
             <template #default="scope">
               <template v-if="scope.row.open_amount">
                 <span :class="getAuctionAmountColor(scope.row.open_amount, scope.$index < stockHistory.length - 1 ? stockHistory[scope.$index + 1]?.open_amount : null)">
-                  {{ scope.row.open_amount >= 100000000 ? (scope.row.open_amount / 100000000).toFixed(2) + '亿' : (scope.row.open_amount / 10000).toFixed(2) + '万' }}
+                  {{ formatAmount(scope.row.open_amount) || '-' }}
                 </span>
                 <!-- <span v-if="scope.$index < stockHistory.length - 1" class="text-xs ml-1" :class="getAuctionAmountColor(scope.row.open_amount, stockHistory[scope.$index + 1]?.open_amount)">
                   ({{ getAuctionAmountChange(scope.row.open_amount, stockHistory[scope.$index + 1]?.open_amount) !== null ? (getAuctionAmountChange(scope.row.open_amount, stockHistory[scope.$index + 1]?.open_amount) > 0 ? '+' : '') + getAuctionAmountChange(scope.row.open_amount, stockHistory[scope.$index + 1]?.open_amount) + '%' : '' }})
@@ -196,6 +196,7 @@
 import { ref, watch } from 'vue'
 import axios from 'axios'
 import { getValueColor, getAuctionAmountColor, getAuctionAmountChange } from '../../utils/colorUtils.js'
+import { formatAmount } from '../../utils/commonUtils.js'
 
 const props = defineProps({
   selectedStock: {
@@ -223,7 +224,7 @@ const getBiasColor = getValueColor
 const loadStockHistory = async (code) => {
   historyLoading.value = true
   try {
-    const res = await axios.get(`http://127.0.0.1:8000/get-stock-history?code=${code}&days=30`)
+    const res = await axios.get(`http://127.0.0.1:8000/api/stock/get-stock-history?code=${code}&days=30`)
     stockHistory.value = res.data || []
   } catch (error) {
     console.error('获取历史数据失败:', error)
@@ -264,7 +265,7 @@ const queryStock = async () => {
 
   try {
     // 先获取股票基本信息
-    const infoRes = await axios.get(`http://127.0.0.1:8000/get-stock-info?code=${code}`)
+    const infoRes = await axios.get(`http://127.0.0.1:8000/api/stock/get-stock-info?code=${code}`)
     const stockInfo = infoRes.data
 
     if (stockInfo) {
@@ -286,7 +287,7 @@ watch(() => props.selectedStock, async (newStock) => {
 
     try {
       // 先获取股票基本信息
-      const infoRes = await axios.get(`http://127.0.0.1:8000/get-stock-info?code=${newStock.code}`)
+      const infoRes = await axios.get(`http://127.0.0.1:8000/api/stock/get-stock-info?code=${newStock.code}`)
       const stockInfoData = infoRes.data
 
       if (stockInfoData) {

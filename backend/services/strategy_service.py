@@ -8,6 +8,7 @@ from stock_cache import get_stock_cache
 from stock_filter import get_stock_filter
 from common.block_stock_util import get_stocks_by_blocks
 from common.stock_code_convert import to_goldminer_symbol, to_pure_code
+from common.singleton import SingletonMixin
 from baostock_data.trade_date_util import TradeDateUtil
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ stock_filter = get_stock_filter()
 trade_date_util = TradeDateUtil()
 
 
-class StrategyService:
+class StrategyService(SingletonMixin):
     def __init__(self):
         self._last_run_time: Optional[str] = None
 
@@ -73,6 +74,8 @@ class StrategyService:
 
             logger.info(f"Strategy completed, found {len(results)} stocks")
 
+            self._save_filter_config(params, target_date.strftime('%Y-%m-%d'))
+
             if results:
                 self._save_results_to_db(results)
 
@@ -106,6 +109,29 @@ class StrategyService:
                 return list(block_codes)
         return None
 
+    def _save_filter_config(self, params: FilterParams, trade_date: str):
+        try:
+            from models.db_models.filter_config import FilterConfig
+
+            with get_session() as db:
+                existing = db.query(FilterConfig).filter(FilterConfig.type == 1).first()
+
+                now = datetime.now()
+                config_data = params.model_dump()
+                config_data['trade_date'] = trade_date
+                config_data['update_time'] = now
+
+                if existing:
+                    for key, value in config_data.items():
+                        setattr(existing, key, value)
+                    logger.info(f"Updated filter config for type=1")
+                else:
+                    config_data['type'] = 1
+                    db.add(FilterConfig(**config_data))
+                    logger.info(f"Created filter config for type=1")
+        except Exception as e:
+            logger.error(f"Error updating filter config: {str(e)}")
+
     def _save_results_to_db(self, results: List[Any]):
         save_start = datetime.now()
         with get_session() as db:
@@ -129,6 +155,8 @@ class StrategyService:
                 stock_dict = stock_obj.model_dump()
                 stock_dict['type'] = 1
                 stock_dict['update_time'] = datetime.now()
+                stock_dict.pop('next_day_rise', None)
+                stock_dict.pop('net_d5_amount', None)
                 filter_result = FilterResult(**stock_dict)
 
                 # 添加到数据库会话
@@ -140,11 +168,5 @@ class StrategyService:
             logger.info(f"Results saved to database ({insert_count} records), elapsed time: {save_duration:.3f} seconds")
 
 
-_strategy_service: Optional[StrategyService] = None
-
-
 def get_strategy_service() -> StrategyService:
-    global _strategy_service
-    if _strategy_service is None:
-        _strategy_service = StrategyService()
-    return _strategy_service
+    return StrategyService.get_instance()

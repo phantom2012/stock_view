@@ -431,13 +431,12 @@ class StockFilter:
             today_gain = self.get_stock_day_gain(symbol, trade_date)
 
             # 获取次日涨幅（只有当次日不是今天时才获取）
-            next_day_gain = None
+            next_day_rise = None
             if trade_date.date() < datetime.now().date():
-                # 使用交易日工具获取下一个交易日
                 next_trade_date_str = self.trade_date_util.get_next_trade_date(trade_date)
                 if next_trade_date_str:
                     next_trading_day = datetime.strptime(next_trade_date_str, '%Y-%m-%d')
-                    next_day_gain = self.get_stock_day_gain(symbol, next_trading_day)
+                    next_day_rise = self.get_stock_day_gain(symbol, next_trading_day)
 
             # 计算升浪形态得分
             rising_wave_score = 0
@@ -519,7 +518,7 @@ class StockFilter:
                 interval_max_rise=performance.interval_max_rise,
                 max_day_rise=performance.max_day_rise,
                 today_gain=today_gain if today_gain is not None else 0.0,
-                next_day_gain=next_day_gain if next_day_gain is not None else 0.0,
+                next_day_rise=next_day_rise if next_day_rise is not None else 0.0,
                 trade_date=trade_date.strftime('%Y-%m-%d'),
                 exp_score=exp_score,
                 rising_wave_score=rising_wave_score,

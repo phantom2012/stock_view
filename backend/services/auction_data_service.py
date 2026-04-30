@@ -6,6 +6,7 @@ from stock_cache import get_stock_cache
 from models import get_session, get_session_ro
 from baostock_data.trade_date_util import TradeDateUtil
 from common.stock_code_convert import to_goldminer_symbol, to_pure_code
+from common.singleton import SingletonMixin
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ stock_cache = get_stock_cache()
 trade_date_util = TradeDateUtil()
 
 
-class AuctionDataService:
+class AuctionDataService(SingletonMixin):
     def load_auction_data(self, stocks: List[Dict[str, Any]], days: int = 30) -> Dict[str, Any]:
         result = {
             'success': 0,
@@ -108,11 +109,5 @@ class AuctionDataService:
             return {"status": "error", "msg": str(e)}
 
 
-_auction_data_service: Optional[AuctionDataService] = None
-
-
 def get_auction_data_service() -> AuctionDataService:
-    global _auction_data_service
-    if _auction_data_service is None:
-        _auction_data_service = AuctionDataService()
-    return _auction_data_service
+    return AuctionDataService.get_instance()

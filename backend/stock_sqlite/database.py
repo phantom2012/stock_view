@@ -220,6 +220,38 @@ def init_database():
     )
     """)
 
+    # 资金流向表（对齐 Tushare moneyflow_dc 接口）
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS stock_money_flow (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL,                   -- 股票代码
+        trade_date TEXT NOT NULL,             -- 交易日期
+        name TEXT,                            -- 股票名称
+        pct_change REAL,                      -- 涨跌幅
+        close REAL,                           -- 最新价
+        net_amount REAL,                      -- 今日主力净流入额（万元）
+        net_amount_rate REAL,                 -- 今日主力净流入净占比（%）
+        net_d5_amount REAL,                   -- 5日主力净流入额（万元）
+        turn_start_date TEXT,                 -- 转强启动日期
+        turn_start_net_amount REAL,           -- 转强累计净流入（万元）
+        buy_elg_amount REAL,                  -- 今日超大单净流入额（万元）
+        buy_elg_amount_rate REAL,             -- 今日超大单净流入占比（%）
+        buy_lg_amount REAL,                   -- 今日大单净流入额（万元）
+        buy_lg_amount_rate REAL,              -- 今日大单净流入占比（%）
+        buy_md_amount REAL,                   -- 今日中单净流入额（万元）
+        buy_md_amount_rate REAL,              -- 今日中单净流入占比（%）
+        buy_sm_amount REAL,                   -- 今日小单净流入额（万元）
+        buy_sm_amount_rate REAL,              -- 今日小单净流入占比（%）
+        update_time TEXT,                     -- 更新时间
+        UNIQUE(code, trade_date)
+    )
+    """)
+
+    cursor.execute("""
+    CREATE INDEX idx_stock_money_flow_code_date
+    ON stock_money_flow(code, trade_date)
+    """)
+
     conn.commit()
     conn.close()
     print(f"[SQLite] 数据库初始化完成: {DATABASE_PATH}")
@@ -238,3 +270,4 @@ if __name__ == "__main__":
     print("7. block_stock      - 板块股票关系表")
     print("8. filter_results   - 筛选结果表")
     print("9. filter_config    - 筛选配置表")
+    print("10. stock_money_flow - 资金流向表")

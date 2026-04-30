@@ -2,15 +2,16 @@ import tushare as ts
 import pandas as pd
 from datetime import datetime
 
-GET_STOCK_CODE = "600726"
-GET_DATE = "2026-04-28"
+GET_STOCK_CODE = "002281"
+GET_DATE = "2026-04-22"
 
 # 运行模式配置
 # RUN_MODE = 1: 查询当日竞价数据（早盘+尾盘）
 # RUN_MODE = 2: 使用Tushare stk_mins接口查询9:30后开盘信息
 # RUN_MODE = 3: 使用Tushare stk_auction_o接口获取早盘竞价信息
-# RUN_MODE = 4: 使用Tushare moneyflow接口获取资金流向数据
+# RUN_MODE = 4: 使用Tushare moneyflow_ths接口获取资金流向数据
 # RUN_MODE = 5: 使用掘金接口查询9:30后开盘快照
+# RUN_MODE = 6: 使用Tushare moneyflow_dc接口获取资金信息
 RUN_MODE = 4
 
 # Tushare API Token
@@ -339,39 +340,32 @@ def get_morning_auction_tushare():
 
 def get_money_flow_tushare():
     """
-    使用Tushare moneyflow_ths接口获取指定股票指定日期的资金流向数据（模式4）
-    moneyflow_ths接口返回主力净流入、大单/中单/小单流向等数据
+    使用Tushare moneyflow_ths接口获取指定股票指定日期范围的资金流向数据（模式4）
+    moneyflow_ths接口返回同花顺资金流向数据，包含net_amount净流入金额
     """
     try:
-        # 初始化Tushare Pro API
         pro = ts.pro_api(TUSHARE_API_TOKEN)
-        # 设置代理地址
         pro._DataApi__http_url = TUSHARE_PROXY_URL
 
-        # 构建Tushare格式的股票代码
         if GET_STOCK_CODE.startswith('6'):
             ts_code = f"{GET_STOCK_CODE}.SH"
         else:
             ts_code = f"{GET_STOCK_CODE}.SZ"
 
-        # 转换日期格式为YYYYMMDD
-        trade_date = GET_DATE.replace('-', '')
+        start_date = "20260422"
+        end_date = "20260430"
 
-        print(f"正在获取 {ts_code} 在 {GET_DATE} 的资金流向数据...")
+        print(f"正在获取 {ts_code} 在 {start_date} 到 {end_date} 的资金流向数据...")
         print(f"使用moneyflow_ths接口（模式4）获取资金流向信息...")
 
-        # 调用Tushare的moneyflow_ths接口获取资金流向数据
-        # moneyflow_ths返回的字段: trade_date, ts_code, name, pct_change, latest,
-        # net_amount, net_d5_amount, buy_lg_amount, buy_lg_amount_rate,
-        # buy_md_amount, buy_md_amount_rate, buy_sm_amount, buy_sm_amount_rate
         df = pro.moneyflow_ths(
             ts_code=ts_code,
-            start_date=trade_date,
-            end_date=trade_date
+            start_date=start_date,
+            end_date=end_date
         )
 
         if df is None or df.empty:
-            print(f"未获取到 {ts_code} 在 {GET_DATE} 的资金流向数据")
+            print(f"未获取到 {ts_code} 在 {start_date} 到 {end_date} 的资金流向数据")
             return
 
         print(f"\n{'='*80}")
@@ -380,59 +374,92 @@ def get_money_flow_tushare():
         print(f"数据条数: {len(df)}")
         print(f"数据列: {df.columns.tolist()}")
 
-        # 显示完整的资金流向数据
         print(f"\n{'='*80}")
         print(f"完整资金流向数据:")
         print(f"{'='*80}")
         print(df.to_string(index=False))
 
-        # 详细显示资金流向信息
         print(f"\n{'='*80}")
-        print(f"资金流向详细信息:")
+        print(f"每日净流入金额 (net_amount):")
         print(f"{'='*80}")
+        print(f"{'日期':<12} {'净流入金额(万元)':<20}")
+        print("-" * 35)
 
+        total_net_amount = 0
         for _, row in df.iterrows():
-            print(f"\n  股票代码: {row.get('ts_code', 'N/A')}")
-            print(f"  股票名称: {row.get('name', 'N/A')}")
-            print(f"  交易日期: {row.get('trade_date', 'N/A')}")
-            print(f"  涨跌幅: {row.get('pct_change', 'N/A')}%")
-            print(f"  最新价: {row.get('latest', 'N/A')}")
+            trade_date = row.get('trade_date', 'N/A')
+            net_amount = row.get('net_amount', 0)
+            total_net_amount += net_amount
+            print(f"{trade_date:<12} {net_amount:,.2f}")
 
-            # 主力净流入数据
-            print(f"\n  【主力净流入】")
-            print(f"    今日净流入额: {row.get('net_amount', 'N/A'):,} 万元")
-            print(f"    5日净流入额: {row.get('net_d5_amount', 'N/A'):,} 万元")
-
-            # 大单数据
-            print(f"\n  【大单】")
-            print(f"    净流入额: {row.get('buy_lg_amount', 'N/A'):,} 万元")
-            print(f"    净流入占比: {row.get('buy_lg_amount_rate', 'N/A')}%")
-
-            # 中单数据
-            print(f"\n  【中单】")
-            print(f"    净流入额: {row.get('buy_md_amount', 'N/A'):,} 万元")
-            print(f"    净流入占比: {row.get('buy_md_amount_rate', 'N/A')}%")
-
-            # 小单数据
-            print(f"\n  【小单】")
-            print(f"    净流入额: {row.get('buy_sm_amount', 'N/A'):,} 万元")
-            print(f"    净流入占比: {row.get('buy_sm_amount_rate', 'N/A')}%")
-
-        # 统计汇总
-        print(f"\n{'='*80}")
-        print(f"资金流向统计汇总:")
-        print(f"{'='*80}")
-
-        print(f"  股票代码: {ts_code}")
-        print(f"  统计周期: {GET_DATE}")
-        print(f"  今日主力净流入总额: {df['net_amount'].sum():,.2f} 万元")
-        print(f"  5日主力净流入总额: {df['net_d5_amount'].sum():,.2f} 万元")
-        print(f"  大单净流入总额: {df['buy_lg_amount'].sum():,.2f} 万元")
-        print(f"  中单净流入总额: {df['buy_md_amount'].sum():,.2f} 万元")
-        print(f"  小单净流入总额: {df['buy_sm_amount'].sum():,.2f} 万元")
+        print("-" * 35)
+        print(f"{'合计':<12} {total_net_amount:,.2f}")
 
     except Exception as e:
         print(f"获取资金流向数据失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def get_money_flow_dc_tushare():
+    """
+    使用Tushare moneyflow_dc接口获取指定股票指定日期范围的资金信息（模式6）
+    moneyflow_dc接口返回北向资金、南向资金等资金流向数据，包含net_amount净流入金额
+    """
+    try:
+        pro = ts.pro_api(TUSHARE_API_TOKEN)
+        pro._DataApi__http_url = TUSHARE_PROXY_URL
+
+        if GET_STOCK_CODE.startswith('6'):
+            ts_code = f"{GET_STOCK_CODE}.SH"
+        else:
+            ts_code = f"{GET_STOCK_CODE}.SZ"
+
+        start_date = "20260422"
+        end_date = "20260430"
+
+        print(f"正在获取 {ts_code} 在 {start_date} 到 {end_date} 的资金信息...")
+        print(f"使用moneyflow_dc接口（模式6）获取资金信息...")
+
+        df = pro.moneyflow_dc(
+            ts_code=ts_code,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df is None or df.empty:
+            print(f"未获取到 {ts_code} 在 {start_date} 到 {end_date} 的资金信息")
+            return
+
+        print(f"\n{'='*80}")
+        print(f"资金信息数据概览 (moneyflow_dc接口):")
+        print(f"{'='*80}")
+        print(f"数据条数: {len(df)}")
+        print(f"数据列: {df.columns.tolist()}")
+
+        print(f"\n{'='*80}")
+        print(f"完整资金信息数据:")
+        print(f"{'='*80}")
+        print(df.to_string(index=False))
+
+        print(f"\n{'='*80}")
+        print(f"每日净流入金额 (net_amount):")
+        print(f"{'='*80}")
+        print(f"{'日期':<12} {'净流入金额(万元)':<20}")
+        print("-" * 35)
+
+        total_net_amount = 0
+        for _, row in df.iterrows():
+            trade_date = row.get('trade_date', 'N/A')
+            net_amount = row.get('net_amount', 0)
+            total_net_amount += net_amount
+            print(f"{trade_date:<12} {net_amount:,.2f}")
+
+        print("-" * 35)
+        print(f"{'合计':<12} {total_net_amount:,.2f}")
+
+    except Exception as e:
+        print(f"获取资金信息失败: {e}")
         import traceback
         traceback.print_exc()
 
@@ -536,13 +563,17 @@ if __name__ == "__main__":
         print(f"股票代码: {GET_STOCK_CODE}, 日期: {GET_DATE}\n")
         get_morning_auction_tushare()
     elif RUN_MODE == 4:
-        print(f"运行模式: 使用Tushare moneyflow接口获取资金流向数据")
+        print(f"运行模式: 使用Tushare moneyflow_ths接口获取资金流向数据")
         print(f"股票代码: {GET_STOCK_CODE}, 日期: {GET_DATE}\n")
         get_money_flow_tushare()
     elif RUN_MODE == 5:
         print(f"运行模式: 使用掘金接口查询9:30后开盘快照")
         print(f"股票代码: {GET_STOCK_CODE}, 日期: {GET_DATE}\n")
         get_opening_snapshot_goldminer()
+    elif RUN_MODE == 6:
+        print(f"运行模式: 使用Tushare moneyflow_dc接口获取资金信息")
+        print(f"股票代码: {GET_STOCK_CODE}, 日期: {GET_DATE}\n")
+        get_money_flow_dc_tushare()
     else:
         print(f"错误: 未知的运行模式 {RUN_MODE}")
-        print("请使用 RUN_MODE = 1 (竞价数据) 或 RUN_MODE = 2 (Tushare stk_mins) 或 RUN_MODE = 3 (Tushare stk_auction_o) 或 RUN_MODE = 4 (Tushare moneyflow) 或 RUN_MODE = 5 (掘金接口)")
+        print("请使用 RUN_MODE = 1~6")
