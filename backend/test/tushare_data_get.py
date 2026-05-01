@@ -2,8 +2,8 @@ import tushare as ts
 import pandas as pd
 from datetime import datetime
 
-GET_STOCK_CODE = "002281"
-GET_DATE = "2026-04-22"
+GET_STOCK_CODE = "603601"
+GET_DATE = "2026-04-30"
 
 # 运行模式配置
 # RUN_MODE = 1: 查询当日竞价数据（早盘+尾盘）
@@ -12,12 +12,13 @@ GET_DATE = "2026-04-22"
 # RUN_MODE = 4: 使用Tushare moneyflow_ths接口获取资金流向数据
 # RUN_MODE = 5: 使用掘金接口查询9:30后开盘快照
 # RUN_MODE = 6: 使用Tushare moneyflow_dc接口获取资金信息
-RUN_MODE = 4
+# RUN_MODE = 7: 使用Tushare daily_basic接口获取每日指标（基本面信息）
+RUN_MODE = 7
 
 # Tushare API Token
-TUSHARE_API_TOKEN = "aeb08b4b67a00b77b8c8041b8e183e9c07c350fbe31691ede2913291"
+TUSHARE_API_TOKEN = "Zku47OUVCydb1095ShpVSzn4u7pea7bFvgLNoCjIENA"
 # Tushare 代理地址
-TUSHARE_PROXY_URL = "http://tsy.xiaodefa.cn"
+TUSHARE_PROXY_URL = "http://47.109.59.144:8989/dataapi"
 
 def get_auction_data():
     """
@@ -464,6 +465,95 @@ def get_money_flow_dc_tushare():
         traceback.print_exc()
 
 
+def get_daily_basic_tushare():
+    """
+    使用Tushare daily_basic接口获取指定股票指定日期的每日指标（基本面信息）（模式7）
+    daily_basic接口返回股票的基本面指标，包括：
+    - 流通股本、总股本
+    - 市值（总市值、流通市值）
+    - 估值指标（市盈率、市净率、市销率等）
+    - 财务指标（毛利率、净利率、ROE等）
+    """
+    try:
+        pro = ts.pro_api(TUSHARE_API_TOKEN)
+        pro._DataApi__http_url = TUSHARE_PROXY_URL
+
+        if GET_STOCK_CODE.startswith('6'):
+            ts_code = f"{GET_STOCK_CODE}.SH"
+        else:
+            ts_code = f"{GET_STOCK_CODE}.SZ"
+
+        # 转换日期格式为YYYYMMDD
+        trade_date = GET_DATE.replace('-', '')
+
+        print(f"正在获取 {ts_code} 在 {GET_DATE} 的每日基本面指标...")
+        print(f"使用daily_basic接口（模式7）获取基本面信息...")
+
+        # 调用Tushare的daily_basic接口获取每日指标
+        df = pro.daily_basic(
+            ts_code=ts_code,
+            trade_date=trade_date,
+            fields='ts_code,trade_date,close,turnover_rate,turnover_rate_f,volume_ratio,pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,dv_ttm,total_share,float_share,free_share,total_mv,circ_mv'
+        )
+
+        if df is None or df.empty:
+            print(f"未获取到 {ts_code} 在 {GET_DATE} 的每日基本面指标")
+            return
+
+        print(f"\n{'='*80}")
+        print(f"每日基本面指标数据概览 (daily_basic接口):")
+        print(f"{'='*80}")
+        print(f"数据条数: {len(df)}")
+        print(f"数据列: {df.columns.tolist()}")
+
+        print(f"\n{'='*80}")
+        print(f"完整每日基本面指标数据:")
+        print(f"{'='*80}")
+        print(df.to_string(index=False))
+
+        # 详细显示基本面信息
+        print(f"\n{'='*80}")
+        print(f"基本面指标详细信息:")
+        print(f"{'='*80}")
+
+        data = df.iloc[0]
+
+        print(f"\n【基本信息】")
+        print(f"  股票代码: {data.get('ts_code', 'N/A')}")
+        print(f"  交易日期: {data.get('trade_date', 'N/A')}")
+        print(f"  收盘价: {data.get('close', 'N/A'):.2f}")
+
+        print(f"\n【股本信息】")
+        print(f"  总股本(万股): {data.get('total_share', 'N/A'):,.2f}")
+        print(f"  流通股本(万股): {data.get('float_share', 'N/A'):,.2f}")
+        print(f"  自由流通股本(万股): {data.get('free_share', 'N/A'):,.2f}")
+
+        print(f"\n【市值信息】")
+        print(f"  总市值(亿元): {data.get('total_mv', 'N/A')/10000:,.2f}")
+        print(f"  流通市值(亿元): {data.get('circ_mv', 'N/A')/10000:,.2f}")
+
+        print(f"\n【估值指标】")
+        print(f"  市盈率(PE): {data.get('pe', 'N/A'):.2f}")
+        print(f"  市盈率(TTM): {data.get('pe_ttm', 'N/A'):.2f}")
+        print(f"  市净率(PB): {data.get('pb', 'N/A'):.2f}")
+        print(f"  市销率(PS): {data.get('ps', 'N/A'):.2f}")
+        print(f"  市销率(TTM): {data.get('ps_ttm', 'N/A'):.2f}")
+
+        print(f"\n【市场指标】")
+        print(f"  换手率: {data.get('turnover_rate', 'N/A'):.2f}%")
+        print(f"  自由流通股换手率: {data.get('turnover_rate_f', 'N/A'):.2f}%")
+        print(f"  量比: {data.get('volume_ratio', 'N/A'):.2f}")
+
+        print(f"\n【分红指标】")
+        print(f"  股息率: {data.get('dv_ratio', 'N/A'):.2f}%")
+        print(f"  股息率(TTM): {data.get('dv_ttm', 'N/A'):.2f}%")
+
+    except Exception as e:
+        print(f"获取每日基本面指标失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def get_opening_snapshot_goldminer():
     """
     使用掘金API获取指定股票指定日期9:30后第一张快照的开盘信息（模式5）
@@ -574,6 +664,10 @@ if __name__ == "__main__":
         print(f"运行模式: 使用Tushare moneyflow_dc接口获取资金信息")
         print(f"股票代码: {GET_STOCK_CODE}, 日期: {GET_DATE}\n")
         get_money_flow_dc_tushare()
+    elif RUN_MODE == 7:
+        print(f"运行模式: 使用Tushare daily_basic接口获取每日指标（基本面信息）")
+        print(f"股票代码: {GET_STOCK_CODE}, 日期: {GET_DATE}\n")
+        get_daily_basic_tushare()
     else:
         print(f"错误: 未知的运行模式 {RUN_MODE}")
-        print("请使用 RUN_MODE = 1~6")
+        print("请使用 RUN_MODE = 1~7")

@@ -2,7 +2,7 @@ from pydantic import BaseModel, field_validator
 from typing import Optional
 
 
-class StockResult(BaseModel):
+class StockDetail(BaseModel):
     """
     股票结果模型
     用于存储股票筛选后的完整结果数据，支持自动解析字典数据并进行类型转换
@@ -34,6 +34,7 @@ class StockResult(BaseModel):
     rising_wave_score: float = 0.0
     net_d5_amount: Optional[float] = None
     turn_start_net_amount: Optional[float] = None
+    turn_start_net_amount_rate: Optional[float] = None
 
     weipan_exceed: int = 0
     zaopan_exceed: int = 0
@@ -72,7 +73,7 @@ class StockResult(BaseModel):
         open_price: float = 0.0,
         close_price: float = 0.0,
         next_close_price: float = 0.0
-    ) -> 'StockResult':
+    ) -> 'StockDetail':
         """
         创建股票筛选结果实例
 
@@ -100,7 +101,7 @@ class StockResult(BaseModel):
             next_close_price: 次日收盘价
 
         Returns:
-            StockResult实例
+            StockDetail实例
         """
         data = {k: v for k, v in locals().items() if k != 'cls' and k != 'auction_data'}
         if auction_data:

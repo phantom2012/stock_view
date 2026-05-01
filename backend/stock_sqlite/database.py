@@ -234,6 +234,7 @@ def init_database():
         net_d5_amount REAL,                   -- 5日主力净流入额（万元）
         turn_start_date TEXT,                 -- 转强启动日期
         turn_start_net_amount REAL,           -- 转强累计净流入（万元）
+        turn_start_net_amount_rate REAL,      -- 转强净流入占比（%）
         buy_elg_amount REAL,                  -- 今日超大单净流入额（万元）
         buy_elg_amount_rate REAL,             -- 今日超大单净流入占比（%）
         buy_lg_amount REAL,                   -- 今日大单净流入额（万元）

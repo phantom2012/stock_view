@@ -16,18 +16,19 @@ import threading
 QUERY_API_TYPE = "tushare"
 
 # Tushare API Token
-TUSHARE_API_TOKEN = "aeb08b4b67a00b77b8c8041b8e183e9c07c350fbe31691ede2913291"
+TUSHARE_API_TOKEN = "Zku47OUVCydb1095ShpVSzn4u7pea7bFvgLNoCjIENA"
 # Tushare 代理地址
-TUSHARE_PROXY_URL = "http://tsy.xiaodefa.cn"
+TUSHARE_PROXY_URL = "http://47.109.59.144:8989/dataapi"
 
 # 接口限流配置（每分钟最大请求次数）
 RATE_LIMIT_CONFIG = {
-    'get_auction_data': 120,   # 竞价数据接口：120次/分钟
+    'get_auction_data': 120,   # 竞价数据接口：120次/分钟   需要ts单开
     'get_daily_data': 1000,     # 日线数据接口：500次/分钟
     'get_minute_data': 1000,    # 分钟数据接口：500次/分钟
     'get_tick_data': 1000,      # Tick数据接口：500次/分钟
     'get_instruments': 120,    # 股票基本信息接口：500次/分钟
-    'get_money_flow_data': 120, # 资金流向数据接口：120次/分钟
+    'get_money_flow_data': 120, # 资金流向数据接口：120次/分钟 ts=5000score
+    'get_daily_basic_data': 120, # 每日基本面指标接口：120次/分钟
 }
 
 
@@ -448,6 +449,70 @@ class ExternalDataQueryHandler:
 
         except Exception as e:
             print(f"[ExternalData] get_money_flow_data 失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def get_daily_basic_data(self, symbol: str, trade_date: Optional[str] = None) -> Optional[dict]:
+        """
+        获取每日基本面指标数据（使用Tushare的daily_basic接口）
+
+        Args:
+            symbol: 股票代码 (掘金格式: SHSE.600487)
+            trade_date: 交易日期 (YYYY-MM-DD)，可选。如果不传，则查询最新日期的数据
+
+        Returns:
+            DailyBasic对象的字典形式，包含每日基本面指标数据
+        """
+        print(f"[ExternalData] 调用 get_daily_basic_data - symbol={symbol}, trade_date={trade_date}")
+
+        # 限流检查（阻塞等待直到有可用配额）
+        self._rate_limiters['get_daily_basic_data'].wait_and_acquire()
+
+        try:
+            import time
+            start_time = time.time()
+
+            if self._tushare_pro:
+                ts_code = self._symbol_to_tushare(symbol)
+
+                # 定义要查询的字段
+                fields = 'ts_code,trade_date,close,turnover_rate,turnover_rate_f,volume_ratio,pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,dv_ttm,total_share,float_share,free_share,total_mv,circ_mv'
+
+                if trade_date:
+                    # 查询指定日期的数据
+                    date_str = trade_date.replace('-', '')
+                    df = self._tushare_pro.daily_basic(
+                        ts_code=ts_code,
+                        trade_date=date_str,
+                        fields=fields
+                    )
+                else:
+                    # 查询最新日期的数据
+                    df = self._tushare_pro.daily_basic(
+                        ts_code=ts_code,
+                        fields=fields
+                    )
+
+                if df is not None and not df.empty:
+                    # 获取第一条数据
+                    data = df.iloc[0].to_dict()
+
+                    # 转换日期格式
+                    data['trade_date'] = str(data['trade_date'])
+
+                    duration = time.time() - start_time
+                    print(f"[ExternalData] Tushare获取每日基本面数据耗时: {duration:.3f}s")
+                    return data
+                else:
+                    print(f"[ExternalData] Tushare未获取到每日基本面数据: {ts_code}")
+                    return None
+            else:
+                print(f"[ExternalData] Tushare API未初始化")
+                return None
+
+        except Exception as e:
+            print(f"[ExternalData] get_daily_basic_data 失败: {e}")
             import traceback
             traceback.print_exc()
             return None

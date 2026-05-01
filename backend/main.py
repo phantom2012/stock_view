@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from stock_cache import get_stock_cache
 from services.strategy_service import get_strategy_service
 from routers import strategy_router, stock_info_router, data_router, config_router
+from common.data_sync_timer import get_data_sync_timer, register_default_tasks
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,6 +46,12 @@ def index():
 
 
 if __name__ == "__main__":
+    # 注册并启动定时任务
+    data_sync_timer = get_data_sync_timer()
+    register_default_tasks()
+    data_sync_timer.start()
+    logger.info("定时任务管理器已启动")
+
     import uvicorn
     logger.info("Starting server...")
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

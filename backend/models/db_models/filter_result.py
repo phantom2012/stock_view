@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import inspect
 from datetime import datetime
+from typing import Dict, Any
 
 from . import Base
 
@@ -33,3 +35,28 @@ class FilterResult(Base):
     zaopan_exceed = Column(Integer, default=0)
     rising_wave = Column(Integer, default=0)
     update_time = Column(DateTime, default=datetime.now)
+
+    @classmethod
+    def model_validate(cls, data: Dict[str, Any]) -> 'FilterResult':
+        """
+        从字典创建 FilterResult 对象，自动过滤无效字段
+
+        Args:
+            data: 包含字段数据的字典
+
+        Returns:
+            FilterResult 实例
+        """
+        # 获取模型的所有列名
+        mapper = inspect(cls)
+        valid_columns = {col.name for col in mapper.columns}
+
+        # 过滤并构建有效的数据字典
+        # 只保留字典中存在且有效的列，值不为 None，且排除 update_time
+        filtered_data = {}
+        for key, value in data.items():
+            if key in valid_columns and value is not None and key != 'update_time':
+                filtered_data[key] = value
+
+        # 创建并返回 FilterResult 实例
+        return cls(**filtered_data)

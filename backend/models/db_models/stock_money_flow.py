@@ -22,6 +22,7 @@ class StockMoneyFlow(Base):
     net_d5_amount = Column(Float)  # 5日主力净流入额（万元）
     turn_start_date = Column(String(10))  # 转强启动日期
     turn_start_net_amount = Column(Float)  # 转强累计净流入（万元）
+    turn_start_net_amount_rate = Column(Float)  # 转强净流入占比（%）
     buy_elg_amount = Column(Float)  # 今日超大单净流入额（万元）
     buy_elg_amount_rate = Column(Float)  # 今日超大单净流入占比（%）
     buy_lg_amount = Column(Float)  # 今日大单净流入额（万元）

@@ -13,7 +13,7 @@ import pandas as pd
 from gm.api import get_instruments
 
 # 导入数据模型
-from models import StockResult, StockPerformance
+from models import StockDetail, StockPerformance
 from models.filter_params import FilterParams
 
 # 导入后端缓存
@@ -393,7 +393,7 @@ class StockFilter:
         return 0
 
     def filter_stocks(self, symbols: List[str], trade_date: datetime,
-                     params: FilterParams) -> List[StockResult]:
+                     params: FilterParams) -> List[StockDetail]:
         """
         综合筛选股票
 
@@ -509,7 +509,7 @@ class StockFilter:
                 print(f"[StockFilter] Error getting day data for {symbol}: {e}")
 
             # 构建结果
-            result = StockResult.create(
+            result = StockDetail.create(
                 symbol=symbol,
                 code=stock_code,
                 stock_name=stock_name,

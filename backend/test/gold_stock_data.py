@@ -413,8 +413,9 @@ def get_minute_data(symbol, trade_date):
 
 def get_stock_basic_info(symbol, trade_date=None):
     """
-    类型7: 获取股票基础信息（基本信息、估值指标、市值等）
+    类型7: 获取股票基础信息（基本信息、估值指标、市值、流通股本等）
     使用掘金API的多个接口组合获取股票基础信息
+    包括：get_instruments（最新流通股本）、get_history_instruments（历史流通股本）
     """
     print(f"=== 获取股票 {symbol} 的基础信息 ===")
     set_token(API_KEY)
@@ -423,8 +424,15 @@ def get_stock_basic_info(symbol, trade_date=None):
         trade_date = datetime.now().strftime('%Y-%m-%d')
 
     try:
-        # 使用 get_instruments 获取股票基本信息
+        # 使用 get_instruments 获取股票基本信息（包含最新流通股本）
         basic_info = get_instruments(symbols=symbol)
+
+        # 使用 get_history_instruments 获取历史流通股本
+        history_instruments = get_history_instruments(
+            symbols=symbol,
+            start_date=trade_date,
+            end_date=trade_date
+        )
 
         # 使用 stk_get_daily_valuation_pt 获取估值信息
         valuation_info = stk_get_daily_valuation_pt(
@@ -455,6 +463,8 @@ def get_stock_basic_info(symbol, trade_date=None):
         print(f"{'='*80}")
 
         stock_name = 'N/A'
+        free_share = None
+        total_share = None
         if basic_info and len(basic_info) > 0:
             item = basic_info[0]
             stock_name = item.get('sec_name', 'N/A')
@@ -471,8 +481,39 @@ def get_stock_basic_info(symbol, trade_date=None):
             print(f"涨停价:         {item.get('upper_limit', 'N/A'):.2f}")
             print(f"跌停价:         {item.get('lower_limit', 'N/A'):.2f}")
             print(f"复权因子:       {item.get('adj_factor', 'N/A'):.6f}")
+
+            # 获取股本信息
+            total_share = item.get('share_total')
+            free_share = item.get('share_float')
         else:
             print("未获取到基本信息")
+
+        print(f"\n{'='*80}")
+        print(f"【股本信息】")
+        print(f"{'='*80}")
+
+        if total_share is not None:
+            print(f"总股本(万股):   {total_share:,.2f}")
+        else:
+            print(f"总股本(万股):   N/A")
+
+        if free_share is not None:
+            print(f"流通股本(万股): {free_share:,.2f}")
+        else:
+            print(f"流通股本(万股): N/A")
+
+        # 从历史流通股本接口获取更详细信息
+        if history_instruments is not None and not history_instruments.empty:
+            hist_item = history_instruments.iloc[0]
+            print(f"\n【历史流通股本详情】")
+            print(f"  交易日期:       {hist_item.get('trade_date', 'N/A')}")
+            print(f"  A股流通股本(万股): {hist_item.get('float_share_a', 'N/A'):,.2f}")
+            print(f"  B股流通股本(万股): {hist_item.get('float_share_b', 'N/A'):,.2f}")
+            print(f"  H股流通股本(万股): {hist_item.get('float_share_h', 'N/A'):,.2f}")
+            print(f"  受限流通股本(万股): {hist_item.get('restricted_share', 'N/A'):,.2f}")
+        else:
+            print(f"\n【历史流通股本详情】")
+            print(f"  未获取到历史流通股本数据")
 
         print(f"\n{'='*80}")
         print(f"【当前行情】")

@@ -32,7 +32,7 @@ def get_filter_2_result():
 
 
 def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
-    from models import get_session_ro, StockResult, FilterResult, StockMoneyFlow
+    from models import get_session_ro, StockDetail, FilterResult, StockMoneyFlow
     try:
         if filter_type == 1:
             with get_session_ro() as db:
@@ -50,7 +50,8 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
                     for mf in mf_rows:
                         money_flow_map[(mf.code, mf.trade_date)] = {
                             'net_d5_amount': mf.net_d5_amount,
-                            'turn_start_net_amount': mf.turn_start_net_amount
+                            'turn_start_net_amount': mf.turn_start_net_amount,
+                            'turn_start_net_amount_rate': mf.turn_start_net_amount_rate
                         }
 
             results = []
@@ -60,6 +61,7 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
                 mf_data = money_flow_map.get((fr.code, fr.trade_date), {})
                 fr_dict['net_d5_amount'] = mf_data.get('net_d5_amount')
                 fr_dict['turn_start_net_amount'] = mf_data.get('turn_start_net_amount')
+                fr_dict['turn_start_net_amount_rate'] = mf_data.get('turn_start_net_amount_rate')
 
                 close_price = fr_dict.get('close_price', 0.0)
                 next_close_price = fr_dict.get('next_close_price', 0.0)
@@ -68,7 +70,7 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
                 else:
                     fr_dict['next_day_rise'] = 0.0
 
-                results.append(StockResult.model_validate(fr_dict).model_dump())
+                results.append(StockDetail.model_validate(fr_dict).model_dump())
         else:
             with get_session_ro() as db:
                 rows = db.query(FilterResult).filter(

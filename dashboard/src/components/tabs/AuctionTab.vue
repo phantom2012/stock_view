@@ -216,6 +216,11 @@
             <span :class="getValueColor(scope.row.turn_start_net_amount)">{{ formatAmount(scope.row.turn_start_net_amount, 'wan') || '-' }}</span>
           </template>
         </el-table-column>
+        <el-table-column prop="turn_start_net_amount_rate" label="启动净量" width="80" sortable="custom">
+          <template #default="scope">
+            <span :class="getValueColor(scope.row.turn_start_net_amount_rate)">{{ scope.row.turn_start_net_amount_rate !== undefined && scope.row.turn_start_net_amount_rate !== null ? scope.row.turn_start_net_amount_rate.toFixed(3) : '-' }}%</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="exp_score" label="预期分" width="80" sortable="custom" />
         <el-table-column prop="trade_date" label="交易日期" width="110" />
       </el-table>

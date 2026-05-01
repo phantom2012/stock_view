@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 
-from models import StockResult, FilterResult, get_session
+from models import StockDetail, FilterResult, get_session
 from models.filter_params import FilterParams
 from stock_cache import get_stock_cache
 from stock_filter import get_stock_filter
@@ -142,22 +142,13 @@ class StrategyService(SingletonMixin):
             for stock in results:
                 # 使用Pydantic模型自动解析数据
                 if hasattr(stock, 'to_dict'):
-                    # 如果是StockResult对象，先转换为字典
                     stock_data = stock.to_dict()
                 else:
-                    # 直接使用字典
                     stock_data = stock
 
-                # 使用Pydantic模型自动解析字典，处理类型转换和默认值
-                stock_obj = StockResult.model_validate(stock_data)
-
-                # 使用model_dump()自动映射字段，避免逐个赋值
-                stock_dict = stock_obj.model_dump()
-                stock_dict['type'] = 1
-                stock_dict['update_time'] = datetime.now()
-                stock_dict.pop('next_day_rise', None)
-                stock_dict.pop('net_d5_amount', None)
-                filter_result = FilterResult(**stock_dict)
+                stock_data['type'] = 1
+                # 使用 FilterResult.model_validate 自动过滤无效字段
+                filter_result = FilterResult.model_validate(stock_data)
 
                 # 添加到数据库会话
                 db.add(filter_result)
