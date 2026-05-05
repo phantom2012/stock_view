@@ -1,0 +1,17 @@
+# 共享包
+-e ../shared
+
+# 外部数据接口
+gm>=3.0
+tushare>=1.0
+baostock>=0.8
+
+# 定时调度
+APScheduler>=3.10
+
+# 数据库
+sqlalchemy>=1.4
+
+# 工具
+pytz>=2023.3
+requests>=2.31

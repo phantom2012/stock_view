@@ -61,6 +61,7 @@
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
             :clearable="false"
+            :disabled-date="disabledDate"
             @change="handleDateChange"
             class="!bg-white !text-gray-800 !border-gray-300"
             style="width: 150px;"
@@ -216,12 +217,12 @@
             <span :class="getValueColor(scope.row.turn_start_net_amount)">{{ formatAmount(scope.row.turn_start_net_amount, 'wan') || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="turn_start_net_amount_rate" label="启动净量" width="80" sortable="custom">
+        <el-table-column prop="turn_start_net_amount_rate" label="启动净量" width="90" sortable="custom">
           <template #default="scope">
             <span :class="getValueColor(scope.row.turn_start_net_amount_rate)">{{ scope.row.turn_start_net_amount_rate !== undefined && scope.row.turn_start_net_amount_rate !== null ? scope.row.turn_start_net_amount_rate.toFixed(3) : '-' }}%</span>
           </template>
         </el-table-column>
-        <el-table-column prop="exp_score" label="预期分" width="80" sortable="custom" />
+        <el-table-column prop="exp_score" label="预期分" width="70" sortable="custom" />
         <el-table-column prop="trade_date" label="交易日期" width="110" />
       </el-table>
       <div class="text-sm text-gray-400 mt-2">总选出数量：{{ list.length }}</div>
@@ -230,13 +231,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { getValueColor } from '../../utils/colorUtils.js'
 import { formatAmount } from '../../utils/commonUtils.js'
 import { calcTodayGain, calcNextDayRise, calcOpenGain, calcYesterdayBias } from '../../utils/stockCalcUtils.js'
 import { useBlockSelection } from '../../composables/useBlockSelection.js'
+import { useCalendarStore } from '../../stores/calendarStore.js'
 import { API_BASE_URL } from '../../api/config.js'
 
 const props = defineProps({
@@ -248,10 +250,18 @@ const props = defineProps({
 
 const emit = defineEmits(['tabChange', 'selectStock'])
 
+const calendarStore = useCalendarStore()
 const loading = ref(false)
 const loadingAuction = ref(false)
 const loadingMoneyFlow = ref(false)
 const list = ref([])
+
+// SSE 相关
+let eventSource = null
+const sseConnected = ref(false)
+
+// 当前显示的加载消息（用于完成后关闭）
+let currentLoadingMsg = null
 const selectedDate = ref('')
 const filters = ref({
   'weipan_exceed': false,
@@ -310,6 +320,14 @@ const loadFilterConfig = async () => {
 
 const handleDateChange = (date) => {
   selectedDate.value = date
+}
+
+const disabledDate = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const dateStr = `${year}-${month}-${day}`
+  return calendarStore.isNonTradingDate(dateStr)
 }
 
 // 处理天数输入，限制为1-365的数字
@@ -478,7 +496,7 @@ const loadAuctionData = async () => {
   }
 }
 
-// 加载资金流向数据
+// 加载资金流向数据（异步方式，等待 SSE 通知）
 const loadMoneyFlowData = async () => {
   if (list.value.length === 0) {
     ElMessage.warning('请先筛选股票后再加载资金流向数据')
@@ -487,31 +505,121 @@ const loadMoneyFlowData = async () => {
 
   loadingMoneyFlow.value = true
 
-  const loadingMsg = ElMessage({
-    message: `正在加载资金流向数据，共 ${list.value.length} 只股票...`,
+  // 保存加载消息引用，以便后续关闭
+  currentLoadingMsg = ElMessage({
+    message: `正在加载资金流向数据，共 ${list.value.length} 只股票，请稍候...`,
     type: 'info',
     duration: 0
   })
 
   try {
+    if (!sseConnected.value) {
+      initSSE()
+    }
+
     const response = await axios.post('http://127.0.0.1:8000/api/data/load-money-flow', list.value, {
       params: { days: filterForm.value.recentDays }
     })
 
-    loadingMsg.close()
+    if (response.data.status !== 'success') {
+      if (currentLoadingMsg) {
+        currentLoadingMsg.close()
+        currentLoadingMsg = null
+      }
+      ElMessage.error('触发资金流向数据同步失败：' + (response.data.msg || '未知错误'))
+      loadingMoneyFlow.value = false
+      return
+    }
 
-    if (response.data.status === 'success') {
-      const result = response.data.data
-      ElMessage.success(`加载资金流向数据完成：成功 ${result.success} 只，失败 ${result.failed} 只，总计 ${result.total} 只股票`)
-    } else {
-      ElMessage.error('加载资金流向数据失败：' + (response.data.msg || '未知错误'))
+    console.log('资金流向同步已触发，等待后台处理完成...')
+
+  } catch (error) {
+    if (currentLoadingMsg) {
+      currentLoadingMsg.close()
+      currentLoadingMsg = null
+    }
+    console.error('触发资金流向数据同步失败:', error)
+    ElMessage.error('触发资金流向数据同步失败，请稍后重试')
+    loadingMoneyFlow.value = false
+  }
+}
+
+// 处理资金流向同步完成
+const handleMoneyFlowComplete = async (success, message) => {
+  loadingMoneyFlow.value = false
+
+  // 关闭之前显示的加载消息
+  if (currentLoadingMsg) {
+    currentLoadingMsg.close()
+    currentLoadingMsg = null
+  }
+
+  if (success) {
+    try {
+      // 刷新表格数据
+      await getData()
+      ElMessage.success(`资金流向数据加载完成！${message || ''}`)
+    } catch (error) {
+      console.error('刷新表格数据失败:', error)
+      ElMessage.success(`资金流向数据加载完成，但刷新表格失败：${error.message}`)
+    }
+  } else {
+    ElMessage.error('资金流向数据加载失败：' + (message || '未知错误'))
+  }
+}
+
+// 初始化 SSE 连接
+const initSSE = () => {
+  if (eventSource) {
+    return
+  }
+
+  try {
+    eventSource = new EventSource('http://127.0.0.1:8000/api/data/sse')
+
+    eventSource.onopen = () => {
+      console.log('SSE 连接已建立')
+      sseConnected.value = true
+    }
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        console.log('收到 SSE 消息:', data)
+
+        if (data.type === 'sync_complete') {
+          if (data.sync_type === 'money_flow') {
+            handleMoneyFlowComplete(data.success, data.message)
+          }
+        }
+      } catch (error) {
+        console.error('解析 SSE 消息失败:', error)
+      }
+    }
+
+    eventSource.onerror = (error) => {
+      console.error('SSE 连接错误:', error)
+      sseConnected.value = false
+      setTimeout(() => {
+        if (eventSource) {
+          eventSource.close()
+          eventSource = null
+        }
+        initSSE()
+      }, 5000)
     }
   } catch (error) {
-    loadingMsg.close()
-    console.error('加载资金流向数据失败:', error)
-    ElMessage.error('加载资金流向数据失败，请稍后重试')
-  } finally {
-    loadingMoneyFlow.value = false
+    console.error('初始化 SSE 失败:', error)
+  }
+}
+
+// 关闭 SSE 连接
+const closeSSE = () => {
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+    sseConnected.value = false
+    console.log('SSE 连接已关闭')
   }
 }
 
@@ -562,8 +670,14 @@ const handleRowClick = (row, column, event) => {
 }
 
 onMounted(async () => {
+  await calendarStore.fetchCalendarData()  // 加载交易日历数据
   await loadBlockListWithConfig()  // 加载板块列表和筛选配置
   await getData()
+  initSSE()
+})
+
+onUnmounted(() => {
+  closeSSE()
 })
 </script>
 

@@ -1,12 +1,16 @@
 import logging
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from stock_cache import get_stock_cache
 from services.strategy_service import get_strategy_service
-from routers import strategy_router, stock_info_router, data_router, config_router
-from common.data_sync_timer import get_data_sync_timer, register_default_tasks
+from routers import strategy_router, stock_info_router, data_router, config_router, calendar_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,7 +23,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 stock_cache = get_stock_cache()
-stock_cache.set_api_token("2e664976b46df6a0903672349c30226ac68e7bf3")
 
 app = FastAPI(title="掘金量化竞价看板后端")
 
@@ -37,6 +40,7 @@ app.include_router(strategy_router)
 app.include_router(stock_info_router)
 app.include_router(data_router)
 app.include_router(config_router)
+app.include_router(calendar_router)
 
 
 @app.get("/")
@@ -46,12 +50,6 @@ def index():
 
 
 if __name__ == "__main__":
-    # 注册并启动定时任务
-    data_sync_timer = get_data_sync_timer()
-    register_default_tasks()
-    data_sync_timer.start()
-    logger.info("定时任务管理器已启动")
-
     import uvicorn
     logger.info("Starting server...")
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

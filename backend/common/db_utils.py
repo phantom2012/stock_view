@@ -6,7 +6,7 @@ from typing import Type, TypeVar, Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from models.db_models import get_session
+from shared.db import get_session
 
 T = TypeVar('T')
 

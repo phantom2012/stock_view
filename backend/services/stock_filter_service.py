@@ -9,6 +9,7 @@ from stock_filter import get_stock_filter
 from common.block_stock_util import get_stocks_by_blocks
 from common.stock_code_convert import to_goldminer_symbol
 from common.singleton import SingletonMixin
+from services.data_sync_notify_service import get_data_sync_notify_service
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,21 @@ class StockFilterService(SingletonMixin):
                 params=params
             )
 
+            # 保存筛选结果到 FilterResult 表
+            self._save_filter_results(filtered_results)
+
+            # 触发同步任务（在后台异步执行，不影响筛选结果返回）
+            # 筛选完成后同步 daily_data（日线数据）
+            try:
+                notify_service = get_data_sync_notify_service()
+                sync_result = notify_service.trigger_multi_sync(
+                    sync_types=['minute_data'],
+                    stock_codes= [stock['code'] for stock in filtered_results]
+                )
+                logger.info(f"Screen sync trigger result: {sync_result}")
+            except Exception as e:
+                logger.error(f"Failed to trigger screen sync: {e}")
+
             return filtered_results
 
         except Exception as e:
@@ -92,7 +108,7 @@ class StockFilterService(SingletonMixin):
         trade_date: Optional[str] = None
     ):
         try:
-            from models.db_models.filter_config import FilterConfig
+            from shared.db import FilterConfig
 
             with get_session() as db:
                 existing = db.query(FilterConfig).filter(FilterConfig.type == config_type).first()
@@ -112,6 +128,45 @@ class StockFilterService(SingletonMixin):
                     logger.info(f"Created filter config for type={config_type}")
         except Exception as e:
             logger.error(f"Error updating filter config: {str(e)}")
+
+    def _save_filter_results(self, results: List[Dict[str, Any]]):
+        """
+        将筛选结果保存到 FilterResult 表（type=2）
+
+        Args:
+            results: 筛选结果列表
+        """
+        try:
+            from shared.db import FilterResult
+
+            with get_session() as db:
+                # 删除旧的 type=2 记录
+                db.query(FilterResult).filter(FilterResult.type == 2).delete()
+
+                insert_count = 0
+                for stock in results:
+                    code = stock.get('code', '')
+                    name = stock.get('name', '')
+                    interval_max_rise = stock.get('interval_max_rise', 0)
+                    max_day_rise = stock.get('max_day_rise', 0)
+
+                    symbol = to_goldminer_symbol(code)
+
+                    filter_result = FilterResult(
+                        type=2,
+                        symbol=symbol,
+                        code=code,
+                        stock_name=name,
+                        interval_max_rise=interval_max_rise,
+                        max_day_rise=max_day_rise,
+                        update_time=datetime.now()
+                    )
+                    db.add(filter_result)
+                    insert_count += 1
+
+                logger.info(f"Saved {insert_count} filter stocks to database (type=2)")
+        except Exception as e:
+            logger.error(f"Error saving filter results: {str(e)}")
 
     def _parse_block_codes(self, block_codes: str) -> List[str]:
         if block_codes:

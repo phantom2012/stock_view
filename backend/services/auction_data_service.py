@@ -1,80 +1,55 @@
 import logging
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
-from stock_cache import get_stock_cache
-from models import get_session, get_session_ro
-from baostock_data.trade_date_util import TradeDateUtil
-from common.stock_code_convert import to_goldminer_symbol, to_pure_code
+from models import get_session
+from common.stock_code_convert import to_goldminer_symbol
 from common.singleton import SingletonMixin
+from services.data_sync_notify_service import get_data_sync_notify_service
 
 logger = logging.getLogger(__name__)
 
-stock_cache = get_stock_cache()
-trade_date_util = TradeDateUtil()
+notify_service = get_data_sync_notify_service()
 
 
 class AuctionDataService(SingletonMixin):
     def load_auction_data(self, stocks: List[Dict[str, Any]], days: int = 30) -> Dict[str, Any]:
-        result = {
-            'success': 0,
-            'failed': 0,
-            'total': len(stocks)
-        }
+        """
+        触发竞价数据同步（异步方式）
+        通过通知表设置 trigger_flag，由 data-sync-service 轮询处理
+        data-sync-service 会从 FilterResult 表读取股票列表自行同步
 
+        Args:
+            stocks: 股票列表（仅用于计数，不传递）
+            days: 同步天数（仅用于日志，不传递）
+
+        Returns:
+            触发结果
+        """
         try:
-            recent_trade_dates = trade_date_util.get_recent_trade_dates(days)
-            if not recent_trade_dates:
-                logger.error("Failed to get recent trade dates")
-                return {"status": "error", "msg": "获取最近交易日失败"}
+            codes = [stock.get('code', '') for stock in stocks if stock.get('code')]
+            if not codes:
+                return {"status": "error", "msg": "股票列表为空"}
 
-            logger.info(f"获取到 {len(recent_trade_dates)} 个交易日")
+            logger.info(f"触发竞价数据同步: {len(codes)} 只股票, {days} 天")
 
-            for stock in stocks:
-                code = stock.get('code', '')
+            # 通过通知表触发同步，data-sync-service 自行从 FilterResult 表读取股票列表
+            success = notify_service.notify_auction_data_sync()
+            if not success:
+                return {"status": "error", "msg": "触发竞价数据同步失败"}
 
-                if not code:
-                    result['failed'] += 1
-                    continue
-
-                symbol = to_goldminer_symbol(code)
-
-                stock_success = True
-                for date_str in recent_trade_dates:
-                    try:
-                        trade_date = datetime.strptime(date_str, '%Y-%m-%d')
-
-                        auction_data = stock_cache.get_auction_data(symbol, trade_date)
-
-                        tail_auction_data = stock_cache.get_tail_auction_data(symbol, trade_date)
-
-                        if tail_auction_data:
-                            tail_57_price = tail_auction_data.get('auction_start_price', 0)
-                            close_price = tail_auction_data.get('auction_end_price', 0)
-                            tail_amount = tail_auction_data.get('amount', 0)
-
-                            pure_code = to_pure_code(symbol)
-                            stock_cache._update_auction_tail_data(pure_code, date_str, tail_57_price, close_price, tail_amount)
-
-                            logger.debug(f"更新尾盘竞价数据: {symbol} {date_str} tail_57_price={tail_57_price}, close_price={close_price}")
-
-                    except Exception as e:
-                        logger.error(f"Failed to load auction data for {symbol} on {date_str}: {e}")
-                        stock_success = False
-
-                if stock_success:
-                    result['success'] += 1
-                else:
-                    result['failed'] += 1
-
-            return {"status": "success", "data": result}
+            return {
+                "status": "success",
+                "msg": f"竞价数据同步已触发，共 {len(codes)} 只股票",
+                "data": {"total": len(codes)}
+            }
         except Exception as e:
             logger.error(f"Error in load_auction_data: {str(e)}")
             return {"status": "error", "msg": str(e)}
 
     def save_filter_stocks(self, stocks: List[Dict[str, Any]]) -> Dict[str, Any]:
         try:
-            from models.db_models.filter_result import FilterResult
+            from shared.db import FilterResult
 
             with get_session() as db:
                 db.query(FilterResult).filter(FilterResult.type == 2).delete()

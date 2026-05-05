@@ -1,5 +1,3 @@
-import os
-import pandas as pd
 import logging
 from datetime import datetime
 from typing import Dict, Any
@@ -7,7 +5,6 @@ from fastapi import APIRouter
 
 from stock_cache import get_stock_cache
 from common.stock_code_convert import to_goldminer_symbol
-from gm.api import get_instruments
 
 router = APIRouter(prefix="/api/stock", tags=["股票信息"])
 
@@ -43,13 +40,9 @@ def get_stock_info(code: str):
         symbol = to_goldminer_symbol(code)
         stock_name = stock_cache.get_stock_name(symbol)
 
+        # 如果数据库中没有名称，直接使用"未知"，不再调用外部接口
         if stock_name == '未知':
-            try:
-                inst = get_instruments(symbols=[symbol], df=True)
-                if inst is not None and not inst.empty:
-                    stock_name = inst.iloc[0].get('sec_name', '未知')
-            except Exception as e:
-                logger.error(f"Error fetching stock info: {e}")
+            logger.warning(f"股票 {code} 在数据库中未找到名称")
 
         data = stock_cache.get_history_data(symbol, days=2)
 
@@ -160,20 +153,4 @@ def get_stock_history(code: str, days: int = 10):
         logger.error(f"Error getting stock history: {str(e)}")
         import traceback
         traceback.print_exc()
-        return []
-
-
-@router.get("/get-trade-dates")
-def get_trade_dates():
-    csv_path = os.path.join(os.path.dirname(__file__), '..', 'baostock_data', 'a_stock_trade_days_2026.csv')
-    if not os.path.exists(csv_path):
-        logger.warning(f"Trade dates CSV not found: {csv_path}")
-        return []
-
-    try:
-        df = pd.read_csv(csv_path, encoding="utf-8")
-        trade_days = df["trade_date"].tolist()
-        return trade_days
-    except Exception as e:
-        logger.error(f"Error reading trade dates: {str(e)}")
         return []

@@ -13,7 +13,8 @@ GET_DATE = "2026-04-30"
 # RUN_MODE = 5: 使用掘金接口查询9:30后开盘快照
 # RUN_MODE = 6: 使用Tushare moneyflow_dc接口获取资金信息
 # RUN_MODE = 7: 使用Tushare daily_basic接口获取每日指标（基本面信息）
-RUN_MODE = 7
+# RUN_MODE = 8: 使用Tushare stock_basic接口查询股票基本信息
+RUN_MODE = 8
 
 # Tushare API Token
 TUSHARE_API_TOKEN = "Zku47OUVCydb1095ShpVSzn4u7pea7bFvgLNoCjIENA"
@@ -554,6 +555,86 @@ def get_daily_basic_tushare():
         traceback.print_exc()
 
 
+def get_stock_basic_tushare():
+    """
+    使用Tushare stock_basic接口查询股票基本信息（模式8）
+    stock_basic接口返回股票的基本信息，包括：
+    - 股票代码、名称、上市日期
+    - 交易所、行业、概念等
+    """
+    try:
+        pro = ts.pro_api(TUSHARE_API_TOKEN)
+        pro._DataApi__http_url = TUSHARE_PROXY_URL
+
+        if GET_STOCK_CODE.startswith('6'):
+            ts_code = f"{GET_STOCK_CODE}.SH"
+        else:
+            ts_code = f"{GET_STOCK_CODE}.SZ"
+
+        print(f"正在获取 {ts_code} 的股票基本信息...")
+        print(f"使用stock_basic接口（模式8）获取股票基本信息...")
+
+        df = pro.stock_basic(
+            ts_code=ts_code,
+            fields='ts_code,symbol,name,area,industry,list_date,market,exchange,curr_type,list_status,delist_date,is_hs'
+        )
+
+        if df is None or df.empty:
+            print(f"未获取到 {ts_code} 的股票基本信息")
+            return
+
+        print(f"\n{'='*80}")
+        print(f"股票基本信息数据概览 (stock_basic接口):")
+        print(f"{'='*80}")
+        print(f"数据条数: {len(df)}")
+        print(f"数据列: {df.columns.tolist()}")
+        print(f"\n实际返回的数据预览:")
+        print(df.head(1).to_string(index=False))
+
+        print(f"\n{'='*80}")
+        print(f"完整股票基本信息数据:")
+        print(f"{'='*80}")
+        print(df.to_string(index=False))
+
+        print(f"\n{'='*80}")
+        print(f"股票基本信息详细信息:")
+        print(f"{'='*80}")
+
+        data = df.iloc[0]
+
+        print(f"\n【基本信息】")
+        print(f"  股票代码: {data.get('ts_code', 'N/A')}")
+        print(f"  股票简称: {data.get('name', 'N/A')}")
+        print(f"  交易代码: {data.get('symbol', 'N/A')}")
+        print(f"  上市日期: {data.get('list_date', 'N/A')}")
+
+        print(f"\n【市场信息】")
+        print(f"  交易所: {data.get('exchange', 'N/A')}")
+        print(f"  市场类型: {data.get('market', 'N/A')}")
+        print(f"  交易货币: {data.get('curr_type', 'N/A')}")
+        list_status = data.get('list_status', 'N/A')
+        list_status_desc = {
+            'L': '上市',
+            'D': '退市',
+            'G': '过会未交易',
+            'P': '暂停上市'
+        }.get(list_status, list_status)
+        print(f"  上市状态: {list_status} ({list_status_desc})")
+
+        print(f"\n【行业信息】")
+        print(f"  所在地区: {data.get('area', 'N/A')}")
+        print(f"  所属行业: {data.get('industry', 'N/A')}")
+
+        print(f"\n【其他信息】")
+        print(f"  是否沪深港通标的: {'是' if data.get('is_hs', 'N') == 'H' else '否'}")
+        print(f"  退市日期: {data.get('delist_date', 'N/A')}")
+
+    except Exception as e:
+        print(f"获取股票基本信息失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def get_opening_snapshot_goldminer():
     """
     使用掘金API获取指定股票指定日期9:30后第一张快照的开盘信息（模式5）
@@ -668,6 +749,10 @@ if __name__ == "__main__":
         print(f"运行模式: 使用Tushare daily_basic接口获取每日指标（基本面信息）")
         print(f"股票代码: {GET_STOCK_CODE}, 日期: {GET_DATE}\n")
         get_daily_basic_tushare()
+    elif RUN_MODE == 8:
+        print(f"运行模式: 使用Tushare stock_basic接口查询股票基本信息")
+        print(f"股票代码: {GET_STOCK_CODE}, 日期: {GET_DATE}\n")
+        get_stock_basic_tushare()
     else:
         print(f"错误: 未知的运行模式 {RUN_MODE}")
-        print("请使用 RUN_MODE = 1~7")
+        print("请使用 RUN_MODE = 1~8")

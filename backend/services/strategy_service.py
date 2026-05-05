@@ -4,16 +4,15 @@ from typing import Dict, Any, List, Optional
 
 from models import StockDetail, FilterResult, get_session
 from models.filter_params import FilterParams
-from stock_cache import get_stock_cache
 from stock_filter import get_stock_filter
 from common.block_stock_util import get_stocks_by_blocks
 from common.stock_code_convert import to_goldminer_symbol, to_pure_code
 from common.singleton import SingletonMixin
-from baostock_data.trade_date_util import TradeDateUtil
+from shared.trade_date_util import TradeDateUtil
+from services.data_sync_notify_service import get_data_sync_notify_service
 
 logger = logging.getLogger(__name__)
 
-stock_cache = get_stock_cache()
 stock_filter = get_stock_filter()
 trade_date_util = TradeDateUtil()
 
@@ -62,10 +61,6 @@ class StrategyService(SingletonMixin):
 
             logger.info(f"Filtering {len(stock_symbols)} stocks...")
 
-            instruments = stock_cache._load_instruments_cache()
-            cache_count = len(instruments) if instruments is not None else 0
-            logger.info(f"instruments 缓存加载完成，共 {cache_count} 条数据")
-
             results = stock_filter.filter_stocks(
                 symbols=stock_symbols,
                 trade_date=target_date,
@@ -78,6 +73,19 @@ class StrategyService(SingletonMixin):
 
             if results:
                 self._save_results_to_db(results)
+
+            # 通知更新数据（触发多任务同步）
+            try:
+                notify_service = get_data_sync_notify_service()
+                # 将股票代码转换为纯数字格式，传递给同步器
+                stock_codes = [stock.code for stock in results]
+                notify_service.trigger_multi_sync(
+                    sync_types=['minute_data', 'auction_data', 'money_flow'],
+                    stock_codes=stock_codes
+                )
+                logger.info(f"已通知更新 minute_data, auction_data, 和 money_flow 数据，股票数量: {len(stock_codes)}")
+            except Exception as e:
+                logger.warning(f"通知更新数据失败: {e}")
 
             self._last_run_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             return {"status": "success", "msg": f"策略运行完成，选出{len(results)}只股票", "time": self._last_run_time}
@@ -111,7 +119,7 @@ class StrategyService(SingletonMixin):
 
     def _save_filter_config(self, params: FilterParams, trade_date: str):
         try:
-            from models.db_models.filter_config import FilterConfig
+            from shared.db import FilterConfig
 
             with get_session() as db:
                 existing = db.query(FilterConfig).filter(FilterConfig.type == 1).first()

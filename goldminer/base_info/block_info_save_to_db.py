@@ -172,8 +172,8 @@ def save_stock_block_to_db(block_mapping, blocks_dict, name_mapping=None):
                 
                 try:
                     cursor.execute(
-                        "INSERT OR IGNORE INTO block_stock (block_code, stock_code, update_time) VALUES (?, ?, ?)",
-                        (block_code, normalized_code, current_time)
+                        "INSERT OR IGNORE INTO block_stock (block_code, block_name, stock_code, update_time) VALUES (?, ?, ?, ?)",
+                        (block_code, block_name, normalized_code, current_time)
                     )
                     insert_count += 1
                 except Exception as e:

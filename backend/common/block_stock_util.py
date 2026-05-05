@@ -3,7 +3,7 @@
 提供板块与股票关系的查询接口
 """
 from typing import Set, List, Optional
-from models.db_models import get_session_ro, BlockStock
+from shared.db import get_session_ro, BlockStock
 
 
 def get_stocks_by_blocks(block_codes: Optional[List[str]] = None) -> Set[str]:

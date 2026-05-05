@@ -9,17 +9,14 @@ from datetime import datetime, timedelta
 from typing import Optional, Tuple, Dict, Any, List
 import pandas as pd
 
-# 导入掘金 API
-from gm.api import get_instruments
-
 # 导入数据模型
-from models import StockDetail, StockPerformance
+from models import StockDetail, StockPerformance, StockInfo, get_session_ro
 from models.filter_params import FilterParams
 
 # 导入后端缓存
 from stock_cache import get_stock_cache
 # 导入交易日工具
-from baostock_data.trade_date_util import TradeDateUtil
+from shared.trade_date_util import TradeDateUtil
 
 
 class StockFilter:
@@ -81,7 +78,7 @@ class StockFilter:
             StockPerformance对象
         """
         # 打印所有入参数值
-        print(f"[StockFilter.check_performance] symbol={symbol}, trade_date={trade_date}")
+        # print(f"[StockFilter.check_performance] symbol={symbol}, trade_date={trade_date}")
 
         try:
             # 从缓存获取日K线数据（优先从数据库读取）
@@ -268,7 +265,7 @@ class StockFilter:
 
     def _check_delisted(self, symbol: str) -> bool:
         """
-        检查股票是否已退市
+        检查股票是否已退市（仅从数据库读取）
 
         Args:
             symbol: 股票代码
@@ -277,32 +274,41 @@ class StockFilter:
             bool: True=未退市(有效), False=已退市
         """
         try:
-            inst = get_instruments(symbols=[symbol], df=True)
-            if inst is None or inst.empty:
-                print(f"[StockFilter] 股票 {symbol} 在 API 中找不到，视为无效股票，已剔除")
-                return False
+            pure_code = symbol.split('.')[-1] if '.' in symbol else symbol
+            with get_session_ro() as db:
+                row = db.query(StockInfo).filter(StockInfo.code == pure_code).first()
 
-            delisted_date = inst.iloc[0].get('delisted_date')
-            if delisted_date is not None and not pd.isna(delisted_date):
-                if isinstance(delisted_date, pd.Timestamp):
-                    if delisted_date < datetime.now():
-                        print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
-                        return False
-                elif isinstance(delisted_date, str) and delisted_date.strip():
+                if row is None:
+                    print(f"[StockFilter] 股票 {symbol} 在数据库中找不到，视为无效股票，已剔除")
+                    return False
+
+                list_status = row.list_status
+                delist_date = row.delist_date
+
+                if list_status == 'L':
+                    return True
+
+                if delist_date is not None and delist_date.strip():
                     try:
-                        delisted_dt = datetime.strptime(delisted_date[:10], '%Y-%m-%d')
+                        delisted_dt = datetime.strptime(delelist_date[:10], '%Y-%m-%d')
                         if delisted_dt < datetime.now():
-                            print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delisted_date}，已剔除")
+                            print(f"[StockFilter] 股票 {symbol} 已退市，日期: {delist_date}，已剔除")
                             return False
                     except:
                         pass
+
+                if list_status != 'L':
+                    print(f"[StockFilter] 股票 {symbol} 状态异常: {list_status}，已剔除")
+                    return False
+
+                return True
+        except Exception as e:
+            print(f"[StockFilter] 查询股票 {symbol} 退市状态失败: {e}")
             return True
-        except Exception:
-            return True  # API查询失败时默认通过
 
     def _fetch_stock_name(self, symbol: str) -> str:
         """
-        获取股票名称，依次尝试：缓存 -> 刷新缓存 -> API单独查询
+        获取股票名称（仅从数据库读取）
 
         Args:
             symbol: 股票代码
@@ -313,21 +319,7 @@ class StockFilter:
         stock_name = self.cache.get_stock_name(symbol)
 
         if stock_name == '未知':
-            self.cache._load_instruments_cache()
-            stock_name = self.cache.get_stock_name(symbol)
-
-        if stock_name == '未知':
-            try:
-                inst = get_instruments(symbols=[symbol], df=True)
-                if inst is not None and not inst.empty:
-                    stock_name = inst.iloc[0].get('sec_name', '未知')
-                    print(f"[StockFilter] API 单独查询 {symbol} 名称: {stock_name}")
-                else:
-                    print(f"[StockFilter] 股票 {symbol} 在 API 中也找不到，视为无效股票")
-                    return '未知'
-            except Exception as api_err:
-                print(f"[StockFilter] API 单独查询 {symbol} 失败: {api_err}")
-                return '未知'
+            print(f"[StockFilter] 股票 {symbol} 在数据库中也找不到，视为无效股票")
 
         return stock_name
 

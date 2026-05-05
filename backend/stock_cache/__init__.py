@@ -10,9 +10,8 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
-from baostock_data.trade_date_util import TradeDateUtil
-from external_data.ext_data_query_handle import get_query_handler, QUERY_API_TYPE
-from common.stock_code_convert import to_pure_code, get_exchange
+from shared.trade_date_util import TradeDateUtil
+from common.stock_code_convert import to_pure_code
 from models import StockDaily, StockAuction, StockInfo, StockMinute, StockTick, get_session, get_session_ro
 
 
@@ -40,18 +39,7 @@ class StockDataCache:
         if self._initialized:
             return
 
-        self._api_token_set = False
-        self._instruments_loaded = False
-        self._instruments_cache = None
-        self._query_handler = get_query_handler()
-
         self._initialized = True
-
-    def set_api_token(self, api_key: str):
-        """设置API Token（已迁移到ExternalDataQueryHandler）"""
-        if not self._api_token_set:
-            print(f"[StockCache] API Token已通过ExternalDataQueryHandler初始化")
-            self._api_token_set = True
 
     @staticmethod
     def to_float(value, default=0):
@@ -73,35 +61,13 @@ class StockDataCache:
         except (ValueError, TypeError):
             return default
 
-    def _load_instruments_cache(self) -> pd.DataFrame:
-        """加载 instruments 缓存（通过ExternalDataQueryHandler获取）"""
-        if self._instruments_loaded and self._instruments_cache is not None:
-            return self._instruments_cache
-
-        print("[StockCache] 加载 instruments 缓存...")
-        try:
-            # 使用ExternalDataQueryHandler获取股票基本信息
-            query_handler = get_query_handler()
-            instruments = query_handler.get_instruments()
-
-            if instruments is not None and not instruments.empty:
-                self._instruments_cache = instruments
-                self._instruments_loaded = True
-                print(f"[StockCache] instruments 缓存加载完成，共 {len(instruments)} 条数据")
-                return instruments
-        except Exception as e:
-            print(f"[StockCache] 加载 instruments 缓存失败: {e}")
-            import traceback
-            traceback.print_exc()
-        return None
-
     def get_stock_name(self, symbol: str) -> str:
         """
-        获取股票名称
+        获取股票名称（仅从数据库读取）
         """
         pure_code = to_pure_code(symbol)
 
-        # 先从数据库查找
+        # 从数据库查找
         try:
             with get_session_ro() as db:
                 row = db.query(StockInfo).filter(StockInfo.code == pure_code).first()
@@ -110,49 +76,18 @@ class StockDataCache:
         except Exception as e:
             print(f"[StockCache] 从数据库获取股票名称失败: {e}")
 
-        # 从 API 获取并保存到数据库
-        instruments = self._load_instruments_cache()
-        if instruments is not None and not instruments.empty:
-            match = instruments[instruments['symbol'] == symbol]
-            if not match.empty:
-                name = match.iloc[0].get('sec_name', '未知')
-                self._save_stock_info(pure_code, name)
-                return name
-
         return '未知'
-
-    def _save_stock_info(self, code: str, name: str):
-        """保存股票信息到数据库"""
-        try:
-            pure_code = code.split('.')[-1] if '.' in code else code
-            exchange = get_exchange(pure_code)
-
-            with get_session() as db:
-                existing = db.query(StockInfo).filter(StockInfo.code == pure_code).first()
-                if existing:
-                    existing.name = name
-                    existing.exchange = exchange
-                    existing.update_time = datetime.now()
-                else:
-                    db.add(StockInfo(
-                        code=pure_code,
-                        name=name,
-                        exchange=exchange,
-                        update_time=datetime.now()
-                    ))
-        except Exception as e:
-            print(f"[StockCache] 保存股票信息失败: {e}")
 
     def fetch_stock_names_bulk(self, symbols: List[str]) -> Dict[str, str]:
         """
-        批量获取股票名称
+        批量获取股票名称（仅从数据库读取）
         """
         result = {}
 
         # 将symbols转换为纯数字code
         pure_codes = [to_pure_code(s) for s in symbols]
 
-        # 先从数据库批量查找
+        # 从数据库批量查找
         try:
             with get_session_ro() as db:
                 rows = db.query(StockInfo).filter(StockInfo.code.in_(pure_codes)).all()
@@ -160,22 +95,6 @@ class StockDataCache:
                     result[row.code] = row.name
         except Exception as e:
             print(f"[StockCache] 从数据库批量获取股票名称失败: {e}")
-
-        # 找出未找到的股票
-        not_found = [s for s in symbols if to_pure_code(s) not in result]
-
-        if not_found:
-            instruments = self._load_instruments_cache()
-            if instruments is not None and not instruments.empty:
-                for symbol in not_found:
-                    pure_code = to_pure_code(symbol)
-                    match = instruments[instruments['symbol'] == symbol]
-                    if not match.empty:
-                        name = match.iloc[0].get('sec_name', '未知')
-                        result[pure_code] = name
-                        self._save_stock_info(pure_code, name)
-                    else:
-                        result[pure_code] = '未知'
 
         # 返回时使用原始symbol作为key
         return_result = {}
@@ -190,12 +109,12 @@ class StockDataCache:
 
     def get_stock_day_data(self, symbol: str, trade_date: datetime, force_refresh: bool = False) -> Optional[pd.DataFrame]:
         """
-        获取股票指定日期的日线数据（单条记录）
+        获取股票指定日期的日线数据（单条记录，仅从数据库读取）
 
         Args:
             symbol: 股票代码，如 'SHSE.600105'
             trade_date: 交易日期
-            force_refresh: 是否强制从 API 刷新
+            force_refresh: 是否强制刷新（仅保留参数兼容性，实际只从数据库读取）
 
         Returns:
             包含单条记录的 DataFrame，如果未找到则返回 None
@@ -203,39 +122,17 @@ class StockDataCache:
         date_key = trade_date.strftime('%Y-%m-%d')
         pure_code = to_pure_code(symbol)
 
-        if not force_refresh:
-            # 从数据库读取指定日期的数据
-            cached_data = self._read_single_day_from_db(pure_code, date_key)
-            if cached_data is not None and not cached_data.empty:
-                return cached_data
+        # 从数据库读取指定日期的数据
+        cached_data = self._read_single_day_from_db(pure_code, date_key)
+        if cached_data is not None and not cached_data.empty:
+            return cached_data
 
-        # 从 API 获取（使用 ExternalDataQueryHandler）
-        try:
-            # 直接查询指定日期的数据
-            date_str = trade_date.strftime('%Y-%m-%d')
-
-            data = self._query_handler.get_daily_data(
-                symbol=symbol,
-                start_date=date_str,
-                end_date=date_str
-            )
-
-            if data is not None and not data.empty:
-                # 保存到数据库
-                self._save_daily_to_db(pure_code, data)
-                return data
-            else:
-                print(f"[StockCache] 未获取到 {symbol} 在 {date_str} 的数据")
-                return None
-        except Exception as e:
-            print(f"[StockCache] 获取单日数据失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
+        print(f"[StockCache] 未获取到 {symbol} 在 {date_key} 的数据")
+        return None
 
     def get_history_data(self, symbol: str, days: int = 5, trade_date: Optional[datetime] = None, force_refresh: bool = False) -> Optional[pd.DataFrame]:
         """
-        获取股票最近N日的历史数据（从数据库读取）
+        获取股票最近N日的历史数据（仅从数据库读取）
         """
         if trade_date is None:
             latest_trade_date = trade_date_util.get_latest_trade_date()
@@ -251,42 +148,15 @@ class StockDataCache:
         # 将symbol转换为纯数字code，用于数据库操作
         pure_code = to_pure_code(symbol)
 
-        if not force_refresh:
-            # 从数据库读取
-            cached_data = self._read_daily_from_db(pure_code, days, date_key)
-            if cached_data is not None and not cached_data.empty:
-                # print(f"[StockCache] 从数据库读取到 {len(cached_data)} 条历史数据")
-                # 按日期正序排列，与API返回数据保持一致
-                cached_data = cached_data.sort_values('trade_date')
-                return cached_data
+        # 从数据库读取
+        cached_data = self._read_daily_from_db(pure_code, days, date_key)
+        if cached_data is not None and not cached_data.empty:
+            # 按日期正序排列
+            cached_data = cached_data.sort_values('trade_date')
+            return cached_data
 
-        # 从 API 获取（使用ExternalDataQueryHandler）
-        try:
-            start_date = end_date - timedelta(days=days + 20)
-            start_date_str = start_date.strftime('%Y-%m-%d')
-            end_date_str = end_date.strftime('%Y-%m-%d')
-
-            data = self._query_handler.get_daily_data(
-                symbol=symbol,
-                start_date=start_date_str,
-                end_date=end_date_str
-            )
-
-            if data is not None and not data.empty:
-                # print(f"[StockCache] 从 API 获取到 {len(data)} 条历史数据")
-                # print(f"[StockCache] 数据列名: {list(data.columns)}")
-                data = data.sort_values('eob')
-                self._save_daily_to_db(pure_code, data)
-                return data.tail(days)
-            else:
-                print(f"[StockCache] API 返回空数据: {data}")
-                return None
-
-        except Exception as e:
-            print(f"[StockCache] 获取历史数据失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
+        print(f"[StockCache] 未获取到 {symbol} 的历史数据")
+        return None
 
     def get_previous_trade_data(self, symbol: str, trade_date: datetime) -> Optional[Dict[str, Any]]:
         """
@@ -416,58 +286,8 @@ class StockDataCache:
             print(f"[StockCache] 从数据库读取单条日线数据失败: {e}")
         return None
 
-    def _save_daily_to_db(self, code: str, data: pd.DataFrame):
-        """保存日线数据到数据库"""
-        if data is None or data.empty:
-            return
-
-        try:
-            with get_session() as db:
-                for _, row in data.iterrows():
-                    # 处理 eob 字段，确保是字符串
-                    eob_str = self._process_time_field(row['eob'])
-                    trade_date = eob_str[:10] if len(eob_str) >= 10 else ''
-
-                    # 检查是否已存在
-                    existing = db.query(StockDaily).filter(
-                        StockDaily.code == code,
-                        StockDaily.trade_date == trade_date,
-                        StockDaily.eob == eob_str
-                    ).first()
-
-                    if existing:
-                        # 更新现有记录
-                        existing.open = row['open']
-                        existing.close = row['close']
-                        existing.high = row['high']
-                        existing.low = row['low']
-                        existing.volume = row['volume']
-                        existing.amount = row['amount']
-                        existing.pre_close = row['pre_close']
-                        existing.update_time = datetime.now()
-                    else:
-                        # 创建新记录
-                        new_daily = StockDaily(
-                            code=code,
-                            trade_date=trade_date,
-                            open=row['open'],
-                            close=row['close'],
-                            high=row['high'],
-                            low=row['low'],
-                            volume=row['volume'],
-                            amount=row['amount'],
-                            pre_close=row['pre_close'],
-                            eob=eob_str,
-                            update_time=datetime.now()
-                        )
-                        db.add(new_daily)
-        except Exception as e:
-            print(f"[StockCache] 保存日线数据失败: {e}")
-            import traceback
-            traceback.print_exc()
-
     def get_minute_data(self, symbol: str, trade_date: datetime, start_time_str: str, end_time_str: str) -> Optional[pd.DataFrame]:
-        """获取指定时间段的分钟数据（带缓存）"""
+        """获取指定时间段的分钟数据（仅从数据库读取）"""
         date_key = trade_date.strftime('%Y-%m-%d')
 
         # 将symbol转换为纯数字code
@@ -478,22 +298,8 @@ class StockDataCache:
         if cached_data is not None and not cached_data.empty:
             return cached_data
 
-        # 从 API 获取（使用ExternalDataQueryHandler）
-        try:
-            data = self._query_handler.get_minute_data(
-                symbol=symbol,
-                trade_date=date_key,
-                start_time=start_time_str,
-                end_time=end_time_str
-            )
-
-            if data is not None and not data.empty:
-                self._save_minute_to_db(pure_code, date_key, data)
-                return data
-            return None
-        except Exception as e:
-            print(f"[StockCache] 获取分钟数据失败: {e}")
-            return None
+        print(f"[StockCache] 未获取到 {symbol} 在 {date_key} {start_time_str}-{end_time_str} 的分钟数据")
+        return None
 
     def _read_minute_from_db(self, code: str, date_key: str, start_time_str: str, end_time_str: str) -> Optional[pd.DataFrame]:
         """从数据库读取分钟数据"""
@@ -512,46 +318,6 @@ class StockDataCache:
         except Exception as e:
             print(f"[StockCache] 从数据库读取分钟数据失败: {e}")
         return None
-
-    def _save_minute_to_db(self, code: str, date_key: str, data: pd.DataFrame):
-        """保存分钟数据到数据库"""
-        if data is None or data.empty:
-            return
-
-        try:
-            with get_session() as db:
-                for _, row in data.iterrows():
-                    eob_str = self._process_time_field(row['eob'])
-
-                    existing = db.query(StockMinute).filter(
-                        StockMinute.code == code,
-                        StockMinute.trade_date == date_key,
-                        StockMinute.eob == eob_str
-                    ).first()
-
-                    if existing:
-                        existing.open = row['open']
-                        existing.close = row['close']
-                        existing.high = row['high']
-                        existing.low = row['low']
-                        existing.volume = int(row['volume'])
-                        existing.amount = row['amount']
-                        existing.update_time = datetime.now()
-                    else:
-                        db.add(StockMinute(
-                            code=code,
-                            trade_date=date_key,
-                            eob=eob_str,
-                            open=row['open'],
-                            close=row['close'],
-                            high=row['high'],
-                            low=row['low'],
-                            volume=int(row['volume']),
-                            amount=row['amount'],
-                            update_time=datetime.now()
-                        ))
-        except Exception as e:
-            print(f"[StockCache] 保存分钟数据失败: {e}")
 
     def _is_date_in_recent_trade_dates(self, date_key: str, days: int = 6) -> bool:
         """检查日期是否在最近N个交易日内"""
@@ -576,7 +342,7 @@ class StockDataCache:
 
     def get_tick_data(self, symbol: str, trade_date: datetime, start_time_str: str, end_time_str: str) -> Optional[pd.DataFrame]:
         """
-        获取指定时间段的tick数据
+        获取指定时间段的tick数据（仅从数据库读取）
         限制：只允许查询包含今日在内的最近6个交易日
         """
         date_key = trade_date.strftime('%Y-%m-%d')
@@ -592,50 +358,8 @@ class StockDataCache:
         if cached_data is not None and not cached_data.empty:
             return cached_data
 
-        # 从 API 获取（使用ExternalDataQueryHandler）
-        try:
-            data = self._query_handler.get_tick_data(
-                symbol=symbol,
-                trade_date=date_key,
-                start_time=start_time_str,
-                end_time=end_time_str
-            )
-
-            if data is not None and not data.empty:
-                # 检查是否是竞价相关的时间范围（9:25-9:31）
-                is_auction_time = self._is_auction_time(start_time_str, end_time_str)
-
-                if is_auction_time:
-                    # 只保存9:30前后的两个快照
-                    data['created_at'] = pd.to_datetime(data['created_at'])
-
-                    # 9:30前的最后一个快照
-                    before_930 = data[data['created_at'] < f'{date_key} 09:30:00']
-                    # 9:30后的第一个快照
-                    after_930 = data[data['created_at'] >= f'{date_key} 09:30:00']
-
-                    filtered_data = pd.DataFrame()
-                    if not before_930.empty:
-                        last_before = before_930.tail(1)
-                        filtered_data = pd.concat([filtered_data, last_before])
-                        print(f"[StockCache] 保存9:30前最后快照: {last_before['created_at'].iloc[0]}")
-                    if not after_930.empty:
-                        first_after = after_930.head(1)
-                        filtered_data = pd.concat([filtered_data, first_after])
-                        print(f"[StockCache] 保存9:30后第一快照: {first_after['created_at'].iloc[0]}")
-
-                    if not filtered_data.empty:
-                        print(f"[StockCache] 总共保存 {len(filtered_data)} 个快照")
-                        self._save_tick_to_db(pure_code, date_key, filtered_data)
-                        return filtered_data
-                else:
-                    # 保存所有tick数据
-                    self._save_tick_to_db(pure_code, date_key, data)
-                return data
-            return None
-        except Exception as e:
-            print(f"[StockCache] 获取tick数据失败: {e}")
-            return None
+        print(f"[StockCache] 未获取到 {symbol} 在 {date_key} {start_time_str}-{end_time_str} 的tick数据")
+        return None
 
     def _read_tick_from_db(self, code: str, date_key: str, start_time_str: str, end_time_str: str) -> Optional[pd.DataFrame]:
         """从数据库读取tick数据"""
@@ -655,49 +379,9 @@ class StockDataCache:
             print(f"[StockCache] 从数据库读取tick数据失败: {e}")
         return None
 
-    def _save_tick_to_db(self, code: str, date_key: str, data: pd.DataFrame):
-        """保存tick数据到数据库"""
-        if data is None or data.empty:
-            return
-
-        try:
-            with get_session() as db:
-                for _, row in data.iterrows():
-                    created_at_str = self._process_time_field(row.get('created_at', ''))
-                    volume_int = self.to_int(row.get('volume', 0))
-                    cum_volume_int = self.to_int(row.get('cum_volume', 0))
-
-                    existing = db.query(StockTick).filter(
-                        StockTick.code == code,
-                        StockTick.trade_date == date_key,
-                        StockTick.created_at == created_at_str
-                    ).first()
-
-                    if existing:
-                        existing.price = row.get('price', 0)
-                        existing.volume = volume_int
-                        existing.cum_amount = row.get('cum_amount', 0)
-                        existing.cum_volume = cum_volume_int
-                        existing.update_time = datetime.now()
-                    else:
-                        db.add(StockTick(
-                            code=code,
-                            trade_date=date_key,
-                            created_at=created_at_str,
-                            price=row.get('price', 0),
-                            volume=volume_int,
-                            cum_amount=row.get('cum_amount', 0),
-                            cum_volume=cum_volume_int,
-                            update_time=datetime.now()
-                        ))
-        except Exception as e:
-            print(f"[StockCache] 保存tick数据失败: {e}")
-            import traceback
-            traceback.print_exc()
-
     def get_auction_data(self, symbol: str, trade_date: datetime) -> Dict[str, float]:
         """
-        获取个股早盘竞价数据
+        获取个股早盘竞价数据（仅从数据库读取）
         - 早盘竞价金额：9:30前最后一个快照的累计成交额
         - 开盘成交额：9:30第一个快照的累计成交额
         - 开盘量比：竞价成交量与过去5日平均成交量的比值
@@ -712,77 +396,7 @@ class StockDataCache:
         if cached_data is not None:
             return cached_data
 
-        # 从 API 获取（使用ExternalDataQueryHandler）
-        try:
-            import time
-            start_time = time.time()
-            auction_data = self._query_handler.get_auction_data(symbol, date_key)
-            elapsed_time = time.time() - start_time
-            print(f"[StockCache] 获取竞价数据耗时: {elapsed_time:.2f} 秒")
-
-            if auction_data is not None and not auction_data.empty:
-                # 检查数据格式
-                if 'cum_amount' in auction_data.columns:
-                    # 掘金格式的tick数据
-                    try:
-                        auction_data['created_at'] = pd.to_datetime(auction_data['created_at'])
-
-                        before_930 = auction_data[auction_data['created_at'] < f'{date_key} 09:30:00']
-                        at_930 = auction_data[(auction_data['created_at'] >= f'{date_key} 09:30:00') & (auction_data['created_at'] < f'{date_key} 09:30:01')]
-
-                        if not before_930.empty and not at_930.empty:
-                            auction_amount = before_930.iloc[-1]['cum_amount']
-                            open_amount = at_930.iloc[0]['cum_amount']
-
-                            # 对于掘金数据，使用默认值填充其他字段
-                            self._save_auction_to_db(pure_code, date_key, {
-                                'open_amount': auction_amount,
-                                'amount': auction_amount
-                            })
-
-                            return {
-                                'open_volume': auction_amount,
-                                'open_amount': open_amount,
-                                'volume_ratio': 0
-                            }
-                    except Exception as e:
-                        print(f"[StockCache] 处理掘金格式数据失败: {e}")
-                elif 'amount' in auction_data.columns:
-                    # Tushare格式的竞价数据
-                    try:
-                        row = auction_data.iloc[0]
-
-                        # 确保所有数字字段都是正确的类型
-                        price = self.to_float(row.get('price', 0))
-                        amount = self.to_float(row.get('amount', 0))
-                        volume = self.to_int(row.get('vol', row.get('volume', 0)))
-                        pre_close = self.to_float(row.get('pre_close', 0))
-                        turn_over_rate = self.to_float(row.get('turnover_rate', 0))
-                        volume_ratio = self.to_float(row.get('volume_ratio', 0))
-                        float_share = self.to_float(row.get('float_share', 0))
-
-                        # 保存完整的竞价数据到数据库
-                        self._save_auction_to_db(pure_code, date_key, {
-                            'price': price,
-                            'amount': amount,
-                            'volume': volume,
-                            'pre_close': pre_close,
-                            'turn_over_rate': turn_over_rate,
-                            'volume_ratio': volume_ratio,
-                            'float_share': float_share
-                        })
-
-                        # open_volume和open_amount都等于竞价成交额amount
-                        return {
-                            'open_volume': volume,
-                            'open_amount': amount,
-                            'volume_ratio': volume_ratio
-                        }
-                    except Exception as e:
-                        print(f"[StockCache] 处理Tushare格式数据失败: {e}")
-        except Exception as e:
-            print(f"[StockCache] 获取竞价数据失败: {e}")
-
+        print(f"[StockCache] 未获取到 {symbol} 在 {date_key} 的竞价数据")
         return {
             'open_volume': 0,
             'open_amount': 0,
@@ -807,114 +421,6 @@ class StockDataCache:
         except Exception as e:
             print(f"[StockCache] 从数据库读取竞价数据失败: {e}")
         return None
-
-    def _save_auction_to_db(self, code: str, date_key: str, auction_data: dict):
-        """保存竞价数据到数据库
-
-        Args:
-            code: 股票代码（纯数字）
-            date_key: 交易日期（YYYY-MM-DD）
-            auction_data: 竞价数据字典，支持字段：
-                - price/open_price: 竞价价格
-                - amount/open_amount: 竞价成交额
-                - volume/open_volume: 竞价成交量
-                - pre_close: 前收盘价
-                - turn_over_rate: 换手率
-                - volume_ratio: 量比
-                - float_share: 流通股本
-                - tail_57_price: 尾盘14:57竞价价格
-                - close_price: 收盘价
-                - tail_amount: 尾盘竞价金额
-        """
-        code = str(code)
-
-        # 字段映射：auction_data中的key -> StockAuction模型字段名
-        field_map = {
-            'price': 'open_price',
-            'open_price': 'open_price',
-            'amount': 'open_amount',
-            'open_amount': 'open_amount',
-            'volume': 'open_volume',
-            'open_volume': 'open_volume',
-            'pre_close': 'pre_close',
-            'turn_over_rate': 'turn_over_rate',
-            'volume_ratio': 'volume_ratio',
-            'float_share': 'float_share',
-            'tail_57_price': 'tail_57_price',
-            'close_price': 'close_price',
-            'tail_amount': 'tail_amount',
-            'tail_volume': 'tail_volume',
-        }
-
-        # 类型映射：字段名 -> (转换函数, 默认值)
-        type_map = {
-            'open_price': (self.to_float, 0),
-            'open_amount': (self.to_float, 0),
-            'open_volume': (self.to_int, 0),
-            'pre_close': (self.to_float, 0),
-            'turn_over_rate': (self.to_float, 0),
-            'volume_ratio': (self.to_float, 0),
-            'float_share': (self.to_float, 0),
-            'tail_57_price': (self.to_float, 0),
-            'close_price': (self.to_float, 0),
-            'tail_amount': (self.to_float, 0),
-            'tail_volume': (self.to_int, 0),
-        }
-
-        # 构建模型字段值字典
-        model_values = {}
-        for data_key, model_field in field_map.items():
-            if data_key in auction_data:
-                converter, default = type_map.get(model_field, (self.to_float, 0))
-                model_values[model_field] = converter(auction_data[data_key])
-
-        try:
-            with get_session() as db:
-                existing = db.query(StockAuction).filter(
-                    StockAuction.code == code,
-                    StockAuction.trade_date == date_key
-                ).first()
-
-                if existing:
-                    for field, value in model_values.items():
-                        setattr(existing, field, value)
-                    existing.update_time = datetime.now()
-                else:
-                    model_values['code'] = code
-                    model_values['trade_date'] = date_key
-                    model_values['avg_5d_price'] = 0
-                    model_values['avg_10d_price'] = 0
-                    model_values['update_time'] = datetime.now()
-                    db.add(StockAuction(**model_values))
-        except Exception as e:
-            print(f"[StockCache] 保存竞价数据失败: {e}")
-
-    def _update_auction_tail_data(self, code: str, date_key: str, tail_57_price: float, close_price: float, tail_amount: float):
-        """
-        更新竞价数据表中的尾盘竞价字段
-
-        Args:
-            code: 股票代码（纯数字）
-            date_key: 交易日期（YYYY-MM-DD）
-            tail_57_price: 尾盘14:57竞价价格
-            close_price: 收盘价
-            tail_amount: 尾盘竞价金额
-        """
-        try:
-            with get_session() as db:
-                existing = db.query(StockAuction).filter(
-                    StockAuction.code == code,
-                    StockAuction.trade_date == date_key
-                ).first()
-
-                if existing:
-                    existing.tail_57_price = self.to_float(tail_57_price)
-                    existing.tail_amount = self.to_float(tail_amount)
-                    existing.tail_volume = 0
-                    existing.close_price = self.to_float(close_price)
-                    existing.update_time = datetime.now()
-        except Exception as e:
-            print(f"[StockCache] 更新尾盘竞价数据失败: {e}")
 
     def get_tail_auction_data(self, symbol: str, trade_date: datetime) -> Optional[Dict[str, Any]]:
         """

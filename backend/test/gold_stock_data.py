@@ -11,7 +11,7 @@ import os
 # 5-获取股票指定日期的开盘成交额
 # 6-获取股票指定日期的分钟分时数据
 # 7-获取股票基础信息（总股本、流通股本、市盈率等）
-GET_DATA_TYPE = 7
+GET_DATA_TYPE = 5
 GET_STOCK_CODE = "600487"
 GET_DATE = "2026-04-30"
 

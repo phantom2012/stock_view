@@ -33,10 +33,16 @@ def init_database():
     # 股票基本信息表
     cursor.execute("""
     CREATE TABLE stock_info (
-        code TEXT PRIMARY KEY,           -- 股票代码(纯数字, 如: 600666)
-        name TEXT,                        -- 股票名称(如: 航天动力)
-        exchange TEXT,                    -- 交易所代码(SHSE=上海, SZSE=深圳)
-        update_time TEXT                  -- 更新时间
+        code        TEXT PRIMARY KEY,
+        name        TEXT,
+        exchange    TEXT,
+        free_share  REAL,
+        circ_mv     REAL,
+        need_sync   INTEGER,
+        list_status TEXT,       --上市状态 L上市 D退市 G过会未交易 P暂停上市
+        list_date   TEXT,       -- 上市日期(YYYY-MM-DD)
+        delist_date TEXT,     -- 退市日期(YYYY-MM-DD)
+        update_time TEXT
     )
     """)
 
@@ -150,6 +156,7 @@ def init_database():
     CREATE TABLE block_stock (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         block_code TEXT NOT NULL,         -- 板块代码(如: 880081)
+        block_name TEXT,                  -- 板块名称
         stock_code TEXT NOT NULL,         -- 股票代码(纯数字, 如: 600666)
         update_time TEXT,                 -- 更新时间
         UNIQUE(block_code, stock_code)
@@ -251,6 +258,25 @@ def init_database():
     cursor.execute("""
     CREATE INDEX idx_stock_money_flow_code_date
     ON stock_money_flow(code, trade_date)
+    """)
+
+    cursor.execute("""
+    CREATE TABLE config_clear_data_timer (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        biz_type TEXT NOT NULL UNIQUE,        -- 业务类型标识(如: stock_daily, stock_minute)
+        biz_name TEXT NOT NULL,               -- 业务类型名称(如: 日线数据, 分钟数据)
+        clear_flag INTEGER DEFAULT 0,         -- 清理标志位(0=无需清理, 1=需要清理)
+        retain_days INTEGER DEFAULT 30,       -- 数据保留天数(清理此天数之前的数据)
+        enabled INTEGER DEFAULT 1,            -- 是否启用(0=禁用, 1=启用)
+        last_clear_time TEXT,                 -- 最近一次清理时间
+        create_time TEXT,                     -- 创建时间
+        update_time TEXT                      -- 更新时间
+    )
+    """)
+
+    cursor.execute("""
+    INSERT INTO config_clear_data_timer (biz_type, biz_name, clear_flag, retain_days, enabled, create_time, update_time) VALUES
+        ('stock_free_share', '股票流通股本重置', 0, 0, 1, datetime('now'), datetime('now'))
     """)
 
     conn.commit()

@@ -63,6 +63,7 @@ IGNORE_PATTERNS = [
 # 需要统计的文件类型
 INCLUDE_PATTERNS = {
     'backend': ['*.py'],
+    'data-sync-service': ['*.py'],
     'dashboard/src': ['*.vue', '*.js', '*.ts'],
     'root': ['*.py']
 }
@@ -140,6 +141,18 @@ def main():
         total_total += lines
         total_files += files
         all_details.extend([('backend/' + os.path.relpath(f, backend_dir), l) for f, l in details])
+
+    # 统计 data-sync-service 目录
+    sync_service_dir = os.path.join(os.path.dirname(__file__), '../../data-sync-service')
+    if os.path.exists(sync_service_dir):
+        print("\n【数据同步服务】- data-sync-service/")
+        print("-" * 60)
+        lines, files, details = count_lines_in_directory(sync_service_dir, INCLUDE_PATTERNS['data-sync-service'])
+        print(f"文件数: {files}")
+        print(f"代码行数: {lines:,}")
+        total_total += lines
+        total_files += files
+        all_details.extend([('data-sync-service/' + os.path.relpath(f, sync_service_dir), l) for f, l in details])
 
     # 统计 dashboard/src 目录
     dashboard_dir = os.path.join(os.path.dirname(__file__), '../../dashboard/src')

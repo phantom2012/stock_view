@@ -220,7 +220,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
@@ -258,6 +258,10 @@ const hasSearched = ref(false)
 const filteredStocks = ref([])
 const currentPage = ref(1)
 const pageSize = ref(TABLE_PAGE_SIZE) // 每页显示数量，由常量自动计算
+
+// SSE 相关
+let eventSource = null
+const sseConnected = ref(false)
 
 // 加载板块列表
 const loadBlockList = async () => {
@@ -460,41 +464,133 @@ const loadAuctionData = async () => {
   }
 }
 
-// 加载资金流向数据
+// 加载资金流向数据（异步方式，等待 SSE 通知）
 const loadMoneyFlowData = async () => {
   if (filteredStocks.value.length === 0) {
     ElMessage.warning('请先筛选股票后再加载资金流向数据')
     return
   }
 
+  // 立即设置 loading 状态
   loadingMoneyFlow.value = true
 
   // 显示加载提示
   const loadingMsg = ElMessage({
-    message: `正在加载资金流向数据，共 ${filteredStocks.value.length} 只股票...`,
+    message: `正在加载资金流向数据，共 ${filteredStocks.value.length} 只股票，请稍候...`,
     type: 'info',
     duration: 0  // 不自动关闭
   })
 
   try {
+    // 先建立 SSE 连接（如果还没连接）
+    if (!sseConnected.value) {
+      initSSE()
+    }
+
+    // 发送触发请求（立即返回，不等待同步完成）
     const response = await axios.post('http://127.0.0.1:8000/api/data/load-money-flow', filteredStocks.value, {
       params: { days: filterForm.value.recentDays }
     })
 
-    loadingMsg.close()
-
-    if (response.data.status === 'success') {
-      const result = response.data.data
-      ElMessage.success(`加载资金流向数据完成：成功 ${result.success} 只，失败 ${result.failed} 只，总计 ${result.total} 只股票`)
-    } else {
-      ElMessage.error('加载资金流向数据失败：' + (response.data.msg || '未知错误'))
+    if (response.data.status !== 'success') {
+      loadingMsg.close()
+      ElMessage.error('触发资金流向数据同步失败：' + (response.data.msg || '未知错误'))
+      loadingMoneyFlow.value = false
+      return
     }
+
+    // 保持 loading 状态，等待 SSE 通知
+    console.log('资金流向同步已触发，等待后台处理完成...')
+
   } catch (error) {
     loadingMsg.close()
-    console.error('加载资金流向数据失败:', error)
-    ElMessage.error('加载资金流向数据失败，请稍后重试')
-  } finally {
+    console.error('触发资金流向数据同步失败:', error)
+    ElMessage.error('触发资金流向数据同步失败，请稍后重试')
     loadingMoneyFlow.value = false
+  }
+}
+
+// 处理资金流向同步完成
+const handleMoneyFlowComplete = (success, message) => {
+  loadingMoneyFlow.value = false
+
+  // 关闭加载提示
+  document.querySelectorAll('.el-message__close').forEach(el => el.click())
+
+  if (success) {
+    ElMessage.success(`资金流向数据加载完成！${message || ''}`)
+  } else {
+    ElMessage.error('资金流向数据加载失败：' + (message || '未知错误'))
+  }
+}
+
+// 处理分钟数据同步完成
+const handleMinuteDataComplete = (success, message) => {
+  // 关闭加载提示
+  document.querySelectorAll('.el-message__close').forEach(el => el.click())
+
+  if (success) {
+    ElMessage.success(`分钟数据同步完成！${message || ''}`)
+  } else {
+    ElMessage.error('分钟数据同步失败：' + (message || '未知错误'))
+  }
+}
+
+// 初始化 SSE 连接
+const initSSE = () => {
+  if (eventSource) {
+    return
+  }
+
+  try {
+    eventSource = new EventSource('http://127.0.0.1:8000/api/data/sse')
+
+    eventSource.onopen = () => {
+      console.log('SSE 连接已建立')
+      sseConnected.value = true
+    }
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        console.log('收到 SSE 消息:', data)
+
+        if (data.type === 'sync_complete') {
+          if (data.sync_type === 'money_flow') {
+            handleMoneyFlowComplete(data.success, data.message)
+          } else if (data.sync_type === 'minute_data') {
+            handleMinuteDataComplete(data.success, data.message)
+          }
+        }
+      } catch (error) {
+        console.error('解析 SSE 消息失败:', error)
+      }
+    }
+
+    eventSource.onerror = (error) => {
+      console.error('SSE 连接错误:', error)
+      sseConnected.value = false
+      // 尝试重连
+      setTimeout(() => {
+        if (eventSource) {
+          eventSource.close()
+          eventSource = null
+        }
+        initSSE()
+      }, 5000)
+    }
+  } catch (error) {
+    console.error('初始化 SSE 失败:', error)
+  }
+}
+
+// 关闭 SSE 连接
+const closeSSE = () => {
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+    sseConnected.value = false
+    console.log('SSE 连接已关闭')
   }
 }
 
@@ -619,6 +715,13 @@ const handleRowClick = (row, column, event) => {
 onMounted(() => {
   loadBlockList()
   loadFilterStocks()
+  // 初始化 SSE 连接
+  initSSE()
+})
+
+// 组件卸载时关闭 SSE 连接
+onUnmounted(() => {
+  closeSSE()
 })
 
 // 从数据库加载筛选配置(type=2)
