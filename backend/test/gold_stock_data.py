@@ -11,9 +11,9 @@ import os
 # 5-获取股票指定日期的开盘成交额
 # 6-获取股票指定日期的分钟分时数据
 # 7-获取股票基础信息（总股本、流通股本、市盈率等）
-GET_DATA_TYPE = 5
+GET_DATA_TYPE = 1
 GET_STOCK_CODE = "600487"
-GET_DATE = "2026-04-30"
+GET_DATE = "2026-05-08"
 
 # API Token
 API_KEY = "2e664976b46df6a0903672349c30226ac68e7bf3"
@@ -90,9 +90,8 @@ def get_daily_info(symbol):
     print(f"=== 获取股票 {symbol} 的当日行情信息 ===")
     set_token(API_KEY)
 
-    today = datetime.now().strftime('%Y-%m-%d')
-    start_time = f"{today} 00:00:00"
-    end_time = f"{today} 23:59:59"
+    start_time = f"{GET_DATE} 00:00:00"
+    end_time = f"{GET_DATE} 23:59:59"
 
     try:
         # 先获取所有可用字段

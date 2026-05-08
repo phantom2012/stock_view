@@ -202,7 +202,7 @@
             {{ scope.row.open_volume_ratio !== undefined && scope.row.open_volume_ratio !== null ? parseFloat(scope.row.open_volume_ratio).toFixed(2) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="次日涨幅" width="80">
+        <el-table-column label="次日涨幅" width="80" sortable="custom" prop="next_day_rise">
           <template #default="scope">
             <span :class="getValueColor(calcNextDayRise(scope.row))">{{ calcNextDayRise(scope.row) !== null ? calcNextDayRise(scope.row) : '-' }}%</span>
           </template>
@@ -636,6 +636,9 @@ const handleSortChange = (sort) => {
     if (prop === 'today_gain') {
       valA = calcTodayGain(a) || 0
       valB = calcTodayGain(b) || 0
+    } else if (prop === 'next_day_rise') {
+      valA = calcNextDayRise(a) || 0
+      valB = calcNextDayRise(b) || 0
     } else {
       valA = parseFloat(a[prop]) || 0
       valB = parseFloat(b[prop]) || 0

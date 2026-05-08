@@ -9,12 +9,14 @@ from stock_filter import get_stock_filter
 from common.block_stock_util import get_stocks_by_blocks
 from common.stock_code_convert import to_goldminer_symbol
 from common.singleton import SingletonMixin
+from shared.trade_date_util import TradeDateUtil
 from services.data_sync_notify_service import get_data_sync_notify_service
 
 logger = logging.getLogger(__name__)
 
 stock_cache = get_stock_cache()
 stock_filter = get_stock_filter()
+trade_date_util = TradeDateUtil()
 
 
 class StockFilterService(SingletonMixin):
@@ -39,7 +41,13 @@ class StockFilterService(SingletonMixin):
 
             filtered_results = []
 
-            trade_date = datetime.now()
+            # 获取最新交易日（带时间门槛：15:30之前使用上一交易日）
+            latest_trade_date_str = trade_date_util.get_latest_trade_date()
+            if not latest_trade_date_str:
+                logger.error("无法获取最新交易日，无法执行筛选")
+                return []
+
+            trade_date = datetime.strptime(latest_trade_date_str, '%Y-%m-%d')
 
             for code in stocks_to_filter:
                 if not code:
@@ -86,7 +94,7 @@ class StockFilterService(SingletonMixin):
             try:
                 notify_service = get_data_sync_notify_service()
                 sync_result = notify_service.trigger_multi_sync(
-                    sync_types=['minute_data'],
+                    sync_types=['daily_data', 'minute_data'],
                     stock_codes= [stock['code'] for stock in filtered_results]
                 )
                 logger.info(f"Screen sync trigger result: {sync_result}")

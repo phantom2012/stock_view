@@ -8,12 +8,13 @@ from datetime import datetime
 from typing import List, Set, Tuple, Dict, Any
 
 from shared.db import (
-    get_session, get_session_ro, StockMoneyFlow, FilterResult, StockInfo,
+    get_session, get_session_ro, StockMoneyFlow, FilterResult, StockInfo, StockScore,
     upsert_by_unique_keys
 )
 from shared.stock_code_convert import to_goldminer_symbol
 from shared.trade_date_util import TradeDateUtil
 from external_data import get_query_handler
+from config import MONEY_FLOW_CONFIG, TURN_START_SCORE_MAP, TURN_STRONG_CYCLE_CONFIG
 from .base_syncer import BaseSyncer
 from utils.log_utils import log_progress
 
@@ -77,7 +78,6 @@ class MoneyFlowSyncer(BaseSyncer):
 
                     saved = self._save_money_flow_records(code, df)
                     total_saved += saved
-                    logger.info(f"  成功保存 {saved} 条记录")
 
                 except Exception as e:
                     logger.error(f"  同步 {code} 失败: {e}")
@@ -225,8 +225,23 @@ class MoneyFlowSyncer(BaseSyncer):
             logger.error(f"获取 {code} 流通市值失败: {e}")
         return 0.0
 
+    def _calc_turn_start_score(self, turn_start_date: str, trade_date: str) -> float:
+        if not turn_start_date or not trade_date:
+            return 0.0
+        try:
+            start = datetime.strptime(turn_start_date, '%Y-%m-%d')
+            end = datetime.strptime(trade_date, '%Y-%m-%d')
+            days = (end - start).days
+            if days <= 0:
+                return 0.0
+            for threshold in sorted(TURN_START_SCORE_MAP.keys()):
+                if days <= threshold:
+                    return TURN_START_SCORE_MAP[threshold]
+            return 0.0
+        except ValueError:
+            return 0.0
+
     def _update_turn_strong_fields(self, code: str, records: List[Dict]):
-        """更新数据库中的转强字段"""
         with get_session() as db:
             for rec in records:
                 trade_date = rec['trade_date']
@@ -239,17 +254,68 @@ class MoneyFlowSyncer(BaseSyncer):
                     money_flow.turn_start_net_amount = rec.get('turn_start_net_amount', 0)
                     money_flow.turn_start_net_amount_rate = rec.get('turn_start_net_amount_rate', 0)
                     money_flow.update_time = datetime.now()
+
+                    turn_start_score = self._calc_turn_start_score(
+                        rec.get('turn_start_date'), trade_date
+                    )
+                    score_record = db.query(StockScore).filter(
+                        StockScore.code == code,
+                        StockScore.trade_date == trade_date
+                    ).first()
+                    if score_record:
+                        score_record.turn_start_score = turn_start_score
+                        score_record.update_time = datetime.now()
+                    else:
+                        db.add(StockScore(
+                            code=code,
+                            trade_date=trade_date,
+                            turn_start_score=turn_start_score,
+                            update_time=datetime.now()
+                        ))
             db.commit()
             logger.debug(f"{code}: 更新 {len(records)} 条转强字段")
 
     def _calc_turn_strong_fields(self, records: List[Dict], circ_mv: float):
         """
-        计算转强字段（从 backend/services/money_flow_service.py 迁移）
-        算法逻辑详见原文件注释
+        计算转强字段
+
+        核心算法逻辑：
+        1. 参数说明：
+           - MAX_CYCLE_DAYS=6：单个转强周期最长持续6个交易日
+           - PCT_THRESHOLD=5.0：涨跌幅超过5%视为转强启动/重置信号
+           - NET_OUTFLOW_RATIO=0.3：周期内累计净流出若超过启动日净流入的30%，则重置周期
+
+        2. 预处理：
+           - 前缀和：对 net_amount 构建前缀和数组，支持 O(1) 范围区间求和
+           - 连续净流入起始索引：识别连续净流入（net_amount>0且net_amount_rate>2%）的起始日索引，最长追溯 MAX_CYCLE_DAYS 天
+           - RMQ 稀疏表：对 net_amount 构建区间最小值查询结构，用于快速查找指定区间内的最大净流出（最负值）
+
+        3. 主循环遍历每条记录：
+           - 非周期状态：若当日涨幅 > PCT_THRESHOLD（5%），调用 _start_new_cycle() 启动新周期
+           - 周期状态：
+             a) 周期已超 MAX_CYCLE_DAYS（6天）：强制结束，重新判断是否启动新周期
+             b) 当日涨幅 > PCT_THRESHOLD（5%）：检查自周期启动以来（除启动日）的最大净流出是否超过启动日净流入的 NET_OUTFLOW_RATIO（30%）
+                - 若超过：说明资金面转弱，重置周期（重新以当日为起点启动新周期）
+                - 若未超过：延续当前周期
+             c) 当日净流出 > 周期内最大单日净流入 × DAILY_OUTFLOW_RATIO（来自 TURN_STRONG_CYCLE_CONFIG）：说明资金异常出逃，结束当前周期（不重置；当日涨幅>5%时另启新周期）
+             d) 当日累计净流入 ≤ 周期内最大累计净流入 × CUMULATIVE_DECAY_RATIO（来自 TURN_STRONG_CYCLE_CONFIG）：说明资金持续衰退，结束当前周期（不重置；当日涨幅>5%时另启新周期）
+             e) 普通情况：延续周期，累加净流入，更新周期内最大累计净流入和最大单日净流入
+
+        4. _start_new_cycle(i) 内部逻辑：
+           - 若当日满足净流入条件（net_amount>0且net_amount_rate>2%），取连续净流入起始索引作为周期起点
+           - 否则以当日为起点
+           - 从周期起点到当日 i，逐日记录：turn_start_date（周期启动日期）、turn_start_net_amount（累计净流入）、turn_start_net_amount_rate（累计净流入/流通市值*100）
+
+        5. 输出字段（写入 records 每一项）：
+           - turn_start_date：所属转强周期的启动日期
+           - turn_start_net_amount：自周期启动以来的累计主力净流入（万元）
+           - turn_start_net_amount_rate：累计净流入占流通市值的比例（%）
         """
         MAX_CYCLE_DAYS = 6
         PCT_THRESHOLD = 5.0
         NET_OUTFLOW_RATIO = 0.3
+        CUMULATIVE_DECAY_RATIO = TURN_STRONG_CYCLE_CONFIG['cumulative_decay_ratio']
+        DAILY_OUTFLOW_RATIO = TURN_STRONG_CYCLE_CONFIG['daily_outflow_ratio']
 
         n = len(records)
         if n == 0:
@@ -336,6 +402,38 @@ class MoneyFlowSyncer(BaseSyncer):
         cycle_start_net_amount = 0.0
         cycle_days = 0
         cumulative_net_amount = 0.0
+        cycle_max_cumulative_net_amount = 0.0
+        cycle_max_daily_net_amount = 0.0
+
+        def _init_cycle_state(i: int):
+            nonlocal in_cycle, cycle_start_idx, cycle_start_net_amount, \
+                cycle_days, cumulative_net_amount, \
+                cycle_max_cumulative_net_amount, cycle_max_daily_net_amount
+            cycle_start_idx, cycle_start_net_amount, cycle_days, cumulative_net_amount = \
+                _start_new_cycle(i)
+            in_cycle = True
+            cycle_max_cumulative_net_amount = cumulative_net_amount
+            cycle_max_daily_net_amount = max(
+                (records[j]['net_amount'] for j in range(cycle_start_idx, i + 1)),
+                default=0.0
+            )
+
+        def _end_cycle(i: int, pct_change: float):
+            nonlocal in_cycle, cycle_start_idx, cycle_start_net_amount, \
+                cycle_days, cumulative_net_amount, \
+                cycle_max_cumulative_net_amount, cycle_max_daily_net_amount
+            turn_start_dates[i] = None
+            turn_start_amounts[i] = 0.0
+            turn_start_rate_amounts[i] = 0.0
+            in_cycle = False
+            cycle_start_idx = -1
+            cycle_start_net_amount = 0.0
+            cycle_days = 0
+            cumulative_net_amount = 0.0
+            cycle_max_cumulative_net_amount = 0.0
+            cycle_max_daily_net_amount = 0.0
+            if pct_change > PCT_THRESHOLD:
+                _init_cycle_state(i)
 
         for i in range(n):
             pct_change = records[i]['pct_change']
@@ -343,28 +441,14 @@ class MoneyFlowSyncer(BaseSyncer):
 
             if not in_cycle:
                 if pct_change > PCT_THRESHOLD:
-                    cycle_start_idx, cycle_start_net_amount, cycle_days, cumulative_net_amount = \
-                        _start_new_cycle(i)
-                    in_cycle = True
+                    _init_cycle_state(i)
                 else:
                     turn_start_dates[i] = None
                     turn_start_amounts[i] = 0.0
                     turn_start_rate_amounts[i] = 0.0
             else:
                 if cycle_days > MAX_CYCLE_DAYS:
-                    in_cycle = False
-                    cycle_start_idx = -1
-                    cycle_start_net_amount = 0.0
-                    cycle_days = 0
-                    cumulative_net_amount = 0.0
-                    if pct_change > PCT_THRESHOLD:
-                        cycle_start_idx, cycle_start_net_amount, cycle_days, cumulative_net_amount = \
-                            _start_new_cycle(i)
-                        in_cycle = True
-                    else:
-                        turn_start_dates[i] = None
-                        turn_start_amounts[i] = 0.0
-                        turn_start_rate_amounts[i] = 0.0
+                    _end_cycle(i, pct_change)
                 else:
                     need_reset = False
                     if pct_change > PCT_THRESHOLD:
@@ -372,13 +456,26 @@ class MoneyFlowSyncer(BaseSyncer):
                         if max_outflow > cycle_start_net_amount * NET_OUTFLOW_RATIO:
                             need_reset = True
 
+                    if not need_reset and net_amount < 0 and cycle_max_daily_net_amount > 0:
+                        if abs(net_amount) > cycle_max_daily_net_amount * DAILY_OUTFLOW_RATIO:
+                            _end_cycle(i, pct_change)
+                            continue
+
                     if need_reset:
-                        cycle_start_idx, cycle_start_net_amount, cycle_days, cumulative_net_amount = \
-                            _start_new_cycle(i)
-                        in_cycle = True
+                        _init_cycle_state(i)
                     else:
                         cycle_days += 1
                         cumulative_net_amount += net_amount
+
+                        if cumulative_net_amount <= cycle_max_cumulative_net_amount * CUMULATIVE_DECAY_RATIO:
+                            _end_cycle(i, pct_change)
+                            continue
+
+                        if cumulative_net_amount > cycle_max_cumulative_net_amount:
+                            cycle_max_cumulative_net_amount = cumulative_net_amount
+                        if net_amount > cycle_max_daily_net_amount:
+                            cycle_max_daily_net_amount = net_amount
+
                         turn_start_dates[i] = records[cycle_start_idx]['trade_date']
                         turn_start_amounts[i] = cumulative_net_amount
                         if circ_mv > 0:

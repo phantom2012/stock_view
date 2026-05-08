@@ -20,7 +20,7 @@ TUSHARE_PROXY_URL = "http://47.109.59.144:8989/dataapi"
 # 接口限流配置
 RATE_LIMIT_CONFIG = {
     'get_auction_data': 120,
-    'get_daily_data': 1000,
+    'get_daily_data': 2000,
     'get_minute_data': 1000,
     'get_tick_data': 1000,
     'get_instruments': 120,
@@ -47,27 +47,31 @@ class RateLimiter:
                 return True
             return False
 
-    def wait_and_acquire(self) -> None:
+    def wait_and_acquire(self, api_name: str = "unknown") -> None:
         wait_count = 0
         while True:
             if self.acquire():
                 if wait_count > 0:
-                    print(f"[RateLimiter] 等待完成（等待了{wait_count}次）")
+                    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    print(f"[{current_time}] [RateLimiter] [{api_name}] 等待完成 - 总等待次数: {wait_count}次, 窗口请求数: {len(self.requests)}/{self.max_requests}")
                 return
             with self.lock:
+                current_requests = len(self.requests)
+                current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 if self.requests:
                     oldest_request = min(self.requests)
                     wait_time = self.window_seconds - (time.time() - oldest_request)
                     if wait_time > 0:
                         wait_time += 0.1
-                        if wait_count == 0:
-                            print(f"[RateLimiter] 触发限流，等待{wait_time:.2f}秒")
+                        print(f"[{current_time}] [RateLimiter] [{api_name}] 触发限流 - 等待次数: {wait_count+1}次, 当前请求数: {current_requests}/{self.max_requests}, 等待时间: {wait_time:.2f}秒")
                         time.sleep(wait_time)
                         wait_count += 1
                     else:
+                        print(f"[{current_time}] [RateLimiter] [{api_name}] 触发限流 - 等待次数: {wait_count+1}次, 当前请求数: {current_requests}/{self.max_requests}, 等待时间: 0.01秒")
                         time.sleep(0.01)
                         wait_count += 1
                 else:
+                    print(f"[{current_time}] [RateLimiter] [{api_name}] 触发限流 - 等待次数: {wait_count+1}次, 当前请求数: {current_requests}/{self.max_requests}, 等待时间: 0.01秒")
                     time.sleep(0.01)
                     wait_count += 1
 
@@ -112,7 +116,7 @@ class ExternalDataQueryHandler:
     def get_daily_data(self, symbol: str, start_date: str, end_date: str, fields: Optional[str] = None) -> Optional[pd.DataFrame]:
         """获取日线数据（掘金接口）"""
         print(f"[ExternalData] get_daily_data - symbol={symbol}, start={start_date}, end={end_date}")
-        self._rate_limiters['get_daily_data'].wait_and_acquire()
+        self._rate_limiters['get_daily_data'].wait_and_acquire('get_daily_data')
         from gm.api import history, ADJUST_PREV
         return history(
             symbol=symbol, frequency='1d',
@@ -124,7 +128,7 @@ class ExternalDataQueryHandler:
     def get_minute_data(self, symbol: str, trade_date: str, start_time: str, end_time: str) -> Optional[pd.DataFrame]:
         """获取分钟数据（掘金接口）"""
         print(f"[ExternalData] get_minute_data - symbol={symbol}, date={trade_date}, time={start_time}-{end_time}")
-        self._rate_limiters['get_minute_data'].wait_and_acquire()
+        self._rate_limiters['get_minute_data'].wait_and_acquire('get_minute_data')
         from gm.api import history
         return history(
             symbol=symbol, frequency='60s',
@@ -146,7 +150,7 @@ class ExternalDataQueryHandler:
             合并后的DataFrame，包含所有股票的分钟数据
         """
         print(f"[ExternalData] get_minute_data_batch - {len(symbols)}只股票, date={trade_date}, time={start_time}-{end_time}")
-        self._rate_limiters['get_minute_data'].wait_and_acquire()
+        self._rate_limiters['get_minute_data'].wait_and_acquire('get_minute_data')
 
         from gm.api import history
 
@@ -181,7 +185,7 @@ class ExternalDataQueryHandler:
             掘金接口限制：仅能获取最近5个交易日的Tick数据
         """
         print(f"[ExternalData] get_tick_data - symbol={symbol}, date={trade_date}")
-        self._rate_limiters['get_tick_data'].wait_and_acquire()
+        self._rate_limiters['get_tick_data'].wait_and_acquire('get_tick_data')
         from gm.api import history
         return history(
             symbol=symbol, frequency='tick',
@@ -207,7 +211,7 @@ class ExternalDataQueryHandler:
             掘金接口限制：仅能获取最近5个交易日的Tick数据
         """
         print(f"[ExternalData] get_tick_data_batch - {len(symbols)}只股票, date={trade_date}, time={start_time}-{end_time}")
-        self._rate_limiters['get_tick_data'].wait_and_acquire()
+        self._rate_limiters['get_tick_data'].wait_and_acquire('get_tick_data')
 
         from gm.api import history
 
@@ -237,7 +241,7 @@ class ExternalDataQueryHandler:
     def get_auction_data(self, symbol: str, trade_date: str) -> Optional[pd.DataFrame]:
         """获取竞价数据（根据配置切换数据源）"""
         print(f"[ExternalData] get_auction_data - symbol={symbol}, date={trade_date}")
-        self._rate_limiters['get_auction_data'].wait_and_acquire()
+        self._rate_limiters['get_auction_data'].wait_and_acquire('get_auction_data')
         try:
             start_time = time.time()
             if QUERY_API_TYPE == "tushare" and self._tushare_pro:
@@ -276,7 +280,7 @@ class ExternalDataQueryHandler:
             因此需要分别查询 L/D/P 三种状态，并显式设置 list_status 值
         """
         print(f"[ExternalData] get_instruments, list_status={list_status}")
-        self._rate_limiters['get_instruments'].wait_and_acquire()
+        self._rate_limiters['get_instruments'].wait_and_acquire('get_instruments')
         try:
             start_time = time.time()
             if QUERY_API_TYPE == "tushare" and self._tushare_pro:
@@ -326,7 +330,7 @@ class ExternalDataQueryHandler:
     def get_money_flow_data(self, symbol: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
         """获取资金流向数据（Tushare moneyflow_dc接口）"""
         print(f"[ExternalData] get_money_flow_data - symbol={symbol}, {start_date}~{end_date}")
-        self._rate_limiters['get_money_flow_data'].wait_and_acquire()
+        self._rate_limiters['get_money_flow_data'].wait_and_acquire('get_money_flow_data')
         try:
             start_time = time.time()
             if self._tushare_pro:
@@ -354,7 +358,7 @@ class ExternalDataQueryHandler:
         """获取每日基本面指标数据（Tushare daily_basic接口）"""
         is_batch = symbol is None
         print(f"[ExternalData] get_daily_basic_data - symbol={symbol}, date={trade_date}, batch={is_batch}")
-        self._rate_limiters['get_daily_basic_data'].wait_and_acquire()
+        self._rate_limiters['get_daily_basic_data'].wait_and_acquire('get_daily_basic_data')
         try:
             start_time = time.time()
             if self._tushare_pro:

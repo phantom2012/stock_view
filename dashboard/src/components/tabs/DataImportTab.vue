@@ -81,6 +81,16 @@
             <el-checkbox v-model="filterForm.onlyMainBoard" size="large">
               仅筛选主板
             </el-checkbox>
+
+            <!-- 加载板块日线按钮 -->
+            <el-button
+              type="success"
+              @click="loadDailyData"
+              :loading="loadingDailyData"
+              icon="Download"
+            >
+              加载板块日线
+            </el-button>
           </div>
 
           <div class="flex items-center gap-2">
@@ -107,11 +117,12 @@
               type="success"
               @click="loadMoneyFlowData"
               :loading="loadingMoneyFlow"
-              icon="Wallet"
+              icon="Download"
             >
               加载资金
             </el-button>
           </div>
+
         </div>
       </div>
     </el-card>
@@ -254,7 +265,9 @@ const defaultBlockCodes = ['880656', '880670', '880550', '880672', '880491'] // 
 const loading = ref(false)
 const loadingAuction = ref(false)
 const loadingMoneyFlow = ref(false)
+const loadingDailyData = ref(false)
 const hasSearched = ref(false)
+
 const filteredStocks = ref([])
 const currentPage = ref(1)
 const pageSize = ref(TABLE_PAGE_SIZE) // 每页显示数量，由常量自动计算
@@ -262,6 +275,11 @@ const pageSize = ref(TABLE_PAGE_SIZE) // 每页显示数量，由常量自动计
 // SSE 相关
 let eventSource = null
 const sseConnected = ref(false)
+
+// 加载提示消息实例（用于关闭）
+let loadingMsgInstance = null
+let loadingMoneyFlowMsgInstance = null
+let loadingDailyDataMsgInstance = null
 
 // 加载板块列表
 const loadBlockList = async () => {
@@ -323,7 +341,7 @@ const formatTableData = (stocks, startIndex) => {
       if (index < totalStocks) {
         result[row][`index${group + 1}`] = startIndex + index + 1
         result[row][`code${group + 1}`] = stocks[index].code
-        result[row][`name${group + 1}`] = stocks[index].name
+        result[row][`name${group + 1}`] = stocks[index].stock_name
         result[row][`gain${group + 1}`] = stocks[index].interval_max_rise
         result[row][`maxDailyGain${group + 1}`] = stocks[index].max_day_rise
         result[row][`stockIndex${group + 1}`] = stockIndex
@@ -475,7 +493,7 @@ const loadMoneyFlowData = async () => {
   loadingMoneyFlow.value = true
 
   // 显示加载提示
-  const loadingMsg = ElMessage({
+  loadingMoneyFlowMsgInstance = ElMessage({
     message: `正在加载资金流向数据，共 ${filteredStocks.value.length} 只股票，请稍候...`,
     type: 'info',
     duration: 0  // 不自动关闭
@@ -493,7 +511,8 @@ const loadMoneyFlowData = async () => {
     })
 
     if (response.data.status !== 'success') {
-      loadingMsg.close()
+      loadingMoneyFlowMsgInstance.close()
+      loadingMoneyFlowMsgInstance = null
       ElMessage.error('触发资金流向数据同步失败：' + (response.data.msg || '未知错误'))
       loadingMoneyFlow.value = false
       return
@@ -503,24 +522,97 @@ const loadMoneyFlowData = async () => {
     console.log('资金流向同步已触发，等待后台处理完成...')
 
   } catch (error) {
-    loadingMsg.close()
+    if (loadingMoneyFlowMsgInstance) {
+      loadingMoneyFlowMsgInstance.close()
+      loadingMoneyFlowMsgInstance = null
+    }
     console.error('触发资金流向数据同步失败:', error)
     ElMessage.error('触发资金流向数据同步失败，请稍后重试')
     loadingMoneyFlow.value = false
   }
 }
 
+// 加载板块日线数据（异步方式，等待 SSE 通知）
+const loadDailyData = async () => {
+  if (selectedBlocks.value.length === 0) {
+    ElMessage.warning('请先选择板块后再加载日线数据')
+    return
+  }
+
+  // 立即设置 loading 状态
+  loadingDailyData.value = true
+
+  // 显示加载提示
+  loadingDailyDataMsgInstance = ElMessage({
+    message: `正在加载板块日线数据，共 ${selectedBlocks.value.length} 个板块，请稍候...`,
+    type: 'info',
+    duration: 0  // 不自动关闭
+  })
+
+  try {
+    // 先建立 SSE 连接（如果还没连接）
+    if (!sseConnected.value) {
+      initSSE()
+    }
+
+    // 发送触发请求（立即返回，不等待同步完成）
+    const blockCodes = selectedBlocks.value.map(b => b.code)
+    const response = await axios.post('http://127.0.0.1:8000/api/data/load-daily-data', blockCodes)
+
+    if (response.data.status !== 'success') {
+      loadingDailyDataMsgInstance.close()
+      loadingDailyDataMsgInstance = null
+      ElMessage.error('触发板块日线数据同步失败：' + (response.data.msg || '未知错误'))
+      loadingDailyData.value = false
+      return
+    }
+
+    // 保持 loading 状态，等待 SSE 通知
+    console.log('板块日线同步已触发，等待后台处理完成...')
+
+  } catch (error) {
+    if (loadingDailyDataMsgInstance) {
+      loadingDailyDataMsgInstance.close()
+      loadingDailyDataMsgInstance = null
+    }
+    console.error('触发板块日线数据同步失败:', error)
+    ElMessage.error('触发板块日线数据同步失败，请稍后重试')
+    loadingDailyData.value = false
+  }
+}
+
 // 处理资金流向同步完成
 const handleMoneyFlowComplete = (success, message) => {
+
   loadingMoneyFlow.value = false
 
   // 关闭加载提示
-  document.querySelectorAll('.el-message__close').forEach(el => el.click())
+  if (loadingMoneyFlowMsgInstance) {
+    loadingMoneyFlowMsgInstance.close()
+    loadingMoneyFlowMsgInstance = null
+  }
 
   if (success) {
     ElMessage.success(`资金流向数据加载完成！${message || ''}`)
   } else {
     ElMessage.error('资金流向数据加载失败：' + (message || '未知错误'))
+  }
+}
+
+// 处理日线数据同步完成
+const handleDailyDataComplete = (success, message) => {
+  loadingDailyData.value = false
+
+  // 关闭加载提示
+  if (loadingDailyDataMsgInstance) {
+    loadingDailyDataMsgInstance.close()
+    loadingDailyDataMsgInstance = null
+  }
+
+  if (success) {
+    ElMessage.success(`板块日线数据加载完成！${message || ''}`)
+  } else {
+    ElMessage.error('板块日线数据加载失败：' + (message || '未知错误'))
   }
 }
 
@@ -535,6 +627,7 @@ const handleMinuteDataComplete = (success, message) => {
     ElMessage.error('分钟数据同步失败：' + (message || '未知错误'))
   }
 }
+
 
 // 初始化 SSE 连接
 const initSSE = () => {
@@ -558,10 +651,13 @@ const initSSE = () => {
         if (data.type === 'sync_complete') {
           if (data.sync_type === 'money_flow') {
             handleMoneyFlowComplete(data.success, data.message)
+          } else if (data.sync_type === 'daily_data') {
+            handleDailyDataComplete(data.success, data.message)
           } else if (data.sync_type === 'minute_data') {
             handleMinuteDataComplete(data.success, data.message)
           }
         }
+
       } catch (error) {
         console.error('解析 SSE 消息失败:', error)
       }

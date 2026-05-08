@@ -57,7 +57,7 @@ class AuctionDataService(SingletonMixin):
                 insert_count = 0
                 for stock in stocks:
                     code = stock.get('code', '')
-                    name = stock.get('name', '')
+                    stock_name = stock.get('stock_name', '')
                     interval_max_rise = stock.get('interval_max_rise', 0)
                     max_day_rise = stock.get('max_day_rise', 0)
 
@@ -67,7 +67,7 @@ class AuctionDataService(SingletonMixin):
                         type=2,
                         symbol=symbol,
                         code=code,
-                        stock_name=name,
+                        stock_name=stock_name,
                         interval_max_rise=interval_max_rise,
                         max_day_rise=max_day_rise,
                         update_time=datetime.now()

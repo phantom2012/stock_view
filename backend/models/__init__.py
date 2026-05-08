@@ -4,7 +4,7 @@ from .stock_performance import StockPerformance
 from .daily_basic import DailyBasic
 from shared.db import (FilterResult, StockAuction, StockDaily, StockMoneyFlow,
                        StockInfo, StockMinute, StockTick, BlockInfo, BlockStock, FilterConfig,
-                       ClearDataTimer,
+                       ClearDataTimer, StockScore,
                        get_session, get_session_ro, create_tables)
 
 __all__ = [
@@ -23,6 +23,7 @@ __all__ = [
     'BlockStock',
     'FilterConfig',
     'ClearDataTimer',
+    'StockScore',
     'get_session',
     'get_session_ro',
     'create_tables'

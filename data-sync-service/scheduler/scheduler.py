@@ -320,7 +320,7 @@ class DataSyncScheduler:
 
             response = requests.post(
                 url,
-                params={
+                json={
                     'sync_type': sync_type,
                     'success': success,
                     'message': message

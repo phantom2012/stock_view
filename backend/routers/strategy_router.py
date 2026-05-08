@@ -2,47 +2,57 @@ from fastapi import APIRouter, Depends
 from typing import List, Dict, Any
 
 from models.filter_params import FilterParams
-from services.strategy_service import get_strategy_service
-from services.stock_filter_service import get_stock_filter_service
+from services.strategy_orchestrator import get_strategy_orchestrator
 
 router = APIRouter(prefix="/api/strategy", tags=["策略"])
 
-strategy_service = get_strategy_service()
-stock_filter_service = get_stock_filter_service()
+strategy_orchestrator = get_strategy_orchestrator()
 
 
 @router.get("/refresh-exceed-list")
 def api_refresh_exceed_list(params: FilterParams = Depends()):
-    return strategy_service.run_strategy(params)
+    """刷新超预期列表（type=1 策略选股）"""
+    return strategy_orchestrator.filter_type1_stocks(params)
 
 
 @router.get("/get-exceed-list")
 def get_exceed_list():
+    """获取超预期列表（type=1）"""
     return _query_filter_results(filter_type=1)
 
 
 @router.get("/refresh-filter-2-result")
 def refresh_filter_2_result(params: FilterParams = Depends()):
-    return stock_filter_service.filter_stocks(params)
+    """刷新板块筛选结果（type=2）"""
+    return strategy_orchestrator.filter_type2_stocks(params)
 
 
 @router.get("/get-filter-2-result")
 def get_filter_2_result():
+    """获取板块筛选结果（type=2）"""
     return _query_filter_results(filter_type=2)
 
 
 def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
-    from models import get_session_ro, StockDetail, FilterResult, StockMoneyFlow
+    from models import get_session_ro, StockDetail, FilterResult, StockMoneyFlow, StockScore
     try:
         if filter_type == 1:
             with get_session_ro() as db:
                 rows = db.query(FilterResult).filter(FilterResult.type == 1).all()
 
+            score_map = {}
             money_flow_map = {}
             if rows:
                 trade_dates = {row.trade_date for row in rows if row.trade_date}
                 codes = {row.code for row in rows if row.code}
                 if trade_dates and codes:
+                    score_rows = db.query(StockScore).filter(
+                        StockScore.code.in_(codes),
+                        StockScore.trade_date.in_(trade_dates)
+                    ).all()
+                    for sr in score_rows:
+                        score_map[(sr.code, sr.trade_date)] = sr
+
                     mf_rows = db.query(StockMoneyFlow).filter(
                         StockMoneyFlow.code.in_(codes),
                         StockMoneyFlow.trade_date.in_(trade_dates)
@@ -57,7 +67,20 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
             results = []
             for fr in rows:
                 fr_dict = {c.name: getattr(fr, c.name) for c in fr.__table__.columns}
-                fr_dict['exp_score'] = fr_dict.get('rising_wave_score', 0.0)
+
+                sr = score_map.get((fr.code, fr.trade_date))
+                if sr:
+                    fr_dict['rising_wave_score'] = sr.rising_wave_score
+                    exp_score = round(
+                        (sr.interval_rise_score or 0)
+                        + (sr.rising_wave_score or 0)
+                        + (sr.turn_start_score or 0),
+                        2
+                    )
+                else:
+                    fr_dict['rising_wave_score'] = 0.0
+                    exp_score = 0.0
+
                 mf_data = money_flow_map.get((fr.code, fr.trade_date), {})
                 fr_dict['net_d5_amount'] = mf_data.get('net_d5_amount')
                 fr_dict['turn_start_net_amount'] = mf_data.get('turn_start_net_amount')
@@ -70,7 +93,9 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
                 else:
                     fr_dict['next_day_rise'] = 0.0
 
-                results.append(StockDetail.model_validate(fr_dict).model_dump())
+                item = StockDetail.model_validate(fr_dict).model_dump()
+                item['exp_score'] = exp_score
+                results.append(item)
         else:
             with get_session_ro() as db:
                 rows = db.query(FilterResult).filter(
@@ -80,7 +105,7 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
             results = [
                 {
                     'code': row.code,
-                    'name': row.stock_name,
+                    'stock_name': row.stock_name,
                     'interval_max_rise': row.interval_max_rise,
                     'max_day_rise': row.max_day_rise
                 }

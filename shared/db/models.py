@@ -35,8 +35,6 @@ class FilterResult(Base):
     interval_max_rise = Column(Float, default=0.0)
     max_day_rise = Column(Float, default=0.0)
     trade_date = Column(String(10), default='')
-    rising_wave_score = Column(Float, default=0.0)
-    exp_score = Column(Float, default=0.0)
     weipan_exceed = Column(Integer, default=0)
     zaopan_exceed = Column(Integer, default=0)
     rising_wave = Column(Integer, default=0)
@@ -235,6 +233,7 @@ class DataSyncNotify(Base):
     用于 backend 通知 data-sync-service 立即执行数据同步
     每种同步类型只有一条记录，通过 trigger_flag 和 status 控制状态流转
     支持按 priority 优先级有序执行，支持通过 stock_codes 指定同步的股票列表
+    data_date 字段用于记录该同步类型已同步到的日期
     """
     __tablename__ = 'data_sync_notify'
 
@@ -248,6 +247,7 @@ class DataSyncNotify(Base):
     result_msg = Column(String(200), default='')            # 最近一次执行结果信息
     success_count = Column(Integer, default=0)              # 本次成功同步/处理的条数
     fail_count = Column(Integer, default=0)                 # 本次失败/跳过的条数
+    data_date = Column(String(10), default='')              # 已同步到的日期（格式: YYYY-MM-DD），用于增量同步判断
     update_time = Column(DateTime, default=datetime.now)
 
 
@@ -263,4 +263,20 @@ class TradeCalendar(Base):
     is_trading_day = Column(Integer, default=0)                       # 是否交易日: 1=是, 0=否
     year = Column(Integer)
     month = Column(Integer)
+    update_time = Column(DateTime, default=datetime.now)
+
+
+class StockScore(Base):
+    """
+    股票得分表
+    用于存储股票的综合评分数据
+    """
+    __tablename__ = 'stock_score'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(10), nullable=False)
+    trade_date = Column(String(10), nullable=False)          # 交易日期
+    interval_rise_score = Column(Float, default=0.0)      # 区间涨幅得分
+    rising_wave_score = Column(Float, default=0.0)       # 上升形态得分
+    turn_start_score = Column(Float, default=0.0)        # 转强得分
     update_time = Column(DateTime, default=datetime.now)

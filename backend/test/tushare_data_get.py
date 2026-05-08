@@ -14,7 +14,7 @@ GET_DATE = "2026-04-30"
 # RUN_MODE = 6: 使用Tushare moneyflow_dc接口获取资金信息
 # RUN_MODE = 7: 使用Tushare daily_basic接口获取每日指标（基本面信息）
 # RUN_MODE = 8: 使用Tushare stock_basic接口查询股票基本信息
-RUN_MODE = 8
+RUN_MODE = 6
 
 # Tushare API Token
 TUSHARE_API_TOKEN = "Zku47OUVCydb1095ShpVSzn4u7pea7bFvgLNoCjIENA"

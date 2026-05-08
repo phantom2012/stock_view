@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, Any
 from fastapi import APIRouter
 
+from models import get_session_ro, StockScore
 from stock_cache import get_stock_cache
 from common.stock_code_convert import to_goldminer_symbol
 
@@ -40,7 +41,6 @@ def get_stock_info(code: str):
         symbol = to_goldminer_symbol(code)
         stock_name = stock_cache.get_stock_name(symbol)
 
-        # 如果数据库中没有名称，直接使用"未知"，不再调用外部接口
         if stock_name == '未知':
             logger.warning(f"股票 {code} 在数据库中未找到名称")
 
@@ -52,7 +52,26 @@ def get_stock_info(code: str):
             if prev_close and prev_close > 0:
                 result['today_gain'] = round((today_close - prev_close) / prev_close * 100, 2)
 
+            if data.iloc[-1].get('eob'):
+                trade_date = str(data.iloc[-1]['eob'])[:10]
+                result['trade_date'] = trade_date
+
         result['stock_name'] = stock_name
+
+        with get_session_ro() as db:
+            sr = db.query(StockScore).filter(
+                StockScore.code == code,
+                StockScore.trade_date == result['trade_date']
+            ).first()
+            if sr:
+                result['rising_wave_score'] = round(sr.rising_wave_score or 0, 2)
+                result['exp_score'] = round(
+                    (sr.interval_rise_score or 0)
+                    + (sr.rising_wave_score or 0)
+                    + (sr.turn_start_score or 0),
+                    2
+                )
+
         return result
     except Exception as e:
         logger.error(f"Error in get-stock-info: {e}")

@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
-from shared.db import get_session, get_session_ro, StockDaily, FilterConfig, BlockStock
+from shared.db import get_session, get_session_ro, StockDaily, FilterConfig, BlockStock, DataSyncNotify
 from shared.stock_code_convert import to_goldminer_symbol, to_pure_code
 from shared.trade_date_util import TradeDateUtil
 from external_data import get_query_handler
@@ -19,28 +19,38 @@ logger = logging.getLogger(__name__)
 
 trade_date_util = TradeDateUtil()
 DEFAULT_DAYS = DAILY_DATA_CONFIG.get('default_days', 90)  # 默认90个交易日，可配置
+SYNC_TYPE = 'daily_data'  # 同步类型标识
 
 
 class DailyDataSyncer(BaseSyncer):
     """
     日线数据同步器
     每日16:00执行，从掘金接口获取日线数据并写入 stock_daily 表
+
+    同步逻辑：
+    1. 先检查 data_sync_notify 表中 daily_data 类型的记录
+    2. 如果 data_date 已是最新交易日且 fail_count 为 0，则跳过同步
+    3. 否则执行同步任务
+    4. 同步完成后更新 data_sync_notify 表的相关字段
     """
 
     def sync(self, stock_codes=None) -> Tuple[bool, int, int, str]:
         logger.info("===== 开始日线数据同步 =====")
         try:
+            # 获取最新交易日
+            latest_trade_date = trade_date_util.get_latest_trade_date()
+            if not latest_trade_date:
+                self._update_notify_status(False, 0, 0, "获取最新交易日失败")
+                return False, 0, 0, "获取最新交易日失败"
+
             # 如果没有传入股票列表，从板块配置获取
             if stock_codes is None:
                 stock_codes = self._get_stock_codes_from_blocks()
 
             if not stock_codes:
                 logger.warning("未获取到板块配置对应的股票数据，跳过同步")
+                self._update_notify_status(True, 0, 0, "无股票数据")
                 return True, 0, 0, "无股票数据"
-
-            latest_trade_date = trade_date_util.get_latest_trade_date()
-            if not latest_trade_date:
-                return False, 0, 0, "获取最新交易日失败"
 
             # 获取最近需要同步的交易日列表
             expected_dates = trade_date_util.get_recent_trade_dates(days=DEFAULT_DAYS + 10)
@@ -62,7 +72,7 @@ class DailyDataSyncer(BaseSyncer):
                     existing_count = self._get_existing_daily_count(code, expected_dates[0] if expected_dates else None)
 
                     total_stocks = len(stock_codes)
-                    # 如果数据量已满足，跳过查询外部接口
+                    # 如果数据量已满足（刚好等于期望的交易日个数），跳过查询外部接口
                     if existing_count >= expected_count:
                         log_progress(f"[{idx}/{total_stocks}] {code}: 已有 {existing_count} 条数据，无需同步", idx, total_stocks)
                         skipped_count += 1
@@ -84,8 +94,6 @@ class DailyDataSyncer(BaseSyncer):
 
                     saved = self._save_daily_to_db(code, data)
                     total_saved += saved
-                    if saved > 0:
-                        logger.info(f"  {code}: 保存 {saved} 条日线数据")
 
                 except Exception as e:
                     logger.error(f"  {code}: 同步失败: {e}")
@@ -94,12 +102,55 @@ class DailyDataSyncer(BaseSyncer):
 
             logger.info("===== 日线数据同步完成 =====")
             logger.info(f"总股票数: {len(stock_codes)}, 成功保存: {total_saved}, 跳过: {skipped_count}, 失败: {failed_count}")
-            return True, total_saved, failed_count, f"同步{total_saved}条, 跳过{skipped_count}条"
+
+            # 更新通知表状态
+            success = failed_count == 0
+            self._update_notify_status(success, total_saved, failed_count,
+                                      f"同步{total_saved}条, 跳过{skipped_count}条",
+                                      latest_trade_date)
+
+            return success, total_saved, failed_count, f"同步{total_saved}条, 跳过{skipped_count}条"
 
         except Exception as e:
             logger.error(f"日线数据同步异常: {e}")
             import traceback; traceback.print_exc()
+            self._update_notify_status(False, 0, 0, str(e))
             return False, 0, 0, str(e)
+
+    def _update_notify_status(self, success: bool, success_count: int,
+                              fail_count: int, result_msg: str,
+                              data_date: str = None):
+        """
+        更新 data_sync_notify 表的状态
+
+        Args:
+            success: 是否成功
+            success_count: 成功条数
+            fail_count: 失败条数
+            result_msg: 结果消息
+            data_date: 同步到的日期（可选，不传则不更新）
+        """
+        try:
+            with get_session() as db:
+                notify = db.query(DataSyncNotify).filter(
+                    DataSyncNotify.sync_type == SYNC_TYPE
+                ).first()
+
+                if notify:
+                    notify.status = 2 if success else -1
+                    notify.success_count = success_count
+                    notify.fail_count = fail_count
+                    notify.result_msg = result_msg
+                    notify.update_time = datetime.now()
+
+                    # 如果提供了 data_date，则更新
+                    if data_date:
+                        notify.data_date = data_date
+
+                    db.commit()
+                    logger.info(f"更新 {SYNC_TYPE} 通知状态: status={notify.status}, data_date={notify.data_date}")
+        except Exception as e:
+            logger.error(f"更新 {SYNC_TYPE} 通知状态失败: {e}")
 
     def _get_existing_daily_count(self, code: str, start_date: str = None) -> int:
         """获取数据库中该股票在指定时间范围内已有的日线数据数量"""

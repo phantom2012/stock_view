@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from stock_cache import get_stock_cache
-from services.strategy_service import get_strategy_service
+from services.strategy_orchestrator import get_strategy_orchestrator
 from routers import strategy_router, stock_info_router, data_router, config_router, calendar_router
 
 logging.basicConfig(
@@ -34,7 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-strategy_service = get_strategy_service()
+strategy_orchestrator = get_strategy_orchestrator()
 
 app.include_router(strategy_router)
 app.include_router(stock_info_router)
@@ -46,7 +46,7 @@ app.include_router(calendar_router)
 @app.get("/")
 def index():
     logger.info("API health check called")
-    return {"status": "运行中", "last_run": strategy_service.last_run_time}
+    return {"status": "运行中", "last_run": strategy_orchestrator.last_run_time}
 
 
 if __name__ == "__main__":

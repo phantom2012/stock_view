@@ -54,6 +54,8 @@ class DataSyncNotifyService:
                 # 设置股票列表（JSON格式）
                 if stock_codes is not None:
                     notify.stock_codes = json.dumps(stock_codes)
+                else:
+                    notify.stock_codes = ""
 
                 # 清理成功和失败次数
                 notify.success_count = 0

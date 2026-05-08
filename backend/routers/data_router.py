@@ -3,11 +3,14 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Body
 from fastapi import BackgroundTasks
 from sse_starlette.sse import EventSourceResponse
+from pydantic import BaseModel
 import asyncio
+from datetime import datetime
 
 from services.auction_data_service import get_auction_data_service
 from services.money_flow_service import get_money_flow_service
 from services.data_sync_notify_service import get_data_sync_notify_service
+from shared.db import get_session, FilterConfig, DataSyncNotify
 
 router = APIRouter(prefix="/api/data", tags=["数据加载"])
 
@@ -15,6 +18,7 @@ logger = logging.getLogger(__name__)
 auction_data_service = get_auction_data_service()
 money_flow_service = get_money_flow_service()
 notify_service = get_data_sync_notify_service()
+
 
 # SSE 订阅者队列（存储消息队列）
 sse_queues = set()
@@ -30,9 +34,68 @@ def load_money_flow(stocks: List[Dict[str, Any]] = Body(...), days: int = 30):
     return money_flow_service.load_money_flow_data(stocks, days)
 
 
+@router.post("/load-daily-data")
+def load_daily_data(block_codes: List[str] = Body(...)):
+    """
+    加载板块日线数据
+
+    流程：
+    1. 将板块列表更新到 filter_config(type=2) 的 select_blocks 字段
+    2. 发送 daily_data 同步通知（清空 stock_codes，让同步器从板块配置读取股票列表）
+    3. data-sync-service 扫描到通知后执行日线同步
+    4. 同步完成后通过 SSE 通知前端
+
+    Args:
+        block_codes: 板块代码列表
+
+    Returns:
+        Dict: 执行结果
+    """
+    logger.info(f"收到加载板块日线请求，板块列表: {block_codes}")
+
+    try:
+        # 1. 更新 filter_config(type=2) 的 select_blocks 字段
+        with get_session() as db:
+            config = db.query(FilterConfig).filter(FilterConfig.type == 2).first()
+            if config:
+                config.select_blocks = ','.join(block_codes)
+                config.update_time = datetime.now()
+            else:
+                config = FilterConfig(
+                    type=2,
+                    select_blocks=','.join(block_codes),
+                    update_time=datetime.now()
+                )
+                db.add(config)
+            db.commit()
+            logger.info(f"已更新 filter_config(type=2) 的 select_blocks: {config.select_blocks}")
+
+        # 2. 发送 daily_data 同步通知（notify_daily_data_sync 会清空 stock_codes）
+        success = notify_service.notify_daily_data_sync()
+
+        if success:
+            return {
+                "status": "success",
+                "msg": f"板块日线数据同步已触发，共 {len(block_codes)} 个板块，请等待后台处理完成",
+                "block_count": len(block_codes)
+            }
+        else:
+            return {
+                "status": "error",
+                "msg": "触发日线数据同步失败"
+            }
+
+    except Exception as e:
+        logger.error(f"触发板块日线数据同步失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "msg": str(e)}
+
+
 @router.post("/save-filter-stocks")
 def save_filter_stocks(stocks: List[Dict[str, Any]] = Body(...)):
     return auction_data_service.save_filter_stocks(stocks)
+
 
 
 @router.get("/sync-status/{sync_type}")
@@ -41,24 +104,31 @@ def get_sync_status(sync_type: str):
     return notify_service.get_sync_status(sync_type)
 
 
+class SyncCompleteRequest(BaseModel):
+    sync_type: str
+    success: bool = True
+    message: str = ""
+
+
 @router.post("/sync-complete")
-async def sync_complete(sync_type: str, success: bool = True, message: str = ""):
+async def sync_complete(request: SyncCompleteRequest):
     """
     data-sync-service 调用此接口通知同步完成
 
     Args:
-        sync_type: 同步类型 (money_flow, stock_info, daily_data, auction_data)
-        success: 是否成功
-        message: 结果消息
+        request: 同步完成请求体
+            - sync_type: 同步类型 (money_flow, stock_info, daily_data, auction_data)
+            - success: 是否成功
+            - message: 结果消息
     """
-    logger.info(f"收到 {sync_type} 同步完成通知: success={success}, message={message}")
+    logger.info(f"收到 {request.sync_type} 同步完成通知: success={request.success}, message={request.message}")
 
     # 构建消息
     data = {
         "type": "sync_complete",
-        "sync_type": sync_type,
-        "success": success,
-        "message": message,
+        "sync_type": request.sync_type,
+        "success": request.success,
+        "message": request.message,
         "timestamp": asyncio.get_event_loop().time()
     }
 
