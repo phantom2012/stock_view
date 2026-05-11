@@ -28,6 +28,7 @@ class FilterResult(Base):
     open_price = Column(Float, default=0.0)
     tail_57_price = Column(Float, default=0.0)
     close_price = Column(Float, default=0.0)
+    next_open_price = Column(Float, default=0.0)
     next_close_price = Column(Float, default=0.0)
     price_diff = Column(Float, default=0.0)
     open_volume = Column(Float, default=0.0)

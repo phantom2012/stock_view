@@ -91,8 +91,8 @@ class StockAnalyzer:
     # ==================== 升浪形态（委托给 StockWaveAnalyzer） ====================
 
     def calculate_rising_wave_score(self, symbol: str, trade_date: datetime,
-                                    recent_days: int = 10) -> int:
-        return self.wave_analyzer.calculate_rising_wave_score_v1(symbol, trade_date, recent_days)
+                                    recent_days: int = 10) -> float:
+        return self.wave_analyzer.calculate_rising_wave_score(symbol, trade_date, recent_days)
 
     # ==================== 竞价条件检查 ====================
 

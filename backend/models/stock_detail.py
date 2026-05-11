@@ -18,6 +18,7 @@ class StockDetail(BaseModel):
     open_price: float = 0.0
     tail_57_price: float = 0.0
     close_price: float = 0.0
+    next_open_price: float = 0.0
     next_close_price: float = 0.0
 
     price_diff: float = 0.0
@@ -70,6 +71,7 @@ class StockDetail(BaseModel):
         pre_price_gain: float = 0.0,
         open_price: float = 0.0,
         close_price: float = 0.0,
+        next_open_price: float = 0.0,
         next_close_price: float = 0.0
     ) -> 'StockDetail':
         """
@@ -95,6 +97,7 @@ class StockDetail(BaseModel):
             pre_price_gain: 昨涨幅
             open_price: 今开盘价
             close_price: 今收盘价
+            next_open_price: 次日开盘价
             next_close_price: 次日收盘价
 
         Returns:

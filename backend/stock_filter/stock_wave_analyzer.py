@@ -4,7 +4,7 @@ from typing import Optional
 
 import pandas as pd
 
-from config import RISING_WAVE_SCORE_MAP, RISING_WAVE_V1_CONFIG
+from config import RISING_WAVE_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -20,158 +20,135 @@ class StockWaveAnalyzer:
         self.cache = stock_cache
 
     # ==================== 升浪形态 ====================
+    def _score_drawdown(self, drawdown: float, score_map: dict) -> float:
+        """根据分段得分映射表计算回调幅度得分"""
+        for threshold in sorted(score_map.keys()):
+            if drawdown <= threshold:
+                return float(score_map[threshold])
+        return 0.0
 
-    def calculate_rising_wave_score(self, symbol: str, trade_date: datetime,
-                                    recent_days: int = 10) -> int:
+    def calculate_rising_wave_score(self, symbol: str, trade_date: datetime, recent_days: int = 40) -> float:
         """
-        计算升浪形态得分（0-100）
-
-        Args:
-            symbol: 股票代码（掘金格式）
-            trade_date: 交易日期
-            recent_days: 最近最大涨幅天数
-
-        Returns:
-            升浪形态得分（0-100）
-        """
-        try:
-            data = self.cache.get_history_data(symbol, recent_days + 5, trade_date=trade_date, force_refresh=False)
-
-            if data is not None and len(data) >= recent_days:
-                data = data.tail(recent_days).reset_index(drop=True)
-
-                min_close_loc = data['close'].idxmin()
-                start_idx = min_close_loc
-
-                if start_idx >= len(data) - 1:
-                    return 0
-
-                current_high = data.iloc[start_idx]['close']
-                max_days_to_break = 0
-                current_streak = 1
-
-                for i in range(start_idx + 1, len(data)):
-                    current_close = data.iloc[i]['close']
-                    if current_close >= current_high:
-                        current_high = current_close
-                        if current_streak > max_days_to_break:
-                            max_days_to_break = current_streak
-                        current_streak = 1
-                    else:
-                        current_streak += 1
-
-                if current_streak > max_days_to_break:
-                    max_days_to_break = current_streak
-
-                if max_days_to_break > 4:
-                    return 0
-
-                return RISING_WAVE_SCORE_MAP.get(max_days_to_break, 0)
-
-            return 0
-        except Exception as e:
-            logger.error(f"[StockWaveAnalyzer] Error calculating rising wave score for {symbol}: {e}")
-            return 0
-
-    # ==================== 升浪形态 V1 ====================
-
-    def calculate_rising_wave_score_v1(self, symbol: str, trade_date: datetime,
-                                       recent_days: int = 10) -> float:
-        """
-        计算升浪形态得分V1（升级版）
+        计算升浪形态得分
 
         算法逻辑：
-        1. 在 recent_days + 20 个交易日范围内，从第一天开始向后遍历
+        1. 在 lookback_days + 20 个交易日范围内，从第一天开始向后遍历
         2. 对每个起始位置构建升浪序列：当日收盘 >= 当前最高价即记为一次突破
            - 突破间隔天数限制在 MAX_GAP（3天）以内
            - 突破间隔 1=每天突破, 2=隔日突破, 3=隔2日突破
-        3. 累计连续突破次数(streak)、统计各类突破间隔的天数分布、跟踪连续每天突破最大次数
+        3. 累计连续突破次数(streak)、统计各类突破间隔的天数分布
         4. 当升浪序列断开时检查是否通过筛选：
            - streak >= min_streak_days（10天），或
            - streak >= min_streak_alt_days（5天）且区间涨幅 > min_gain_pct（30%）
-        5. 特殊规则：若序列内存在连续每天突破 >= daily_streak_threshold（10天），
-           则以连续每天突破最大天数替代整体 streak
-        6. 找到第一个符合条件的序列后不立即返回，记录其得分和突破间隔作为最优基准
-        7. 继续向后遍历，后续序列若满足以下条件之一则替换最优：
-           - 突破间隔更小（形态更纯）→ 无条件替换为最优
-           - 突破间隔相同且得分更高 → 替换为更优
-        8. 最终得分 = 连续突破天数 × days_coef + 区间涨幅 × gain_coef + 主力突破形态对应分值
-           主力突破形态 = 三类突破间隔中存在的最大间隔天数（如序列中出现了gap=3，则按gap=3取分）
+        5. 遍历完所有日期后，取最后一个满足条件的升浪周期作为计算区间
+        6. 对最终区间计算三项得分：
+           a. 周期内最大回调幅度（未突破期间的最大回调）及分段得分
+           b. 周期间回调幅度：取倒数第二个序列到最后一个序列之间的回调间隔，
+              需同时满足两个条件才给分，条件不满足或序列不足2个时周期间得分为0
+              - 回调跌幅 <= between_cycle_max_drawdown（20%）
+              - 回调跌幅/上一升浪累计涨幅 < between_cycle_drawdown_ratio（50%，浅回调条件）
+        7. 最终得分 = 连续突破天数 × days_coef + 区间涨幅 × gain_coef
+                      + 主力突破形态对应分值 + 周期内回调得分 + 周期间回调得分
 
         Args:
             symbol: 股票代码
             trade_date: 交易日期
-            recent_days: 区间天数
+            recent_days: 区间天数（兼容旧调用，实际使用配置中的 lookback_days）
 
         Returns:
             升浪形态得分（float），未通过筛选返回 0
         """
-        config = RISING_WAVE_V1_CONFIG
+        config = RISING_WAVE_CONFIG
         MAX_GAP = config['max_gap']
         MIN_STREAK_DAYS = config['min_streak_days']
         MIN_STREAK_ALT_DAYS = config['min_streak_alt_days']
         MIN_GAIN_PCT = config['min_gain_pct']
-        DAILY_STREAK_THRESHOLD = config['daily_streak_threshold']
         DAYS_COEF = config['days_score_coefficient']
         GAIN_COEF = config['gain_score_coefficient']
         PATTERN_SCORE_MAP = config['pattern_score_map']
-
-        total_days = recent_days + 20
+        LOOKBACK_DAYS = config['lookback_days']
+        WITHIN_CYCLE_DD_SCORE_MAP = config['within_cycle_drawdown_score_map']
+        BETWEEN_CYCLE_MAX_DD = config['between_cycle_max_drawdown']
+        BETWEEN_CYCLE_DD_RATIO = config['between_cycle_drawdown_ratio']
+        BETWEEN_CYCLE_DD_SCORE_MAP = config['between_cycle_drawdown_score_map']
 
         try:
-            data = self.cache.get_history_data(symbol, total_days, trade_date=trade_date, force_refresh=False)
+            data = self.cache.get_history_data(symbol, LOOKBACK_DAYS, trade_date=trade_date, force_refresh=False)
 
             if data is None or len(data) < 3:
                 return 0.0
 
-            data = data.tail(total_days).reset_index(drop=True)
+            data = data.tail(LOOKBACK_DAYS).reset_index(drop=True)
             n = len(data)
 
-            best_score = 0.0
-            best_gap = None
+            all_sequences = []
 
-            for start_idx in range(n - 1):
+            start_idx = 0
+            while start_idx < n - 1:
                 current_high = data.iloc[start_idx]['close']
                 if current_high <= 0:
+                    start_idx += 1
                     continue
+
+                wave_start = -1
+                for j in range(start_idx, n - 1):
+                    if data.iloc[j + 1]['close'] > data.iloc[j]['close']:
+                        wave_start = j + 1
+                        break
+
+                if wave_start == -1:
+                    break
+
+                base_close = data.iloc[wave_start - 1]['close']
+                current_high = data.iloc[wave_start]['close']
 
                 streak = 0
                 days_since_breakthrough = 0
                 pattern_distribution = {1: 0, 2: 0, 3: 0}
-                daily_streak = 0
-                max_daily_streak = 0
-                streak_end_idx = start_idx
+                streak_end_idx = wave_start
+                seq_high = current_high
 
-                for i in range(start_idx + 1, n):
+                max_within_drawdown = 0.0
+                in_gap = False
+                gap_start_price = 0.0
+                last_decline_close = 0.0
+
+                for i in range(wave_start + 1, n):
                     current_close = data.iloc[i]['close']
                     days_since_breakthrough += 1
 
                     if current_close >= current_high:
                         if days_since_breakthrough <= MAX_GAP:
+                            if in_gap and gap_start_price > 0:
+                                gap_drawdown = (gap_start_price - last_decline_close) / gap_start_price * 100
+                                if gap_drawdown > max_within_drawdown:
+                                    max_within_drawdown = gap_drawdown
+                                in_gap = False
+
                             current_high = current_close
+                            if current_close > seq_high:
+                                seq_high = current_close
                             streak += 1
                             streak_end_idx = i
                             pattern_distribution[days_since_breakthrough] += 1
-
-                            if days_since_breakthrough == 1:
-                                daily_streak += 1
-                                if daily_streak > max_daily_streak:
-                                    max_daily_streak = daily_streak
-                            else:
-                                daily_streak = 0
-
                             days_since_breakthrough = 0
                         else:
                             break
+                    else:
+                        if not in_gap:
+                            in_gap = True
+                            gap_start_price = current_high
+                        last_decline_close = current_close
 
                     if days_since_breakthrough > MAX_GAP:
                         break
 
                 if streak == 0:
+                    start_idx = wave_start + 1
                     continue
 
-                streak_data = data.iloc[start_idx:streak_end_idx + 1]
-                period_gain = self.calculate_period_gain(streak_data)
+                last_close = data.iloc[streak_end_idx]['close']
+                period_gain = ((last_close - base_close) / base_close) * 100 if base_close > 0 else 0.0
 
                 qualifies = False
                 if streak >= MIN_STREAK_DAYS:
@@ -180,25 +157,56 @@ class StockWaveAnalyzer:
                     qualifies = True
 
                 if not qualifies:
+                    start_idx = wave_start + 1
                     continue
-
-                if max_daily_streak >= DAILY_STREAK_THRESHOLD:
-                    streak = max_daily_streak
 
                 max_gap_present = max(k for k, v in pattern_distribution.items() if v > 0)
                 pattern_score = PATTERN_SCORE_MAP.get(max_gap_present, 0)
 
-                total_score = streak * DAYS_COEF + period_gain * GAIN_COEF + pattern_score
+                original_score = min(streak * DAYS_COEF, 10) + min(period_gain * GAIN_COEF, 15) + pattern_score
 
-                if best_gap is None or max_gap_present < best_gap:
-                    best_score = total_score
-                    best_gap = max_gap_present
-                elif max_gap_present == best_gap and total_score > best_score:
-                    best_score = total_score
+                within_dd_score = self._score_drawdown(max_within_drawdown, WITHIN_CYCLE_DD_SCORE_MAP)
 
-            return round(best_score, 2)
+                all_sequences.append({
+                    'start_idx': wave_start,
+                    'end_idx': streak_end_idx,
+                    'streak': streak,
+                    'period_gain': period_gain,
+                    'original_score': original_score,
+                    'max_gap_present': max_gap_present,
+                    'max_within_drawdown': max_within_drawdown,
+                    'within_dd_score': within_dd_score,
+                    'seq_high': seq_high,
+                })
+
+                start_idx = streak_end_idx + 1
+
+            if not all_sequences:
+                return 0.0
+
+            last_seq = all_sequences[-1]
+
+            between_dd_score = 0.0
+
+            if len(all_sequences) >= 2:
+                prev_seq = all_sequences[-2]
+                between_data = data.iloc[prev_seq['end_idx'] + 1:last_seq['start_idx'] + 1]
+
+                if len(between_data) > 0:
+                    decline_low = between_data['close'].min()
+                    prev_wave_high = prev_seq['seq_high']
+                    between_drawdown = (prev_wave_high - decline_low) / prev_wave_high * 100
+
+                    if between_drawdown <= BETWEEN_CYCLE_MAX_DD and \
+                       prev_seq['period_gain'] > 0 and \
+                       (between_drawdown / prev_seq['period_gain']) < BETWEEN_CYCLE_DD_RATIO:
+                        between_dd_score = self._score_drawdown(between_drawdown, BETWEEN_CYCLE_DD_SCORE_MAP)
+
+            total_score = last_seq['original_score'] + last_seq['within_dd_score'] + between_dd_score
+
+            return round(total_score, 2)
         except Exception as e:
-            logger.error(f"[StockWaveAnalyzer] Error calculating rising wave score v1 for {symbol}: {e}")
+            logger.error(f"[StockWaveAnalyzer] Error calculating rising wave score for {symbol}: {e}")
             return 0.0
 
     # ==================== 区间形态计算 ====================

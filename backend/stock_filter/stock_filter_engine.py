@@ -73,7 +73,7 @@ class StockFilterEngine:
             rising_wave_score = 0
             if params.rising_wave == 1:
                 rising_wave_score = self.analyzer.calculate_rising_wave_score(
-                    symbol, trade_date, params.recent_days
+                    symbol, trade_date, params.interval_days
                 )
                 if rising_wave_score <= 0:
                     continue
@@ -111,9 +111,10 @@ class StockFilterEngine:
             except Exception as e:
                 logger.error(f"[StockFilterEngine] Error getting auction data for {symbol}: {e}")
 
-            # 10. 获取当日开盘价、收盘价和次日收盘价
+            # 10. 获取当日开盘价、收盘价和次日数据
             open_price = 0.0
             close_price = 0.0
+            next_open_price = 0.0
             next_close_price = 0.0
             try:
                 day_data = self.cache.get_stock_day_data(symbol, trade_date, force_refresh=False)
@@ -122,14 +123,16 @@ class StockFilterEngine:
                     open_price = row.get('open', 0.0)
                     close_price = row.get('close', 0.0)
 
-                # 获取次日收盘价
+                # 获取次日开盘价和收盘价
                 if trade_date.date() < datetime.now().date():
                     next_trade_date_str = self.trade_date_util.get_next_trade_date(trade_date)
                     if next_trade_date_str:
                         next_trading_day = datetime.strptime(next_trade_date_str, '%Y-%m-%d')
                         next_day_data = self.cache.get_stock_day_data(symbol, next_trading_day, force_refresh=False)
                         if next_day_data is not None and not next_day_data.empty:
-                            next_close_price = next_day_data.iloc[0].get('close', 0.0)
+                            next_row = next_day_data.iloc[0]
+                            next_open_price = next_row.get('open', 0.0)
+                            next_close_price = next_row.get('close', 0.0)
             except Exception as e:
                 logger.error(f"[StockFilterEngine] Error getting day data for {symbol}: {e}")
 
@@ -154,6 +157,7 @@ class StockFilterEngine:
                 pre_price_gain=pre_price_gain,
                 open_price=open_price,
                 close_price=close_price,
+                next_open_price=next_open_price,
                 next_close_price=next_close_price
             )
 

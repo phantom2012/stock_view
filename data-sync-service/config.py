@@ -55,9 +55,9 @@ TURN_START_SCORE_MAP: Dict[int, float] = {
 # 控制转强周期提前结束的两个补充条件
 TURN_STRONG_CYCLE_CONFIG: Dict[str, Any] = {
     # 累计净流入衰退比例：当某日累计净流入 ≤ 周期内最大累计净流入 × 该比例时，当前转强周期结束
-    'cumulative_decay_ratio': 0.5,
+    'cumulative_decay_ratio': 0.6,
     # 日内流出触发比例：当某日净流出 > 周期内最大单日净流入 × 该比例时，当前转强周期结束
-    'daily_outflow_ratio': 2 / 3,
+    'daily_outflow_ratio': 0.7,
 }
 
 

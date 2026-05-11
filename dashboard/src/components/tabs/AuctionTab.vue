@@ -202,6 +202,11 @@
             {{ scope.row.open_volume_ratio !== undefined && scope.row.open_volume_ratio !== null ? parseFloat(scope.row.open_volume_ratio).toFixed(2) : '-' }}
           </template>
         </el-table-column>
+        <el-table-column label="次开涨幅" width="80" sortable="custom" prop="next_open_gain">
+          <template #default="scope">
+            <span :class="getValueColor(calcNextOpenGain(scope.row))">{{ calcNextOpenGain(scope.row) !== null ? calcNextOpenGain(scope.row) : '-' }}%</span>
+          </template>
+        </el-table-column>
         <el-table-column label="次日涨幅" width="80" sortable="custom" prop="next_day_rise">
           <template #default="scope">
             <span :class="getValueColor(calcNextDayRise(scope.row))">{{ calcNextDayRise(scope.row) !== null ? calcNextDayRise(scope.row) : '-' }}%</span>
@@ -236,7 +241,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { getValueColor } from '../../utils/colorUtils.js'
 import { formatAmount } from '../../utils/commonUtils.js'
-import { calcTodayGain, calcNextDayRise, calcOpenGain, calcYesterdayBias } from '../../utils/stockCalcUtils.js'
+import { calcTodayGain, calcNextOpenGain, calcNextDayRise, calcOpenGain, calcYesterdayBias } from '../../utils/stockCalcUtils.js'
 import { useBlockSelection } from '../../composables/useBlockSelection.js'
 import { useCalendarStore } from '../../stores/calendarStore.js'
 import { API_BASE_URL } from '../../api/config.js'

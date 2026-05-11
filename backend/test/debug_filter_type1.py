@@ -92,7 +92,7 @@ print()
 
 # 5. 检查上升形态
 print("【步骤5: 上升形态检查】")
-rising_wave_score = stock_analyzer.calculate_rising_wave_score_v1(symbol, trade_date, params.recent_days)
+rising_wave_score = stock_analyzer.calculate_rising_wave_score(symbol, trade_date, params.recent_days)
 print(f"  升浪形态得分: {rising_wave_score} (要求: > 0)")
 print(f"  上升形态检查通过: {'✓ 是' if rising_wave_score > 0 else '✗ 否'}")
 

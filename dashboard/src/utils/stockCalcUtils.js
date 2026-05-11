@@ -24,6 +24,15 @@ export const calcTodayGain = (row) => {
 }
 
 /**
+ * 计算次日开盘涨幅（基于次日开盘价和今日收盘价）
+ * @param {Object} row - 数据行，需包含 next_open_price, close_price
+ * @returns {number|null}
+ */
+export const calcNextOpenGain = (row) => {
+  return calcGain(row?.next_open_price, row?.close_price)
+}
+
+/**
  * 计算次日涨幅（基于次日收盘价和今日收盘价）
  * @param {Object} row - 数据行，需包含 next_close_price, close_price
  * @returns {number|null}

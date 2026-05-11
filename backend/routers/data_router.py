@@ -1,7 +1,6 @@
 import logging
-from typing import List, Dict, Any
-from fastapi import APIRouter, Body
-from fastapi import BackgroundTasks
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, Body, BackgroundTasks
 from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
 import asyncio
@@ -9,14 +8,16 @@ from datetime import datetime
 
 from services.auction_data_service import get_auction_data_service
 from services.money_flow_service import get_money_flow_service
+from services.rising_wave_service import get_rising_wave_service
 from services.data_sync_notify_service import get_data_sync_notify_service
-from shared.db import get_session, FilterConfig, DataSyncNotify
+from shared.db import get_session, FilterConfig
 
 router = APIRouter(prefix="/api/data", tags=["数据加载"])
 
 logger = logging.getLogger(__name__)
 auction_data_service = get_auction_data_service()
 money_flow_service = get_money_flow_service()
+rising_wave_service = get_rising_wave_service()
 notify_service = get_data_sync_notify_service()
 
 
@@ -110,8 +111,12 @@ class SyncCompleteRequest(BaseModel):
     message: str = ""
 
 
+class RecalcTurnStrongRequest(BaseModel):
+    codes: Optional[List[str]] = None
+
+
 @router.post("/sync-complete")
-async def sync_complete(request: SyncCompleteRequest):
+async def sync_complete(request: SyncCompleteRequest, background_tasks: BackgroundTasks):
     """
     data-sync-service 调用此接口通知同步完成
 
@@ -120,10 +125,13 @@ async def sync_complete(request: SyncCompleteRequest):
             - sync_type: 同步类型 (money_flow, stock_info, daily_data, auction_data)
             - success: 是否成功
             - message: 结果消息
+        background_tasks: FastAPI 后台任务
     """
     logger.info(f"收到 {request.sync_type} 同步完成通知: success={request.success}, message={request.message}")
 
-    # 构建消息
+    if request.sync_type == "money_flow" and request.success:
+        background_tasks.add_task(money_flow_service.run_turn_strong_calculation)
+
     data = {
         "type": "sync_complete",
         "sync_type": request.sync_type,
@@ -132,10 +140,65 @@ async def sync_complete(request: SyncCompleteRequest):
         "timestamp": asyncio.get_event_loop().time()
     }
 
-    # 通知所有 SSE 订阅者
     await notify_sse_subscribers(data)
 
     return {"status": "success", "msg": "通知已发送"}
+
+
+# 命令行调用示例（PowerShell）：
+#   curl.exe -X POST "http://localhost:8000/api/data/recalculate/turn-strong" -H "Content-Type: application/json" -d "{\"codes\": [\"002245\",\"002281\"]}"
+#   curl.exe -X POST "http://localhost:8000/api/data/recalculate/turn-strong" -H "Content-Type: application/json" -d "{}"
+@router.post("/recalculate/turn-strong")
+async def recalculate_turn_strong(request: RecalcTurnStrongRequest,
+                                  background_tasks: BackgroundTasks):
+    """
+    重新计算转强字段（支持指定股票代码，不传则全量重算）
+
+    Args:
+        request: 请求体，codes 为股票代码列表（可选），不传则计算所有 filter_results 中的股票
+        background_tasks: FastAPI 后台任务
+
+    Returns:
+        Dict: 执行结果
+    """
+    codes = request.codes
+    logger.info(f"收到转强复算请求: codes={codes}")
+
+    background_tasks.add_task(money_flow_service.run_recalc_turn_strong, codes)
+
+    return {
+        "status": "success",
+        "msg": f"转强复算任务已提交: {'全部股票' if codes is None else f'{len(codes)} 只股票'}",
+        "stock_count": "全部" if codes is None else len(codes)
+    }
+
+
+# 命令行调用示例（PowerShell）：
+#   curl.exe -X POST "http://localhost:8000/api/data/recalculate/rising-wave" -H "Content-Type: application/json" -d "{\"codes\": [\"002245\",\"002281\"]}"
+#   curl.exe -X POST "http://localhost:8000/api/data/recalculate/rising-wave" -H "Content-Type: application/json" -d "{}"
+@router.post("/recalculate/rising-wave")
+async def recalculate_rising_wave(request: RecalcTurnStrongRequest,
+                                  background_tasks: BackgroundTasks):
+    """
+    重新计算升浪形态得分（支持指定股票代码，不传则全量重算）
+
+    Args:
+        request: 请求体，codes 为股票代码列表（可选），不传则计算所有 filter_results(type=1) 中的股票
+        background_tasks: FastAPI 后台任务
+
+    Returns:
+        Dict: 执行结果
+    """
+    codes = request.codes
+    logger.info(f"收到升浪复算请求: codes={codes}")
+
+    background_tasks.add_task(rising_wave_service.run_recalc_rising_wave, codes)
+
+    return {
+        "status": "success",
+        "msg": f"升浪复算任务已提交: {'全部股票' if codes is None else f'{len(codes)} 只股票'}",
+        "stock_count": "全部" if codes is None else len(codes)
+    }
 
 
 @router.get("/sse")

@@ -390,3 +390,27 @@ class TradeDateUtil:
         except Exception as e:
             logger.error(f"判断交易日失败: {e}")
             return False
+
+    def count_trade_days_between(self, start_date: str, end_date: str) -> int:
+        """
+        计算两个日期之间的交易日天数（含起始日，不含结束日）
+        例如：start=04-30, end=05-07，计算04-30到05-06之间的交易日个数
+
+        Args:
+            start_date: 起始日期 'YYYY-MM-DD'
+            end_date: 结束日期 'YYYY-MM-DD'
+
+        Returns:
+            int: 交易日天数
+        """
+        try:
+            with get_session_ro() as db:
+                rows = db.query(TradeCalendar).filter(
+                    TradeCalendar.is_trading_day == 1,
+                    TradeCalendar.calendar_date >= start_date,
+                    TradeCalendar.calendar_date < end_date
+                ).all()
+                return len(rows)
+        except Exception as e:
+            logger.error(f"计算交易日天数失败: {e}")
+            return 0
