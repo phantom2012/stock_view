@@ -8,7 +8,7 @@ import akshare as ak
 RUN_MODE = 2
 
 # 股票代码配置
-STOCK_CODE = "001309"  # 测试股票代码   001309  000823  002008
+STOCK_CODE = "000823"  # 测试股票代码   001309  000823  002008
 TARGET_DATE = "2026-05-07"  # 目标日期（YYYY-MM-DD格式）
 FUND_FLOW_DAYS = 10  # 资金流向数据保留最近N天
 # ============== 配置结束 ==============

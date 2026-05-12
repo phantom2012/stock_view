@@ -281,3 +281,15 @@ class StockScore(Base):
     rising_wave_score = Column(Float, default=0.0)       # 上升形态得分
     turn_start_score = Column(Float, default=0.0)        # 转强得分
     update_time = Column(DateTime, default=datetime.now)
+
+
+class FilterStock(Base):
+    """
+    手动配置的剔除股票配置表
+    """
+    __tablename__ = 'filter_stock'
+
+    code = Column(String(10), primary_key=True)
+    name = Column(String(50))
+    is_exclude = Column(Integer, default=0)
+    exclude_date = Column(String(10))

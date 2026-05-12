@@ -34,7 +34,7 @@ class DailyDataSyncer(BaseSyncer):
     4. 同步完成后更新 data_sync_notify 表的相关字段
     """
 
-    def sync(self, stock_codes=None) -> Tuple[bool, int, int, str]:
+    def sync(self) -> Tuple[bool, int, int, str]:
         logger.info("===== 开始日线数据同步 =====")
         try:
             # 获取最新交易日
@@ -43,9 +43,8 @@ class DailyDataSyncer(BaseSyncer):
                 self._update_notify_status(False, 0, 0, "获取最新交易日失败")
                 return False, 0, 0, "获取最新交易日失败"
 
-            # 如果没有传入股票列表，从板块配置获取
-            if stock_codes is None:
-                stock_codes = self._get_stock_codes_from_blocks()
+            # 从板块配置获取股票列表
+            stock_codes = self._get_stock_codes_from_blocks()
 
             if not stock_codes:
                 logger.warning("未获取到板块配置对应的股票数据，跳过同步")

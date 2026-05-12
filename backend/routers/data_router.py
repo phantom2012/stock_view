@@ -71,6 +71,8 @@ def load_daily_data(block_codes: List[str] = Body(...)):
             db.commit()
             logger.info(f"已更新 filter_config(type=2) 的 select_blocks: {config.select_blocks}")
 
+        # 3. 发送 stock_info 同步通知（确保股票数据最新）
+        success = notify_service.notify_stock_info_sync()
         # 2. 发送 daily_data 同步通知（notify_daily_data_sync 会清空 stock_codes）
         success = notify_service.notify_daily_data_sync()
 

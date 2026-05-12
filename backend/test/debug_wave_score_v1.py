@@ -7,7 +7,7 @@
 测试日期: 2026-05-07
 """
 
-stock_code = "603118"
+stock_code = "603061"
 trade_date = "2026-05-08"
 
 
@@ -258,11 +258,15 @@ def debug_full_components(symbol, trade_date):
     print(f"  基础分={last_seq['base_score']:.2f}, 周期内回调加分={last_seq['within_dd_score']:.2f}")
 
     between_dd_score = 0.0
+    max_drawdown = 0.0
+    drawdown_ref_gain = 0.0
+    max_drawdown_desc = ""
 
     if len(all_sequences) >= 2:
         prev_seq = all_sequences[-2]
-        print(f"\n取倒数第二个序列 #{last_idx - 1}: {prev_seq['desc']}")
-        print(f"  -> 倒数第二个升浪最高收盘价: {prev_seq['seq_high']:.2f}")
+        print(f"\n【区间A】倒数第二个→最后一个序列之间的回调")
+        print(f"  倒数第二个 #{last_idx - 1}: {prev_seq['desc']}")
+        print(f"  倒数第二个升浪最高收盘价: {prev_seq['seq_high']:.2f}")
 
         between_data = data.iloc[prev_seq['end_idx'] + 1:last_seq['start_idx'] + 1]
         if len(between_data) > 0:
@@ -270,35 +274,53 @@ def debug_full_components(symbol, trade_date):
             between_drawdown = (prev_seq['seq_high'] - decline_low) / prev_seq['seq_high'] * 100
             decline_ratio = between_drawdown / prev_seq['period_gain'] if prev_seq['period_gain'] > 0 else 0
 
-            print(f"  -> 间隙数据: [{data.iloc[prev_seq['end_idx'] + 1]['eob']} ~ {data.iloc[last_seq['start_idx']]['eob']}]")
-            print(f"  -> 间隙最低收盘价: {decline_low:.2f}")
-            print(f"  -> 回调跌幅: {between_drawdown:.2f}% (条件: <={BETWEEN_CYCLE_MAX_DD}%)")
-            print(f"  -> 回调/涨幅比例: {decline_ratio:.4f} (条件: <{BETWEEN_CYCLE_DD_RATIO})")
+            print(f"  间隙: [{data.iloc[prev_seq['end_idx'] + 1]['eob']} ~ {data.iloc[last_seq['start_idx']]['eob']}]")
+            print(f"  最低收盘价: {decline_low:.2f}, 回调: {between_drawdown:.2f}%, 回调/涨幅: {decline_ratio:.4f}")
 
-            if between_drawdown <= BETWEEN_CYCLE_MAX_DD and \
-               prev_seq['period_gain'] > 0 and \
-               decline_ratio < BETWEEN_CYCLE_DD_RATIO:
-                for threshold in sorted(BETWEEN_CYCLE_DD_SCORE_MAP.keys()):
-                    if between_drawdown <= threshold:
-                        between_dd_score = float(BETWEEN_CYCLE_DD_SCORE_MAP[threshold])
-                        print(f"  ✅ 条件满足！回调分段得分: {between_drawdown:.2f}% <= {threshold}% → {between_dd_score}分")
-                        break
-                if between_dd_score == 0.0:
-                    print(f"  ✅ 条件满足！但回调幅度 {between_drawdown:.2f}% 超出所有分段 → 0分")
-            else:
-                fail_reasons = []
-                if between_drawdown > BETWEEN_CYCLE_MAX_DD:
-                    fail_reasons.append(f"回调{between_drawdown:.2f}% > 阈值{BETWEEN_CYCLE_MAX_DD}%")
-                if prev_seq['period_gain'] <= 0:
-                    fail_reasons.append(f"涨幅{prev_seq['period_gain']:.2f}% <= 0")
-                elif decline_ratio >= BETWEEN_CYCLE_DD_RATIO:
-                    fail_reasons.append(f"回调/涨幅({decline_ratio:.4f}) >= 阈值({BETWEEN_CYCLE_DD_RATIO})")
-                print(f"  ❌ 条件不满足: {'; '.join(fail_reasons)}")
-                print(f"  -> 周期间回调不得分")
+            if between_drawdown > max_drawdown:
+                max_drawdown = between_drawdown
+                drawdown_ref_gain = prev_seq['period_gain']
+                max_drawdown_desc = f"区间A（倒数第二→最后之间）回调{between_drawdown:.2f}%"
+
+    print(f"\n【区间B】最后一个序列结束后至数据末尾的回调")
+    print(f"  最后一个 #{last_idx}: {last_seq['desc']}")
+    print(f"  最后升浪最高收盘价: {last_seq['seq_high']:.2f}")
+    after_data = data.iloc[last_seq['end_idx'] + 1:]
+    if len(after_data) > 0:
+        after_low = after_data['close'].min()
+        after_drawdown = (last_seq['seq_high'] - after_low) / last_seq['seq_high'] * 100
+        after_ratio = after_drawdown / last_seq['period_gain'] if last_seq['period_gain'] > 0 else 0
+
+        print(f"  间隙: [{data.iloc[last_seq['end_idx'] + 1]['eob']} ~ {data.iloc[len(data) - 1]['eob']}]")
+        print(f"  最低收盘价: {after_low:.2f}, 回调: {after_drawdown:.2f}%, 回调/涨幅: {after_ratio:.4f}")
+
+        if after_drawdown > max_drawdown:
+            max_drawdown = after_drawdown
+            drawdown_ref_gain = last_seq['period_gain']
+            max_drawdown_desc = f"区间B（最后→末尾之间）回调{after_drawdown:.2f}%"
+
+    print(f"\n  → 较大回调: {max_drawdown_desc}" if max_drawdown_desc else "\n  → 无回调数据")
+
+    if max_drawdown > 0 and drawdown_ref_gain > 0:
+        ratio_check = max_drawdown / drawdown_ref_gain
+        print(f"  → 条件检查: 回调{max_drawdown:.2f}% <= {BETWEEN_CYCLE_MAX_DD}%? | 回调/涨幅({ratio_check:.4f}) < {BETWEEN_CYCLE_DD_RATIO}?")
+        if max_drawdown <= BETWEEN_CYCLE_MAX_DD and ratio_check < BETWEEN_CYCLE_DD_RATIO:
+            for threshold in sorted(BETWEEN_CYCLE_DD_SCORE_MAP.keys()):
+                if max_drawdown <= threshold:
+                    between_dd_score = float(BETWEEN_CYCLE_DD_SCORE_MAP[threshold])
+                    print(f"  ✅ 条件满足！分段得分: {max_drawdown:.2f}% <= {threshold}% → {between_dd_score}分")
+                    break
+            if between_dd_score == 0.0:
+                print(f"  ✅ 条件满足，但超出所有分段 → 0分")
         else:
-            print(f"  -> 间隙无数据，周期间回调不得分")
+            fail_reasons = []
+            if max_drawdown > BETWEEN_CYCLE_MAX_DD:
+                fail_reasons.append(f"回调{max_drawdown:.2f}% > 阈值{BETWEEN_CYCLE_MAX_DD}%")
+            if ratio_check >= BETWEEN_CYCLE_DD_RATIO:
+                fail_reasons.append(f"回调/涨幅({ratio_check:.4f}) >= 阈值({BETWEEN_CYCLE_DD_RATIO})")
+            print(f"  ❌ 条件不满足: {'; '.join(fail_reasons)} → 0分")
     else:
-        print(f"  -> 仅1个有效升浪周期（共{len(all_sequences)}个），无周期间回调数据，不得分")
+        print(f"  → 无效回调数据（max_drawdown={max_drawdown}, ref_gain={drawdown_ref_gain}）→ 0分")
 
     total_score = last_seq['base_score'] + last_seq['within_dd_score'] + between_dd_score
     print(f"\n{'='*60}")

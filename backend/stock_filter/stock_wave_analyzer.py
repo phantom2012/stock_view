@@ -33,22 +33,25 @@ class StockWaveAnalyzer:
 
         算法逻辑：
         1. 在 lookback_days + 20 个交易日范围内，从第一天开始向后遍历
-        2. 对每个起始位置构建升浪序列：当日收盘 >= 当前最高价即记为一次突破
+        2. 从当前扫描位置找到第一个上涨日（收盘价 > 前一日收盘价）作为升浪起始日，
+           以前一日收盘价作为周期涨幅基准价，起始日收盘价作为当前前高
+        3. 继续向后扫描突破序列：当日收盘 >= 当前最高价即记为一次突破
            - 突破间隔天数限制在 MAX_GAP（3天）以内
            - 突破间隔 1=每天突破, 2=隔日突破, 3=隔2日突破
-        3. 累计连续突破次数(streak)、统计各类突破间隔的天数分布
-        4. 当升浪序列断开时检查是否通过筛选：
+        4. 累计连续突破次数(streak)、统计各类突破间隔的天数分布
+        5. 当升浪序列断开时检查是否通过筛选：
            - streak >= min_streak_days（10天），或
            - streak >= min_streak_alt_days（5天）且区间涨幅 > min_gain_pct（30%）
-        5. 遍历完所有日期后，取最后一个满足条件的升浪周期作为计算区间
-        6. 对最终区间计算三项得分：
+        6. 通过筛选则记录该周期，并从结束日之后继续扫描下一个周期
+        7. 遍历完所有日期后，取最后一个满足条件的升浪周期作为计算区间
+        8. 对最终区间计算三项得分：
            a. 周期内最大回调幅度（未突破期间的最大回调）及分段得分
-           b. 周期间回调幅度：取倒数第二个序列到最后一个序列之间的回调间隔，
-              需同时满足两个条件才给分，条件不满足或序列不足2个时周期间得分为0
+           b. 周期间回调幅度：取倒数第二个到最后一个序列之间的回调跌幅，
+              与最后一个序列结束后到数据末尾的回调跌幅，两者取较大值，
+              需同时满足两个条件才给分，条件不满足时周期间得分为0：
               - 回调跌幅 <= between_cycle_max_drawdown（20%）
-              - 回调跌幅/上一升浪累计涨幅 < between_cycle_drawdown_ratio（50%，浅回调条件）
-        7. 最终得分 = 连续突破天数 × days_coef + 区间涨幅 × gain_coef
-                      + 主力突破形态对应分值 + 周期内回调得分 + 周期间回调得分
+              - 回调跌幅/参考升浪累计涨幅 < between_cycle_drawdown_ratio（50%，浅回调条件）
+        9. 基础分中连续突破天数得分上限10分，区间涨幅得分上限15分
 
         Args:
             symbol: 股票代码
@@ -163,7 +166,7 @@ class StockWaveAnalyzer:
                 max_gap_present = max(k for k, v in pattern_distribution.items() if v > 0)
                 pattern_score = PATTERN_SCORE_MAP.get(max_gap_present, 0)
 
-                original_score = min(streak * DAYS_COEF, 10) + min(period_gain * GAIN_COEF, 15) + pattern_score
+                original_score = min(streak * DAYS_COEF, 12) + min(period_gain * GAIN_COEF, 15) + pattern_score
 
                 within_dd_score = self._score_drawdown(max_within_drawdown, WITHIN_CYCLE_DD_SCORE_MAP)
 
@@ -187,6 +190,8 @@ class StockWaveAnalyzer:
             last_seq = all_sequences[-1]
 
             between_dd_score = 0.0
+            max_drawdown = 0.0
+            drawdown_ref_gain = 0.0
 
             if len(all_sequences) >= 2:
                 prev_seq = all_sequences[-2]
@@ -196,11 +201,23 @@ class StockWaveAnalyzer:
                     decline_low = between_data['close'].min()
                     prev_wave_high = prev_seq['seq_high']
                     between_drawdown = (prev_wave_high - decline_low) / prev_wave_high * 100
+                    if between_drawdown > max_drawdown:
+                        max_drawdown = between_drawdown
+                        drawdown_ref_gain = prev_seq['period_gain']
 
-                    if between_drawdown <= BETWEEN_CYCLE_MAX_DD and \
-                       prev_seq['period_gain'] > 0 and \
-                       (between_drawdown / prev_seq['period_gain']) < BETWEEN_CYCLE_DD_RATIO:
-                        between_dd_score = self._score_drawdown(between_drawdown, BETWEEN_CYCLE_DD_SCORE_MAP)
+            after_data = data.iloc[last_seq['end_idx'] + 1:]
+            if len(after_data) > 0:
+                after_low = after_data['close'].min()
+                after_high = last_seq['seq_high']
+                after_drawdown = (after_high - after_low) / after_high * 100
+                if after_drawdown > max_drawdown:
+                    max_drawdown = after_drawdown
+                    drawdown_ref_gain = last_seq['period_gain']
+
+            if max_drawdown > 0 and drawdown_ref_gain > 0 and \
+               max_drawdown <= BETWEEN_CYCLE_MAX_DD and \
+               (max_drawdown / drawdown_ref_gain) < BETWEEN_CYCLE_DD_RATIO:
+                between_dd_score = self._score_drawdown(max_drawdown, BETWEEN_CYCLE_DD_SCORE_MAP)
 
             total_score = last_seq['original_score'] + last_seq['within_dd_score'] + between_dd_score
 

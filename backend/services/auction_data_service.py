@@ -16,11 +16,10 @@ class AuctionDataService(SingletonMixin):
     def load_auction_data(self, stocks: List[Dict[str, Any]], days: int = 30) -> Dict[str, Any]:
         """
         触发竞价数据同步（异步方式）
-        通过通知表设置 trigger_flag，由 data-sync-service 轮询处理
-        data-sync-service 会从 FilterResult 表读取股票列表自行同步
+        通过通知表设置 trigger_flag 和股票列表，由 data-sync-service 轮询处理
 
         Args:
-            stocks: 股票列表（仅用于计数，不传递）
+            stocks: 股票列表
             days: 同步天数（仅用于日志，不传递）
 
         Returns:
@@ -33,8 +32,7 @@ class AuctionDataService(SingletonMixin):
 
             logger.info(f"触发竞价数据同步: {len(codes)} 只股票, {days} 天")
 
-            # 通过通知表触发同步，data-sync-service 自行从 FilterResult 表读取股票列表
-            success = notify_service.notify_auction_data_sync()
+            success = notify_service.notify_auction_data_sync(codes)
             if not success:
                 return {"status": "error", "msg": "触发竞价数据同步失败"}
 

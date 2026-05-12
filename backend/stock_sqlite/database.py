@@ -260,6 +260,15 @@ def init_database():
     """)
 
     cursor.execute("""
+    CREATE TABLE IF NOT EXISTS filter_stock (
+        code TEXT PRIMARY KEY,
+        name TEXT,
+        is_exclude INTEGER,
+        exclude_date TEXT
+    )
+    """)
+
+    cursor.execute("""
     CREATE TABLE config_clear_data_timer (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         biz_type TEXT NOT NULL UNIQUE,        -- 业务类型标识(如: stock_daily, stock_minute)
@@ -297,3 +306,4 @@ if __name__ == "__main__":
     print("8. filter_results   - 筛选结果表")
     print("9. filter_config    - 筛选配置表")
     print("10. stock_money_flow - 资金流向表")
+    print("11. filter_stock    - 手动配置剔除股票表")

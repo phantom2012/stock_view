@@ -34,7 +34,7 @@ class StockInfoSyncer(BaseSyncer):
     4. 同步完成后更新 data_sync_notify 表的相关字段
     """
 
-    def sync(self, stock_codes=None) -> Tuple[bool, int, int, str]:
+    def sync(self) -> Tuple[bool, int, int, str]:
         logger.info("===== 开始股票基础信息同步 =====")
         try:
             # 获取最新交易日

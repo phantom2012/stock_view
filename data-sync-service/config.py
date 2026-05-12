@@ -27,9 +27,9 @@ TUSHARE_CONFIG = {
 # ==================== 同步器配置 ====================
 # 股票信息同步配置
 STOCK_INFO_CONFIG: Dict[str, Any] = {
-    'cron_hour': 16,                  # 定时同步时间（小时）
+    'cron_hour': 15,                  # 定时同步时间（小时）
     'cron_minute': 0,                 # 定时同步时间（分钟）
-    'start_delay_minutes': 1,          # 启动后延迟执行时间（分钟），None或0表示不延迟
+    'start_delay_minutes': 0,          # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
 # 资金流向同步配置

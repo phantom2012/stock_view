@@ -255,12 +255,14 @@ class StrategyOrchestrator(SingletonMixin):
             stock_codes = [stock.code for stock in results]
 
             if config_type == 1:
-                sync_types = ['minute_data', 'auction_data', 'money_flow']
+                notify_service.notify_minute_data_sync(stock_codes)
+                notify_service.notify_auction_data_sync(stock_codes)
+                notify_service.notify_money_flow_sync(stock_codes)
+                logger.info(f"已通知更新 minute_data, auction_data, money_flow 数据，股票数量: {len(stock_codes)}")
             else:
-                sync_types = ['daily_data', 'minute_data']
-
-            notify_service.trigger_multi_sync(sync_types=sync_types, stock_codes=stock_codes)
-            logger.info(f"已通知更新 {', '.join(sync_types)} 数据，股票数量: {len(stock_codes)}")
+                notify_service.notify_daily_data_sync()
+                notify_service.notify_minute_data_sync(stock_codes)
+                logger.info(f"已通知更新 daily_data, minute_data 数据，股票数量: {len(stock_codes)}")
         except Exception as e:
             logger.warning(f"通知更新数据失败: {e}")
 

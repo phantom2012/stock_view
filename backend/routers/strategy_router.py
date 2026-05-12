@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from typing import List, Dict, Any
+from datetime import datetime
 
 from models.filter_params import FilterParams
 from services.strategy_orchestrator import get_strategy_orchestrator
@@ -34,8 +35,17 @@ def get_filter_2_result():
 
 
 def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
-    from models import get_session_ro, StockDetail, FilterResult, StockMoneyFlow, StockScore
+    from models import get_session_ro, StockDetail, FilterResult, StockMoneyFlow, StockScore, FilterStock
     try:
+        today_date = datetime.now().strftime('%Y-%m-%d')
+
+        with get_session_ro() as db:
+            exclude_stocks = db.query(FilterStock).filter(
+                FilterStock.is_exclude == 1,
+                FilterStock.exclude_date >= today_date
+            ).all()
+            exclude_codes = {stock.code for stock in exclude_stocks}
+
         if filter_type == 1:
             with get_session_ro() as db:
                 rows = db.query(FilterResult).filter(FilterResult.type == 1).all()
@@ -66,6 +76,8 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
 
             results = []
             for fr in rows:
+                if fr.code in exclude_codes:
+                    continue
                 fr_dict = {c.name: getattr(fr, c.name) for c in fr.__table__.columns}
 
                 sr = score_map.get((fr.code, fr.trade_date))
@@ -102,15 +114,16 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
                     FilterResult.type == filter_type
                 ).order_by(FilterResult.interval_max_rise.desc()).all()
 
-            results = [
-                {
+            results = []
+            for row in rows:
+                if row.code in exclude_codes:
+                    continue
+                results.append({
                     'code': row.code,
                     'stock_name': row.stock_name,
                     'interval_max_rise': row.interval_max_rise,
                     'max_day_rise': row.max_day_rise
-                }
-                for row in rows
-            ]
+                })
 
         return results
     except Exception as e:

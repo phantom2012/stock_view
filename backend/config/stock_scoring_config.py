@@ -17,7 +17,7 @@ RISING_WAVE_CONFIG = {
     # 连续突破天数 >= 该值 且 区间涨幅 > min_gain_pct 也可通过筛选
     'min_streak_alt_days': 2,
     'min_gain_pct': 20.0,
-    # 连续突破天数得分系数，最高10分
+    # 连续突破天数得分系数，最高12分
     'days_score_coefficient': 1.2,
     # 连续区间涨幅得分系数，最高15分
     'gain_score_coefficient': 0.15,
@@ -25,8 +25,8 @@ RISING_WAVE_CONFIG = {
     # key: 突破间隔天数 (1=每天突破, 2=隔日突破, 3=隔2日突破)
     # value: 对应得分
     'pattern_score_map': {
-        1: 20,
-        2: 12,
+        1: 15,
+        2: 10,
         3: 6,
     },
     # 周期内回调幅度阈值（%），超过该值不得分
@@ -70,7 +70,7 @@ TURN_STRONG_CYCLE_CONFIG = {
     # 开启新周期的最低净流入占比条件（%）：涨幅达标的同时净流入占比也须超过该值才允许开启
     'cycle_start_min_rate': 1.5,
     # 累计净流入衰退比例：当某日累计净流入 ≤ 周期内最大累计净流入 × 该比例时，当前转强周期结束
-    'cumulative_decay_ratio': 0.6,
+    'cumulative_decay_ratio': 0.4,
     # 日内流出触发比例：当某日净流出 > 周期内最大单日净流入 × 该比例时，当前转强周期结束或重置
     'daily_outflow_ratio': 0.7,
 }

@@ -40,11 +40,11 @@ class ExternalDataQueryHandler:
         return self._goldminer.get_tick_data_batch(symbols, trade_date, start_time, end_time, batch_size)
 
     def get_money_flow_data(self, symbol: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
-        return self._goldminer.get_money_flow_data(symbol, start_date, end_date)
+        # return self._goldminer.get_money_flow_data(symbol, start_date, end_date)
+        return self._tushare.get_money_flow_data(symbol, start_date, end_date)
 
     def get_auction_data(self, symbol: str, trade_date: str) -> Optional[pd.DataFrame]:
-        if QUERY_API_TYPE == "tushare":
-            return self._tushare.get_auction_data(symbol, trade_date)
+        # return self._tushare.get_auction_data(symbol, trade_date)
         return self._goldminer.get_auction_data(symbol, trade_date)
 
     def get_instruments(self, list_status: str = None) -> Optional[pd.DataFrame]:

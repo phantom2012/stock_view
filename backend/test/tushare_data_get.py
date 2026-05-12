@@ -1,9 +1,15 @@
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'data-sync-service'))
+
 import tushare as ts
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
-GET_STOCK_CODE = "603601"
-GET_DATE = "2026-04-30"
+from external_data.tushare_query import TushareQuery
+
+GET_STOCK_CODE = "000823"
+GET_DATE = "2026-05-08"
 
 # 运行模式配置
 # RUN_MODE = 1: 查询当日竞价数据（早盘+尾盘）
@@ -14,12 +20,12 @@ GET_DATE = "2026-04-30"
 # RUN_MODE = 6: 使用Tushare moneyflow_dc接口获取资金信息
 # RUN_MODE = 7: 使用Tushare daily_basic接口获取每日指标（基本面信息）
 # RUN_MODE = 8: 使用Tushare stock_basic接口查询股票基本信息
-RUN_MODE = 7
+RUN_MODE = 6
 
 # Tushare API Token
-TUSHARE_API_TOKEN = "Zku47OUVCydb1095ShpVSzn4u7pea7bFvgLNoCjIENA"
+TUSHARE_API_TOKEN = "17bf2b4e7bffa84e9b02a52f026df310c03badcb29c63533e935353c"
 # Tushare 代理地址
-TUSHARE_PROXY_URL = "http://47.109.59.144:8989/dataapi"
+TUSHARE_PROXY_URL = "http://121.40.135.59:8010/"
 
 def get_auction_data():
     """
@@ -405,36 +411,31 @@ def get_money_flow_tushare():
 
 def get_money_flow_dc_tushare():
     """
-    使用Tushare moneyflow_dc接口获取指定股票指定日期范围的资金信息（模式6）
-    moneyflow_dc接口返回北向资金、南向资金等资金流向数据，包含net_amount净流入金额
+    使用TushareQuery封装接口获取指定股票指定日期范围的资金信息（模式6）
     """
     try:
-        pro = ts.pro_api(TUSHARE_API_TOKEN)
-        pro._DataApi__http_url = TUSHARE_PROXY_URL
-
         if GET_STOCK_CODE.startswith('6'):
-            ts_code = f"{GET_STOCK_CODE}.SH"
+            symbol = f"SHSE.{GET_STOCK_CODE}"
         else:
-            ts_code = f"{GET_STOCK_CODE}.SZ"
+            symbol = f"SZSE.{GET_STOCK_CODE}"
 
-        start_date = "20260422"
-        end_date = "20260430"
+        end_date = GET_DATE
+        end_dt = datetime.strptime(GET_DATE, '%Y-%m-%d')
+        start_dt = end_dt - timedelta(days=10)
+        start_date = start_dt.strftime('%Y-%m-%d')
 
-        print(f"正在获取 {ts_code} 在 {start_date} 到 {end_date} 的资金信息...")
-        print(f"使用moneyflow_dc接口（模式6）获取资金信息...")
+        print(f"正在获取 {symbol} 在 {start_date} 到 {end_date} 的资金信息...")
+        print(f"使用TushareQuery.get_money_flow_data接口（模式6）获取资金信息...")
 
-        df = pro.moneyflow_dc(
-            ts_code=ts_code,
-            start_date=start_date,
-            end_date=end_date
-        )
+        query = TushareQuery()
+        df = query.get_money_flow_data(symbol, start_date, end_date)
 
         if df is None or df.empty:
-            print(f"未获取到 {ts_code} 在 {start_date} 到 {end_date} 的资金信息")
+            print(f"未获取到 {symbol} 在 {start_date} 到 {end_date} 的资金信息")
             return
 
         print(f"\n{'='*80}")
-        print(f"资金信息数据概览 (moneyflow_dc接口):")
+        print(f"资金信息数据概览:")
         print(f"{'='*80}")
         print(f"数据条数: {len(df)}")
         print(f"数据列: {df.columns.tolist()}")

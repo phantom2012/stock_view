@@ -4,13 +4,14 @@ import time
 
 from .rate_limiter import RateLimiter
 
-TUSHARE_API_TOKEN = "Zku47OUVCydb1095ShpVSzn4u7pea7bFvgLNoCjIENA"
-TUSHARE_PROXY_URL = "http://47.109.59.144:8989/dataapi"
+TUSHARE_API_TOKEN = "17bf2b4e7bffa84e9b02a52f026df310c03badcb29c63533e935353c"
+TUSHARE_PROXY_URL = "http://121.40.135.59:8010/"
 
 RATE_LIMIT_CONFIG = {
     'get_auction_data': 120,
     'get_instruments': 120,
     'get_daily_basic_data': 120,
+    'get_money_flow_data': 120,
 }
 
 
@@ -134,6 +135,32 @@ class TushareQuery:
             return None
         except Exception as e:
             print(f"[TushareQuery] get_daily_basic_data 失败: {e}")
+            import traceback; traceback.print_exc()
+            return None
+
+    def get_money_flow_data(self, symbol: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
+        print(f"[TushareQuery] get_money_flow_data - symbol={symbol}, {start_date}~{end_date}")
+        self._rate_limiters['get_money_flow_data'].wait_and_acquire('get_money_flow_data')
+        try:
+            start_time = time.time()
+            if self._tushare_pro:
+                ts_code = self._symbol_to_tushare(symbol)
+                start_str = start_date.replace('-', '')
+                end_str = end_date.replace('-', '')
+                df = self._tushare_pro.moneyflow_dc(ts_code=ts_code, start_date=start_str, end_date=end_str)
+                if df is not None and not df.empty:
+                    df['trade_date'] = pd.to_datetime(df['trade_date']).dt.strftime('%Y-%m-%d')
+                    df['net_d5_amount'] = 0
+                    date_mask = (df['trade_date'] >= start_date) & (df['trade_date'] <= end_date)
+                    df = df[date_mask].copy()
+                    print(f"[TushareQuery] get_money_flow_data 耗时: {time.time()-start_time:.3f}s, {len(df)}条")
+                    return df
+                print(f"[TushareQuery] Tushare未返回资金流向数据: {ts_code}")
+                return None
+            print(f"[TushareQuery] Tushare API未初始化")
+            return None
+        except Exception as e:
+            print(f"[TushareQuery] get_money_flow_data 失败: {e}")
             import traceback; traceback.print_exc()
             return None
 

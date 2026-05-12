@@ -274,8 +274,11 @@ class DataSyncScheduler:
                         continue
 
                     try:
-                        # 传递 stock_codes 参数给同步器
-                        success, success_count, fail_count, result_msg = syncer.sync(stock_codes=stock_codes)
+                        # stock_info 和 daily_data 不接受 stock_codes 参数，它们内部自行获取股票列表
+                        if sync_type in ('stock_info', 'daily_data'):
+                            success, success_count, fail_count, result_msg = syncer.sync()
+                        else:
+                            success, success_count, fail_count, result_msg = syncer.sync(stock_codes=stock_codes)
                         status = 2 if success else -1
                         self._update_notify_status(
                             sync_type, status, success_count, fail_count,
