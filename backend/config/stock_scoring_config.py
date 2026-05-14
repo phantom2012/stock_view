@@ -38,6 +38,18 @@ RISING_WAVE_CONFIG = {
         6: 10,
         10: 5,
     },
+    # 周期内单日最大跌幅（%），超过则周期内回调得分为0
+    'within_cycle_max_single_day_drop': 9.0,
+    # 周期内连续两日最大累计跌幅（%），超过则周期内回调得分为0
+    'within_cycle_max_two_day_drop': 5.0,
+    # 周期内上涨天数占比阈值，周期内上涨天数/总交易日数 > 该值才通过筛选
+    'min_up_day_ratio': 0.7,
+    # 周期内日均涨幅阈值（%），周期内总涨幅/总交易日数 > 该值才通过筛选
+    'min_avg_daily_gain': 3.0,
+    # 最低涨停天数要求，整个统计范围内总涨停天数 >= 该值
+    'min_limit_up_days': 2,
+    # 涨停次日红盘占比阈值，涨停次日收红盘天数/总涨停次数 >= 该值
+    'limit_up_next_red_ratio': 0.5,
     # 周期间最大允许回调跌幅（%）
     'between_cycle_max_drawdown': 20.0,
     # 周期间回调跌幅/上一升浪累计涨幅 比例阈值
@@ -55,9 +67,9 @@ RISING_WAVE_CONFIG = {
 # key: turn_start_date 距离 trade_date 的天数上限
 # value: 对应的得分
 TURN_START_SCORE_MAP = {
-    1: 30,
-    3: 20,
-    7: 15,
+    0: 10,
+    1: 5,
+    2: 3,
 }
 
 # 转强周期衰减配置

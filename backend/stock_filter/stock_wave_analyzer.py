@@ -32,7 +32,7 @@ class StockWaveAnalyzer:
         计算升浪形态得分
 
         算法逻辑：
-        1. 在 lookback_days + 20 个交易日范围内，从第一天开始向后遍历
+        1. 在 LOOKBACK_DAYS 个交易日范围内，从第一天开始向后遍历
         2. 从当前扫描位置找到第一个上涨日（收盘价 > 前一日收盘价）作为升浪起始日，
            以前一日收盘价作为周期涨幅基准价，起始日收盘价作为当前前高
         3. 继续向后扫描突破序列：当日收盘 >= 当前最高价即记为一次突破
@@ -42,16 +42,22 @@ class StockWaveAnalyzer:
         5. 当升浪序列断开时检查是否通过筛选：
            - streak >= min_streak_days（10天），或
            - streak >= min_streak_alt_days（5天）且区间涨幅 > min_gain_pct（30%）
-        6. 通过筛选则记录该周期，并从结束日之后继续扫描下一个周期
-        7. 遍历完所有日期后，取最后一个满足条件的升浪周期作为计算区间
-        8. 对最终区间计算三项得分：
-           a. 周期内最大回调幅度（未突破期间的最大回调）及分段得分
+        6. 通过基础筛选后，额外检查周期内上涨天数占比：
+           - 统计从首涨日到最后一个突破日的全部交易日中，收盘上涨的占比
+           - 需满足 上涨天数/总交易日 > min_up_day_ratio（0.7）
+        7. 通过筛选则记录该周期，并从结束日之后继续扫描下一个周期，确保序列不重叠
+        8. 遍历完所有日期后，取最后一个满足条件的升浪周期作为计算区间
+        9. 对最终区间计算三项得分：
+           a. 周期内最大回调幅度（未突破期间的最大回调）及分段得分，
+              同时检查单日最大跌幅 <= within_cycle_max_single_day_drop（9%）和
+              连续两日最大累计跌幅 <= within_cycle_max_two_day_drop（5%），
+              任一超出则周期内回调得分为0
            b. 周期间回调幅度：取倒数第二个到最后一个序列之间的回调跌幅，
               与最后一个序列结束后到数据末尾的回调跌幅，两者取较大值，
               需同时满足两个条件才给分，条件不满足时周期间得分为0：
               - 回调跌幅 <= between_cycle_max_drawdown（20%）
               - 回调跌幅/参考升浪累计涨幅 < between_cycle_drawdown_ratio（50%，浅回调条件）
-        9. 基础分中连续突破天数得分上限10分，区间涨幅得分上限15分
+        10. 基础分中连续突破天数得分上限12分，区间涨幅得分上限15分
 
         Args:
             symbol: 股票代码
@@ -71,6 +77,12 @@ class StockWaveAnalyzer:
         PATTERN_SCORE_MAP = config['pattern_score_map']
         LOOKBACK_DAYS = config['lookback_days']
         WITHIN_CYCLE_DD_SCORE_MAP = config['within_cycle_drawdown_score_map']
+        WITHIN_CYCLE_MAX_SINGLE_DAY_DROP = config['within_cycle_max_single_day_drop']
+        WITHIN_CYCLE_MAX_TWO_DAY_DROP = config['within_cycle_max_two_day_drop']
+        MIN_UP_DAY_RATIO = config['min_up_day_ratio']
+        MIN_AVG_DAILY_GAIN = config['min_avg_daily_gain']
+        MIN_LIMIT_UP_DAYS = config['min_limit_up_days']
+        LIMIT_UP_NEXT_RED_RATIO = config['limit_up_next_red_ratio']
         BETWEEN_CYCLE_MAX_DD = config['between_cycle_max_drawdown']
         BETWEEN_CYCLE_DD_RATIO = config['between_cycle_drawdown_ratio']
         BETWEEN_CYCLE_DD_SCORE_MAP = config['between_cycle_drawdown_score_map']
@@ -83,6 +95,25 @@ class StockWaveAnalyzer:
 
             data = data.tail(LOOKBACK_DAYS).reset_index(drop=True)
             n = len(data)
+
+            limit_up_days = 0
+            limit_up_next_red_days = 0
+            for i in range(n - 1):
+                pre_close = data.iloc[i]['pre_close']
+                if pre_close <= 0:
+                    continue
+                limit_up_price = round(pre_close * 1.10, 2)
+                if round(data.iloc[i]['close'], 2) >= limit_up_price:
+                    limit_up_days += 1
+                    if data.iloc[i + 1]['close'] > data.iloc[i]['close']:
+                        limit_up_next_red_days += 1
+
+            if limit_up_days < MIN_LIMIT_UP_DAYS:
+                return 0.0
+
+            next_red_ratio = limit_up_next_red_days / limit_up_days if limit_up_days > 0 else 0.0
+            if next_red_ratio < LIMIT_UP_NEXT_RED_RATIO:
+                return 0.0
 
             all_sequences = []
 
@@ -115,10 +146,25 @@ class StockWaveAnalyzer:
                 in_gap = False
                 gap_start_price = 0.0
                 last_decline_close = 0.0
+                max_single_day_drop = 0.0
+                max_two_day_drop = 0.0
 
                 for i in range(wave_start + 1, n):
                     current_close = data.iloc[i]['close']
                     days_since_breakthrough += 1
+
+                    prev_close = data.iloc[i - 1]['close']
+                    if current_close < prev_close:
+                        single_drop = (prev_close - current_close) / prev_close * 100
+                        if single_drop > max_single_day_drop:
+                            max_single_day_drop = single_drop
+
+                    if i >= wave_start + 2:
+                        two_day_prev_close = data.iloc[i - 2]['close']
+                        if current_close < two_day_prev_close:
+                            two_day_drop = (two_day_prev_close - current_close) / two_day_prev_close * 100
+                            if two_day_drop > max_two_day_drop:
+                                max_two_day_drop = two_day_drop
 
                     if current_close >= current_high:
                         if days_since_breakthrough <= MAX_GAP:
@@ -163,12 +209,21 @@ class StockWaveAnalyzer:
                     start_idx = wave_start + 1
                     continue
 
+                total_days_in_cycle = streak_end_idx - wave_start + 1
+                up_days_in_cycle = 1
+                for k in range(wave_start + 1, streak_end_idx + 1):
+                    if data.iloc[k]['close'] > data.iloc[k - 1]['close']:
+                        up_days_in_cycle += 1
+
                 max_gap_present = max(k for k, v in pattern_distribution.items() if v > 0)
                 pattern_score = PATTERN_SCORE_MAP.get(max_gap_present, 0)
 
                 original_score = min(streak * DAYS_COEF, 12) + min(period_gain * GAIN_COEF, 15) + pattern_score
 
                 within_dd_score = self._score_drawdown(max_within_drawdown, WITHIN_CYCLE_DD_SCORE_MAP)
+
+                if max_single_day_drop > WITHIN_CYCLE_MAX_SINGLE_DAY_DROP or max_two_day_drop > WITHIN_CYCLE_MAX_TWO_DAY_DROP:
+                    within_dd_score = 0.0
 
                 all_sequences.append({
                     'start_idx': wave_start,
@@ -180,11 +235,26 @@ class StockWaveAnalyzer:
                     'max_within_drawdown': max_within_drawdown,
                     'within_dd_score': within_dd_score,
                     'seq_high': seq_high,
+                    'max_single_day_drop': max_single_day_drop,
+                    'max_two_day_drop': max_two_day_drop,
+                    'total_days_in_cycle': total_days_in_cycle,
+                    'up_days_in_cycle': up_days_in_cycle,
                 })
 
                 start_idx = streak_end_idx + 1
 
             if not all_sequences:
+                return 0.0
+
+            total_up_days = sum(s['up_days_in_cycle'] for s in all_sequences)
+            total_days_all = sum(s['total_days_in_cycle'] for s in all_sequences)
+            combined_up_ratio = total_up_days / total_days_all if total_days_all > 0 else 0.0
+            if combined_up_ratio <= MIN_UP_DAY_RATIO:
+                return 0.0
+
+            total_gain_all = sum(s['period_gain'] for s in all_sequences)
+            combined_avg_daily_gain = total_gain_all / total_days_all if total_days_all > 0 else 0.0
+            if combined_avg_daily_gain <= MIN_AVG_DAILY_GAIN:
                 return 0.0
 
             last_seq = all_sequences[-1]

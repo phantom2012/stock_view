@@ -1,9 +1,12 @@
+import logging
 import pandas as pd
 from typing import Optional
 import time
 import akshare as ak
 
 from .rate_limiter import RateLimiter
+
+logger = logging.getLogger(__name__)
 
 GOLD_MINER_API_TOKEN = "2e664976b46df6a0903672349c30226ac68e7bf3"
 
@@ -30,7 +33,7 @@ class GoldminerQuery:
         self._api_token_set = True
 
     def get_daily_data(self, symbol: str, start_date: str, end_date: str, fields: Optional[str] = None) -> Optional[pd.DataFrame]:
-        print(f"[GoldminerQuery] get_daily_data - symbol={symbol}, start={start_date}, end={end_date}")
+        # logger.info(f"get_daily_data - symbol={symbol}, start={start_date}, end={end_date}")
         self._rate_limiters['get_daily_data'].wait_and_acquire('get_daily_data')
         from gm.api import history, ADJUST_PREV
         return history(
@@ -41,7 +44,7 @@ class GoldminerQuery:
         )
 
     def get_minute_data(self, symbol: str, trade_date: str, start_time: str, end_time: str) -> Optional[pd.DataFrame]:
-        print(f"[GoldminerQuery] get_minute_data - symbol={symbol}, date={trade_date}, time={start_time}-{end_time}")
+        logger.info(f"get_minute_data - symbol={symbol}, date={trade_date}, time={start_time}-{end_time}")
         self._rate_limiters['get_minute_data'].wait_and_acquire('get_minute_data')
         from gm.api import history
         return history(
@@ -79,7 +82,7 @@ class GoldminerQuery:
         return None
 
     def get_tick_data(self, symbol: str, trade_date: str, start_time: str, end_time: str) -> Optional[pd.DataFrame]:
-        print(f"[GoldminerQuery] get_tick_data - symbol={symbol}, date={trade_date}")
+        logger.info(f"get_tick_data - symbol={symbol}, date={trade_date}")
         self._rate_limiters['get_tick_data'].wait_and_acquire('get_tick_data')
         from gm.api import history
         return history(
@@ -117,7 +120,7 @@ class GoldminerQuery:
         return None
 
     def get_auction_data(self, symbol: str, trade_date: str) -> Optional[pd.DataFrame]:
-        print(f"[GoldminerQuery] get_auction_data - symbol={symbol}, date={trade_date}")
+        logger.info(f"get_auction_data - symbol={symbol}, date={trade_date}")
         self._rate_limiters['get_daily_data'].wait_and_acquire('get_auction_data')
         try:
             start_time = time.time()
@@ -127,7 +130,7 @@ class GoldminerQuery:
                 start_time=trade_date + ' 09:15:00', end_time=trade_date + ' 09:25:00',
                 fields='open,close,high,low,volume,amount,pre_close,eob', df=True
             )
-            print(f"[GoldminerQuery] get_auction_data 耗时: {time.time()-start_time:.3f}s")
+            logger.info(f"get_auction_data 耗时: {time.time()-start_time:.3f}s")
             return data
         except Exception as e:
             print(f"[GoldminerQuery] get_auction_data 失败: {e}")
@@ -135,7 +138,7 @@ class GoldminerQuery:
             return None
 
     def get_money_flow_data(self, symbol: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
-        print(f"[GoldminerQuery] get_money_flow_data - symbol={symbol}, {start_date}~{end_date}")
+        logger.info(f"get_money_flow_data - symbol={symbol}, {start_date}~{end_date}")
         self._rate_limiters['get_money_flow_data'].wait_and_acquire('get_money_flow_data')
         try:
             start_time = time.time()
@@ -163,9 +166,9 @@ class GoldminerQuery:
                 df['net_d5_amount'] = 0
                 date_mask = (df['trade_date'] >= start_date) & (df['trade_date'] <= end_date)
                 df = df[date_mask].copy()
-                print(f"[GoldminerQuery] get_money_flow_data 耗时: {time.time()-start_time:.3f}s, {len(df)}条")
+                logger.info(f"get_money_flow_data 耗时: {time.time()-start_time:.3f}s, {len(df)}条")
                 return df
-            print(f"[GoldminerQuery] akshare未返回资金流向数据: {code}")
+            logger.info(f"akshare未返回资金流向数据: {code}")
             return None
         except Exception as e:
             print(f"[GoldminerQuery] get_money_flow_data 失败: {e}")

@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
-from shared.db import get_session, get_session_ro, StockDaily, FilterConfig, BlockStock, DataSyncNotify
+from shared.db import get_session, get_session_ro, StockDaily, FilterConfig, BlockStock, DataSyncNotify, upsert_by_unique_keys
 from shared.stock_code_convert import to_goldminer_symbol, to_pure_code
 from shared.trade_date_util import TradeDateUtil
 from external_data import get_query_handler
@@ -205,41 +205,46 @@ class DailyDataSyncer(BaseSyncer):
             return []
 
     def _save_daily_to_db(self, code: str, data) -> int:
-        """保存日线数据到数据库，跳过已存在的数据"""
+        """保存日线数据到数据库，同一交易日期有多条记录时取 eob 最新的那条"""
         if data is None or data.empty:
             return 0
 
-        saved_count = 0
+        data = data.copy()
+        data['trade_date'] = data['eob'].astype(str).str[:10]
+        data = data[data['trade_date'] != '']
+        if data.empty:
+            return 0
+
+        data = data.sort_values('eob').drop_duplicates(subset='trade_date', keep='last')
+
+        processed = 0
         try:
             with get_session() as db:
-                # 先查询该股票已有的所有 trade_date
-                existing_dates = db.query(StockDaily.trade_date).filter(
-                    StockDaily.code == code
-                ).distinct().all()
-                existing_date_set = {row[0] for row in existing_dates}
-
                 for _, row in data.iterrows():
                     eob_str = self._process_time_field(row['eob'])
-                    trade_date = eob_str[:10] if len(eob_str) >= 10 else ''
+                    trade_date = row['trade_date']
 
-                    # 如果该日期数据已存在，跳过
-                    if trade_date in existing_date_set:
-                        continue
-
-                    db.add(StockDaily(
-                        code=code, trade_date=trade_date,
-                        open=row['open'], close=row['close'],
-                        high=row['high'], low=row['low'],
-                        volume=row['volume'], amount=row['amount'],
-                        pre_close=row['pre_close'], eob=eob_str,
-                        update_time=datetime.now()
-                    ))
-                    saved_count += 1
+                    upsert_by_unique_keys(
+                        db, StockDaily,
+                        unique_keys={'code': code, 'trade_date': trade_date},
+                        update_data={
+                            'open': row['open'],
+                            'close': row['close'],
+                            'high': row['high'],
+                            'low': row['low'],
+                            'volume': row['volume'],
+                            'amount': row['amount'],
+                            'pre_close': row['pre_close'],
+                            'eob': eob_str,
+                            'update_time': datetime.now(),
+                        }
+                    )
+                    processed += 1
                 db.commit()
         except Exception as e:
             logger.error(f"保存日线数据失败: {e}")
             import traceback; traceback.print_exc()
-        return saved_count
+        return processed
 
     @staticmethod
     def _process_time_field(value) -> str:

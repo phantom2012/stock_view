@@ -7,8 +7,8 @@
 测试日期: 2026-05-07
 """
 
-stock_code = "603061"
-trade_date = "2026-05-08"
+stock_code = "000062"
+trade_date = "2026-05-13"
 
 
 import sys
@@ -61,6 +61,12 @@ def debug_full_components(symbol, trade_date):
     PATTERN_SCORE_MAP = config['pattern_score_map']
     LOOKBACK_DAYS = config['lookback_days']
     WITHIN_CYCLE_DD_SCORE_MAP = config['within_cycle_drawdown_score_map']
+    WITHIN_CYCLE_MAX_SINGLE_DAY_DROP = config['within_cycle_max_single_day_drop']
+    WITHIN_CYCLE_MAX_TWO_DAY_DROP = config['within_cycle_max_two_day_drop']
+    MIN_UP_DAY_RATIO = config['min_up_day_ratio']
+    MIN_AVG_DAILY_GAIN = config['min_avg_daily_gain']
+    MIN_LIMIT_UP_DAYS = config['min_limit_up_days']
+    LIMIT_UP_NEXT_RED_RATIO = config['limit_up_next_red_ratio']
     BETWEEN_CYCLE_MAX_DD = config['between_cycle_max_drawdown']
     BETWEEN_CYCLE_DD_RATIO = config['between_cycle_drawdown_ratio']
     BETWEEN_CYCLE_DD_SCORE_MAP = config['between_cycle_drawdown_score_map']
@@ -72,6 +78,10 @@ def debug_full_components(symbol, trade_date):
     print(f"  PATTERN_SCORE_MAP={PATTERN_SCORE_MAP}")
     print(f"  LOOKBACK_DAYS={LOOKBACK_DAYS}")
     print(f"  周期内回调分段得分: {WITHIN_CYCLE_DD_SCORE_MAP}")
+    print(f"  周期内单日最大跌幅: {WITHIN_CYCLE_MAX_SINGLE_DAY_DROP}%, 连续两日最大累计跌幅: {WITHIN_CYCLE_MAX_TWO_DAY_DROP}%")
+    print(f"  上涨天数占比阈值: >{MIN_UP_DAY_RATIO}")
+    print(f"  周期内日均涨幅阈值: >{MIN_AVG_DAILY_GAIN}%")
+    print(f"  涨停判定: close >= round(pre_close × 1.10, 2), 最低涨停天数: {MIN_LIMIT_UP_DAYS}, 次日红盘占比: ≥{LIMIT_UP_NEXT_RED_RATIO}")
     print(f"  周期间最大回调={BETWEEN_CYCLE_MAX_DD}%, 回调/涨幅比例>{BETWEEN_CYCLE_DD_RATIO}")
     print(f"  周期间回调分段得分: {BETWEEN_CYCLE_DD_SCORE_MAP}")
 
@@ -92,6 +102,42 @@ def debug_full_components(symbol, trade_date):
 
     for idx, row in data.iterrows():
         print(f"  [{idx:3d}] eob={row['eob']}, close={row['close']:.2f}, high={row['high']:.2f}")
+
+    print(f"\n{'#'*70}")
+    print(f"#  涨停统计（全量数据）")
+    print(f"{'#'*70}")
+    limit_up_days = 0
+    limit_up_next_red_days = 0
+    for i in range(n - 1):
+        pre_close = data.iloc[i]['pre_close']
+        if pre_close <= 0:
+            continue
+        limit_up_price = round(pre_close * 1.10, 2)
+        is_limit_up = round(data.iloc[i]['close'], 2) >= limit_up_price
+        if is_limit_up:
+            limit_up_days += 1
+            gain = (data.iloc[i]['close'] - pre_close) / pre_close * 100
+            next_red = data.iloc[i + 1]['close'] > data.iloc[i]['close']
+            if next_red:
+                limit_up_next_red_days += 1
+            print(f"  [{i}] {data.iloc[i]['eob']} 涨停! close={data.iloc[i]['close']:.2f} >= limit_up_price={limit_up_price:.2f}, "
+                  f"涨幅={gain:.2f}%, 次日({data.iloc[i + 1]['eob']}) {'收红盘' if next_red else '未收红盘'}")
+    print(f"\n  总涨停天数: {limit_up_days}, 次日红盘天数: {limit_up_next_red_days}")
+    print(f"  次日红盘占比: {limit_up_next_red_days}/{limit_up_days} = {limit_up_next_red_days / limit_up_days if limit_up_days > 0 else 0:.4f} (阈值 ≥{LIMIT_UP_NEXT_RED_RATIO})")
+    if limit_up_days < MIN_LIMIT_UP_DAYS:
+        print(f"  ❌ 涨停天数 {limit_up_days} < {MIN_LIMIT_UP_DAYS}, 不符合条件")
+        print(f"\n{'='*60}")
+        print(f"  ★ 最终得分: 0.00")
+        print(f"{'='*60}")
+        return
+    next_red_ratio = limit_up_next_red_days / limit_up_days if limit_up_days > 0 else 0.0
+    if next_red_ratio < LIMIT_UP_NEXT_RED_RATIO:
+        print(f"  ❌ 次日红盘占比 {next_red_ratio:.4f} < {LIMIT_UP_NEXT_RED_RATIO}, 不符合条件")
+        print(f"\n{'='*60}")
+        print(f"  ★ 最终得分: 0.00")
+        print(f"{'='*60}")
+        return
+    print(f"  ✅ 涨停条件满足")
 
     all_sequences = []
 
@@ -128,10 +174,27 @@ def debug_full_components(symbol, trade_date):
         gap_start_price = 0.0
         gap_start_idx = -1
         last_decline_close = 0.0
+        max_single_day_drop = 0.0
+        max_two_day_drop = 0.0
 
         for i in range(wave_start + 1, n):
             current_close = data.iloc[i]['close']
             days_since_breakthrough += 1
+
+            prev_close = data.iloc[i - 1]['close']
+            if current_close < prev_close:
+                single_drop = (prev_close - current_close) / prev_close * 100
+                if single_drop > max_single_day_drop:
+                    max_single_day_drop = single_drop
+                    print(f"       ↑ 更新单日最大跌幅={max_single_day_drop:.2f}%")
+
+            if i >= wave_start + 2:
+                two_day_prev_close = data.iloc[i - 2]['close']
+                if current_close < two_day_prev_close:
+                    two_day_drop = (two_day_prev_close - current_close) / two_day_prev_close * 100
+                    if two_day_drop > max_two_day_drop:
+                        max_two_day_drop = two_day_drop
+                        print(f"       ↑ 更新连续两日最大累计跌幅={max_two_day_drop:.2f}%")
 
             if current_close >= current_high:
                 if days_since_breakthrough <= MAX_GAP:
@@ -184,6 +247,8 @@ def debug_full_components(symbol, trade_date):
         print(f"    区间最高价(seq_high): {seq_high:.2f}")
         print(f"    突破间隔分布: {pattern_distribution}")
         print(f"    周期内最大回调: {max_within_drawdown:.2f}%")
+        print(f"    周期内单日最大跌幅: {max_single_day_drop:.2f}%")
+        print(f"    周期内连续两日最大累计跌幅: {max_two_day_drop:.2f}%")
 
         qualifies = False
         qualify_reason = ""
@@ -201,6 +266,13 @@ def debug_full_components(symbol, trade_date):
 
         print(f"  ✅ 通过筛选: {qualify_reason}")
 
+        total_days_in_cycle = streak_end_idx - wave_start + 1
+        up_days_in_cycle = 1
+        for k in range(wave_start + 1, streak_end_idx + 1):
+            if data.iloc[k]['close'] > data.iloc[k - 1]['close']:
+                up_days_in_cycle += 1
+        print(f"    上涨天数/总交易日: {up_days_in_cycle}/{total_days_in_cycle} = {up_days_in_cycle/total_days_in_cycle:.4f}（汇总判断）")
+
         max_gap_present = max(k for k, v in pattern_distribution.items() if v > 0)
         pattern_score = PATTERN_SCORE_MAP.get(max_gap_present, 0)
 
@@ -216,6 +288,17 @@ def debug_full_components(symbol, trade_date):
                 break
         if within_dd_score == 0.0:
             print(f"  周期内回调得分: {max_within_drawdown:.2f}% 超出所有分段 → 0分")
+
+        single_day_violated = max_single_day_drop > WITHIN_CYCLE_MAX_SINGLE_DAY_DROP
+        two_day_violated = max_two_day_drop > WITHIN_CYCLE_MAX_TWO_DAY_DROP
+        if single_day_violated or two_day_violated:
+            reasons = []
+            if single_day_violated:
+                reasons.append(f"单日跌幅{max_single_day_drop:.2f}% > {WITHIN_CYCLE_MAX_SINGLE_DAY_DROP}%")
+            if two_day_violated:
+                reasons.append(f"连续两日跌幅{max_two_day_drop:.2f}% > {WITHIN_CYCLE_MAX_TWO_DAY_DROP}%")
+            within_dd_score = 0.0
+            print(f"  ⛔ 跌幅限制条件不满足: {'; '.join(reasons)} → 周期内回调得分为0")
 
         print(f"\n  {'─'*50}")
         print(f"  【基础分分解】")
@@ -237,6 +320,10 @@ def debug_full_components(symbol, trade_date):
             'max_within_drawdown': max_within_drawdown,
             'within_dd_score': within_dd_score,
             'seq_high': seq_high,
+            'max_single_day_drop': max_single_day_drop,
+            'max_two_day_drop': max_two_day_drop,
+            'total_days_in_cycle': total_days_in_cycle,
+            'up_days_in_cycle': up_days_in_cycle,
             'desc': f"[{data.iloc[wave_start]['eob']}~{data.iloc[streak_end_idx]['eob']}] streak={streak}, gain={period_gain:.1f}%",
         })
 
@@ -246,6 +333,33 @@ def debug_full_components(symbol, trade_date):
     if not all_sequences:
         print(f"\n❌ 未找到任何满足条件的升浪序列")
         return
+
+    print(f"\n{'#'*70}")
+    print(f"#  汇总上涨天数占比检查")
+    print(f"{'#'*70}")
+    total_up_days = sum(s['up_days_in_cycle'] for s in all_sequences)
+    total_days_all = sum(s['total_days_in_cycle'] for s in all_sequences)
+    combined_up_ratio = total_up_days / total_days_all if total_days_all > 0 else 0.0
+    total_gain_all = sum(s['period_gain'] for s in all_sequences)
+    combined_avg_daily_gain = total_gain_all / total_days_all if total_days_all > 0 else 0.0
+    for idx, s in enumerate(all_sequences):
+        print(f"  序列 #{idx}: {s['desc']} → 上涨 {s['up_days_in_cycle']}/{s['total_days_in_cycle']}={s['up_days_in_cycle']/s['total_days_in_cycle']:.4f}, "
+              f"涨幅 {s['period_gain']:.2f}%/天数 {s['total_days_in_cycle']} = {s['period_gain']/s['total_days_in_cycle']:.2f}%/日")
+    print(f"  → 上涨占比 汇总: {total_up_days}/{total_days_all} = {combined_up_ratio:.4f} (阈值 >{MIN_UP_DAY_RATIO})")
+    print(f"  → 日均涨幅 汇总: {total_gain_all:.2f}%/{total_days_all}天 = {combined_avg_daily_gain:.2f}%/日 (阈值 >{MIN_AVG_DAILY_GAIN}%)")
+
+    fail_reasons = []
+    if combined_up_ratio <= MIN_UP_DAY_RATIO:
+        fail_reasons.append(f"上涨占比{combined_up_ratio:.4f} ≤ {MIN_UP_DAY_RATIO}")
+    if combined_avg_daily_gain <= MIN_AVG_DAILY_GAIN:
+        fail_reasons.append(f"日均涨幅{combined_avg_daily_gain:.2f}% ≤ {MIN_AVG_DAILY_GAIN}%")
+    if fail_reasons:
+        print(f"  ❌ {'; '.join(fail_reasons)}, 整体不得分")
+        print(f"\n{'='*60}")
+        print(f"  ★ 最终得分: 0.00")
+        print(f"{'='*60}")
+        return
+    print(f"  ✅ 两个汇总条件均满足, 继续计算得分")
 
     # ===== 第二阶段：取倒数第二个到最后一个序列的间隔计算周期间回调 =====
     print(f"\n{'#'*70}")

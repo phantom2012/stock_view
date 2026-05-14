@@ -29,15 +29,24 @@ TUSHARE_CONFIG = {
 STOCK_INFO_CONFIG: Dict[str, Any] = {
     'cron_hour': 15,                  # 定时同步时间（小时）
     'cron_minute': 0,                 # 定时同步时间（分钟）
-    'start_delay_minutes': 0,          # 启动后延迟执行时间（分钟），None或0表示不延迟
+    'start_delay_minutes': 5,          # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
+
+
+# 日线数据同步配置
+DAILY_DATA_CONFIG: Dict[str, Any] = {
+    'interval_minutes': 30,           # 定时同步间隔（分钟）
+    'default_days': 90,              # 默认同步天数（可配置）
+    'start_delay_minutes': 7,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+}
+
 
 # 资金流向同步配置
 MONEY_FLOW_CONFIG: Dict[str, Any] = {
     'interval_minutes': 15,           # 定时同步间隔（分钟）
     'default_days': 30,              # 默认同步天数
     'batch_size': 100,               # 每批处理的股票数量
-    'start_delay_minutes': 0,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+    'start_delay_minutes': 10,         # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
 # 转强得分配置
@@ -60,26 +69,18 @@ TURN_STRONG_CYCLE_CONFIG: Dict[str, Any] = {
     'daily_outflow_ratio': 0.7,
 }
 
-
-# 日线数据同步配置
-DAILY_DATA_CONFIG: Dict[str, Any] = {
-    'interval_minutes': 5,           # 定时同步间隔（分钟）
-    'default_days': 90,              # 默认同步天数（可配置）
-    'start_delay_minutes': 5,         # 启动后延迟执行时间（分钟），None或0表示不延迟
-}
-
 # 竞价数据同步配置
 AUCTION_DATA_CONFIG: Dict[str, Any] = {
     'cron_hour': 9,                  # 定时同步时间（小时）
     'cron_minute': 35,               # 定时同步时间（分钟）
-    'start_delay_minutes': 0,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+    'start_delay_minutes': 13,         # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
 # 分钟数据同步配置
 MINUTE_DATA_CONFIG: Dict[str, Any] = {
     'cron_hour': 16,                 # 定时同步时间（小时）
     'cron_minute': 0,                # 定时同步时间（分钟）
-    'start_delay_minutes': 0,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+    'start_delay_minutes': 16,         # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
 # 数据清理配置

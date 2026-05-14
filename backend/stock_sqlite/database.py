@@ -60,7 +60,7 @@ def init_database():
         pre_close REAL,                   -- 前收盘价
         eob TEXT,                         -- 行情时间戳(YYYY-MM-DD HH:MM:SS)
         update_time TEXT,                 -- 更新时间
-        UNIQUE(code, trade_date, eob)
+        UNIQUE(code, trade_date)
     )
     """)
 
@@ -83,7 +83,7 @@ def init_database():
         volume INTEGER,                   -- 成交量(股数)
         amount REAL,                      -- 成交额(元)
         update_time TEXT,                 -- 更新时间
-        UNIQUE(code, trade_date, eob)
+        UNIQUE(code, trade_date)
     )
     """)
 

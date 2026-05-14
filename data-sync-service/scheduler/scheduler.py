@@ -210,6 +210,7 @@ class DataSyncScheduler:
     def _run_syncer(self, sync_type: str):
         """
         执行同步器（定时任务调用）
+        同步完成后更新通知表的 trigger_time、update_time、status 等字段
 
         Args:
             sync_type: 同步类型
@@ -221,14 +222,27 @@ class DataSyncScheduler:
 
         logger.info(f"[定时任务] 开始执行 {sync_type} 同步...")
         try:
+            # 更新 trigger_time 为当前时间（记录定时任务触发时刻）
+            with get_session() as db:
+                db.query(DataSyncNotify).filter(
+                    DataSyncNotify.sync_type == sync_type
+                ).update({DataSyncNotify.trigger_time: datetime.now()})
+                db.commit()
+
             success, success_count, fail_count, result_msg = syncer.sync()
+            status = 2 if success else -1
             logger.info(
                 f"[定时任务] {sync_type} 同步完成: "
                 f"{'成功' if success else '失败'}, "
                 f"成功{success_count}条, 失败{fail_count}条, {result_msg}"
             )
+            self._update_notify_status(
+                sync_type, status, success_count, fail_count,
+                result_msg or ('成功' if success else '失败')
+            )
         except Exception as e:
             logger.error(f"[定时任务] {sync_type} 同步异常: {e}")
+            self._update_notify_status(sync_type, -1, 0, 0, f"同步异常: {str(e)}")
             import traceback
             traceback.print_exc()
 
@@ -263,7 +277,7 @@ class DataSyncScheduler:
                     logger.info(f"[通知扫描] 执行任务: {sync_type} (优先级: {priority}, 股票数: {len(stock_codes) if stock_codes else '全部'})")
 
                     # 更新状态为处理中
-                    self._update_notify_status(sync_type, 1, '处理中')
+                    self._update_notify_status(sync_type, 1, 0, 0, '处理中')
 
                     # 执行同步（传递股票列表）
                     syncer = self.syncers.get(sync_type)
