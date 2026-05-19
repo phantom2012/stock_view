@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-调试德明利(001309)筛选问题 - 使用板块代码
+debug_filter_type1.py
+调试德明利(603986)筛选问题 - 使用板块代码
 """
 import sys
 import os
@@ -25,7 +26,7 @@ stock_cache = get_stock_cache()
 # 用户筛选条件 - 使用板块代码
 # 880491=半导体, 880656=CPO概念, 880672=存储芯片, 880952=芯片
 params = FilterParams(
-    trade_date='2026-05-07',
+    trade_date='2026-05-18',
     weipan_exceed=0,
     zaopan_exceed=0,
     rising_wave=1,  # 勾选了上升形态
@@ -39,7 +40,7 @@ params = FilterParams(
 )
 
 # 德明利股票代码
-stock_code = '002081'
+stock_code = '603986'
 symbol = to_goldminer_symbol(stock_code)
 
 print(f"========== 德明利({stock_code})筛选分析 ==========")

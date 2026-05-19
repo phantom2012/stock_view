@@ -10,6 +10,7 @@ from services.auction_data_service import get_auction_data_service
 from services.money_flow_service import get_money_flow_service
 from services.rising_wave_service import get_rising_wave_service
 from services.data_sync_notify_service import get_data_sync_notify_service
+from services.valuation_service import get_valuation_service
 from shared.db import get_session, FilterConfig
 
 router = APIRouter(prefix="/api/data", tags=["数据加载"])
@@ -19,6 +20,7 @@ auction_data_service = get_auction_data_service()
 money_flow_service = get_money_flow_service()
 rising_wave_service = get_rising_wave_service()
 notify_service = get_data_sync_notify_service()
+valuation_service = get_valuation_service()
 
 
 # SSE 订阅者队列（存储消息队列）
@@ -262,3 +264,84 @@ async def notify_sse_subscribers(data: dict):
             await queue.put(message)
         except Exception as e:
             logger.error(f"发送消息给 SSE 订阅者失败: {e}")
+
+
+class ValuationRequest(BaseModel):
+    codes: Optional[List[str]] = None
+
+
+# 命令行调用示例（PowerShell）：
+#   curl.exe -X POST "http://localhost:8000/api/data/valuation" -H "Content-Type: application/json" -d "{\"codes\": [\"001309\",\"600666\"]}"
+#   curl.exe -X POST "http://localhost:8000/api/data/valuation" -H "Content-Type: application/json" -d "{}"
+@router.post("/valuation")
+def get_valuation(request: ValuationRequest = Body(...)):
+    """
+    股价估值评估接口
+    通过5个维度（PE、PB-ROE、PEG、PS、资产负债健康度）交叉验证评估股价当前所处位置
+
+    Args:
+        request: 请求体，codes 为股票代码列表（可选），不传则评估所有有财务数据的股票
+
+    Returns:
+        Dict: 估值评估结果列表
+    """
+    codes = request.codes
+    logger.info(f"收到估值评估请求: codes={'全部' if codes is None else f'{len(codes)}只'}")
+
+    if codes:
+        results = valuation_service.evaluate_stocks(codes)
+    else:
+        results = valuation_service.evaluate_all()
+
+    return {
+        "status": "success",
+        "count": len(results),
+        "results": results,
+    }
+
+
+# 命令行调用示例（PowerShell）：
+#   curl.exe "http://localhost:8000/api/data/valuation/001309"
+@router.get("/valuation/{code}")
+def get_stock_valuation(code: str):
+    """
+    获取单只股票的估值评估
+
+    Args:
+        code: 股票代码（纯数字）
+
+    Returns:
+        Dict: 估值评估结果
+    """
+    logger.info(f"收到单只股票估值评估请求: code={code}")
+
+    result = valuation_service.evaluate_stock(code)
+
+    return {
+        "status": "success",
+        "result": result,
+    }
+
+
+# 命令行调用示例（PowerShell）：
+#   curl.exe -X POST "http://localhost:8000/api/data/valuation/batch" -H "Content-Type: application/json" -d "{\"codes\": [\"002281\",\"001309\"]}"
+@router.post("/valuation/batch")
+def batch_get_valuation_scores(codes: List[str] = Body(..., embed=True)):
+    """
+    批量获取多个股票的估值分（-100 ~ +100）
+    用于前端列表展示和排序
+
+    Args:
+        codes: 股票代码列表
+
+    Returns:
+        Dict: { scores: { code: score } }
+    """
+    logger.info(f"收到批量估值分请求: {len(codes)}只股票")
+
+    scores = valuation_service.batch_get_valuation_scores(codes)
+
+    return {
+        "status": "success",
+        "scores": scores,
+    }

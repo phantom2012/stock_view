@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
+debug_wave_score_v1.py
 调试 calculate_rising_wave_score 接口的完整分解
 包含：基础分 + 周期内回调得分 + 周期间回调得分
 测试股票: 001309
 测试日期: 2026-05-07
 """
 
-stock_code = "000062"
-trade_date = "2026-05-13"
+stock_code = "603986"
+trade_date = "2026-05-18"
 
 
 import sys
@@ -17,6 +18,7 @@ import os
 _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _backend_dir = os.path.join(_project_root, 'backend')
 sys.path.insert(0, _backend_dir)
+
 sys.path.insert(0, _project_root)
 
 from datetime import datetime
@@ -85,7 +87,7 @@ def debug_full_components(symbol, trade_date):
     print(f"  周期间最大回调={BETWEEN_CYCLE_MAX_DD}%, 回调/涨幅比例>{BETWEEN_CYCLE_DD_RATIO}")
     print(f"  周期间回调分段得分: {BETWEEN_CYCLE_DD_SCORE_MAP}")
 
-    total_days = LOOKBACK_DAYS + 20
+    total_days = LOOKBACK_DAYS
 
     cache = get_stock_cache()
     data = cache.get_history_data(symbol, total_days, trade_date=trade_date, force_refresh=False)

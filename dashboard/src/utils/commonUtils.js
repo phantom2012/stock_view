@@ -25,3 +25,13 @@ export const formatAmount = (value, unit = 'yuan') => {
 
   return valueInYuan < 0 ? '-' + result : result
 }
+
+/**
+ * 格式化价格，保留2位小数
+ * @param {number|null|undefined} value - 价格数值
+ * @returns {string} 格式化后的字符串，如 "12.34"，空值返回 '-'
+ */
+export const formatPrice = (value) => {
+  if (value === null || value === undefined || value === '') return '-'
+  return Number(value).toFixed(2)
+}

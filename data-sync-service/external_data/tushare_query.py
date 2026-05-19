@@ -12,6 +12,10 @@ RATE_LIMIT_CONFIG = {
     'get_instruments': 120,
     'get_daily_basic_data': 120,
     'get_money_flow_data': 120,
+    'get_fina_indicator_data': 120,
+    'get_stock_industry_map': 200,
+    'get_daily_basic_dataframe': 120,
+    'get_fina_indicator_vip_data': 120,
 }
 
 
@@ -161,6 +165,143 @@ class TushareQuery:
             return None
         except Exception as e:
             print(f"[TushareQuery] get_money_flow_data 失败: {e}")
+            import traceback; traceback.print_exc()
+            return None
+
+    def get_fina_indicator_data(self, code: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
+        print(f"[TushareQuery] get_fina_indicator_data - code={code}, {start_date}~{end_date}")
+        self._rate_limiters['get_fina_indicator_data'].wait_and_acquire('get_fina_indicator_data')
+        try:
+            start_time = time.time()
+            if self._tushare_pro:
+                ts_code = code
+                if '.' not in code:
+                    if code.startswith('6'):
+                        ts_code = f"{code}.SH"
+                    else:
+                        ts_code = f"{code}.SZ"
+                start_str = start_date.replace('-', '')
+                end_str = end_date.replace('-', '')
+
+                fields = ','.join([
+                    'ts_code', 'ann_date', 'end_date',
+                    'eps', 'dt_eps', 'bps', 'ocfps', 'cfps',
+                    'total_revenue_ps', 'ebit_ps',
+                    'roe', 'roe_waa', 'roa', 'roic',
+                    'grossprofit_margin', 'netprofit_margin', 'npta',
+                    'netprofit_yoy', 'basic_eps_yoy', 'tr_yoy', 'or_yoy',
+                    'revenue_yoy', 'assets_yoy', 'equity_yoy',
+                    'op_income', 'profit_dedt', 'ebit', 'ebitda',
+                    'debt_to_assets', 'current_ratio', 'quick_ratio',
+                    'tangible_asset', 'capital_rese_ps', 'surplus_rese_ps',
+                    'undist_profit_ps',
+                ])
+
+                df = self._tushare_pro.fina_indicator(
+                    ts_code=ts_code,
+                    start_date=start_str,
+                    end_date=end_str,
+                    fields=fields
+                )
+
+                if df is not None and not df.empty:
+                    print(f"[TushareQuery] get_fina_indicator_data 耗时: {time.time()-start_time:.3f}s, {len(df)}条")
+                    return df
+                print(f"[TushareQuery] Tushare未返回财务数据: {ts_code}")
+                return None
+            print(f"[TushareQuery] Tushare API未初始化")
+            return None
+        except Exception as e:
+            print(f"[TushareQuery] get_fina_indicator_data 失败: {e}")
+            import traceback; traceback.print_exc()
+            return None
+
+    def get_stock_industry_map(self) -> Optional[pd.DataFrame]:
+        """
+        获取所有上市股票的行业归属映射
+        Returns: DataFrame with columns: ts_code, name, industry
+        """
+        print(f"[TushareQuery] get_stock_industry_map")
+        self._rate_limiters['get_stock_industry_map'].wait_and_acquire('get_stock_industry_map')
+        try:
+            start_time = time.time()
+            if self._tushare_pro:
+                df = self._tushare_pro.stock_basic(
+                    exchange='', list_status='L',
+                    fields='ts_code,symbol,name,industry'
+                )
+                if df is not None and not df.empty:
+                    print(f"[TushareQuery] get_stock_industry_map 耗时: {time.time()-start_time:.3f}s, {len(df)}条, {df['industry'].nunique()}个行业")
+                    return df
+                print(f"[TushareQuery] Tushare未返回行业数据")
+                return None
+            print(f"[TushareQuery] Tushare API未初始化")
+            return None
+        except Exception as e:
+            print(f"[TushareQuery] get_stock_industry_map 失败: {e}")
+            import traceback; traceback.print_exc()
+            return None
+
+    def get_daily_basic_batch_df(self, trade_date: str) -> Optional[pd.DataFrame]:
+        """
+        批量获取全市场 daily_basic 数据，返回 DataFrame
+        Args:
+            trade_date: 交易日期 YYYYMMDD
+        Returns: DataFrame with ts_code, trade_date, pe, pe_ttm, pb, ps, pcf, close, total_mv
+        """
+        print(f"[TushareQuery] get_daily_basic_batch_df - date={trade_date}")
+        self._rate_limiters['get_daily_basic_dataframe'].wait_and_acquire('get_daily_basic_dataframe')
+        try:
+            start_time = time.time()
+            if self._tushare_pro:
+                fields = 'ts_code,trade_date,close,pe,pe_ttm,pb,ps,ps_ttm,pcf,pcf_ttm,total_mv,circ_mv'
+                df = self._tushare_pro.daily_basic(
+                    trade_date=trade_date,
+                    fields=fields
+                )
+                if df is not None and not df.empty:
+                    df['trade_date'] = pd.to_datetime(df['trade_date']).dt.strftime('%Y-%m-%d')
+                    print(f"[TushareQuery] get_daily_basic_batch_df 耗时: {time.time()-start_time:.3f}s, {len(df)}条")
+                    return df
+                print(f"[TushareQuery] Tushare未返回日线基本面数据")
+                return None
+            print(f"[TushareQuery] Tushare API未初始化")
+            return None
+        except Exception as e:
+            print(f"[TushareQuery] get_daily_basic_batch_df 失败: {e}")
+            import traceback; traceback.print_exc()
+            return None
+
+    def get_fina_indicator_vip_data(self, period: str) -> Optional[pd.DataFrame]:
+        """批量获取指定季度全市场股票的财务指标数据"""
+        print(f"[TushareQuery] get_fina_indicator_vip_data - period={period}")
+        self._rate_limiters['get_fina_indicator_vip_data'].wait_and_acquire('get_fina_indicator_vip_data')
+        try:
+            start_time = time.time()
+            if self._tushare_pro:
+                fields = ','.join([
+                    'ts_code', 'end_date',
+                    'eps', 'dt_eps', 'bps', 'ocfps', 'cfps',
+                    'total_revenue_ps', 'ebit_ps',
+                    'roe', 'roe_waa', 'roa', 'roic',
+                    'grossprofit_margin', 'netprofit_margin', 'npta',
+                    'netprofit_yoy', 'basic_eps_yoy', 'tr_yoy', 'or_yoy',
+                    'revenue_yoy', 'assets_yoy', 'equity_yoy',
+                    'op_income', 'profit_dedt', 'ebit', 'ebitda',
+                    'debt_to_assets', 'current_ratio', 'quick_ratio',
+                    'tangible_asset', 'capital_rese_ps', 'surplus_rese_ps',
+                    'undist_profit_ps',
+                ])
+                df = self._tushare_pro.fina_indicator_vip(period=period, fields=fields)
+                if df is not None and not df.empty:
+                    print(f"[TushareQuery] get_fina_indicator_vip_data 耗时: {time.time()-start_time:.3f}s, {len(df)}条")
+                    return df
+                print(f"[TushareQuery] Tushare未返回财务数据: period={period}")
+                return None
+            print(f"[TushareQuery] Tushare API未初始化")
+            return None
+        except Exception as e:
+            print(f"[TushareQuery] get_fina_indicator_vip_data 失败: {e}")
             import traceback; traceback.print_exc()
             return None
 

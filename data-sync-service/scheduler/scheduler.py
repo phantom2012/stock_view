@@ -18,7 +18,7 @@ from shared.db import get_session, DataSyncNotify
 from config import (
     MONEY_FLOW_CONFIG, STOCK_INFO_CONFIG, DAILY_DATA_CONFIG,
     AUCTION_DATA_CONFIG, MINUTE_DATA_CONFIG, CLEAR_DATA_CONFIG, NOTIFY_SCANNER_CONFIG,
-    BACKEND_CONFIG,
+    BACKEND_CONFIG, FINANCIAL_DATA_CONFIG,
 )
 from syncers.money_flow_syncer import MoneyFlowSyncer
 from syncers.stock_info_syncer import StockInfoSyncer
@@ -26,6 +26,8 @@ from syncers.daily_data_syncer import DailyDataSyncer
 from syncers.auction_data_syncer import AuctionDataSyncer
 from syncers.minute_data_syncer import MinuteDataSyncer
 from syncers.clear_data_syncer import ClearDataSyncer
+from syncers.financial_data_syncer import FinancialDataSyncer
+from syncers.industry_valuation_syncer import IndustryValuationSyncer
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,9 @@ class DataSyncScheduler:
             'daily_data': DailyDataSyncer(),
             'auction_data': AuctionDataSyncer(),
             'minute_data': MinuteDataSyncer(),
+            'financial_data': FinancialDataSyncer(),
             'clear_data': ClearDataSyncer(),
+            'industry_valuation': IndustryValuationSyncer(),
         }
 
     def start(self):
@@ -185,7 +189,9 @@ class DataSyncScheduler:
             ('daily_data', 2),      # 日线数据
             ('minute_data', 3),     # 分钟数据
             ('auction_data', 5),    # 竞价数据
-            ('money_flow', 6),      # 资金流向
+            ('financial_data', 6),  # 财务指标数据
+            ('money_flow', 7),      # 资金流向
+            ('industry_valuation', 8), # 行业估值基准
             ('clear_data', 10),     # 数据清理 - 最低优先级
         ]
         with get_session() as db:

@@ -86,6 +86,14 @@ class DataSyncNotifyService:
         """通知执行数据清理"""
         return self.notify_sync('clear_data')
 
+    def notify_financial_data_sync(self, stock_codes: Optional[List[str]] = None) -> bool:
+        """通知同步财务指标数据"""
+        return self.notify_sync('financial_data', stock_codes)
+
+    def notify_industry_valuation_sync(self) -> bool:
+        """通知同步行业估值基准数据"""
+        return self.notify_sync('industry_valuation')
+
     def get_sync_status(self, sync_type: str) -> Optional[dict]:
         """
         获取指定同步类型的状态

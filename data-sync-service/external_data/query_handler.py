@@ -53,6 +53,18 @@ class ExternalDataQueryHandler:
     def get_daily_basic_data(self, symbol: Optional[str] = None, trade_date: Optional[str] = None) -> Optional[dict]:
         return self._tushare.get_daily_basic_data(symbol, trade_date)
 
+    def get_fina_indicator_data(self, code: str, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
+        return self._tushare.get_fina_indicator_data(code, start_date, end_date)
+
+    def get_stock_industry_map(self) -> Optional[pd.DataFrame]:
+        return self._tushare.get_stock_industry_map()
+
+    def get_daily_basic_batch_df(self, trade_date: str) -> Optional[pd.DataFrame]:
+        return self._tushare.get_daily_basic_batch_df(trade_date)
+
+    def get_fina_indicator_vip_data(self, period: str) -> Optional[pd.DataFrame]:
+        return self._tushare.get_fina_indicator_vip_data(period)
+
 
 _query_handler = None
 

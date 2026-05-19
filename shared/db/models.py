@@ -2,7 +2,7 @@
 数据库 ORM 模型统一入口
 包含所有业务表模型，供 backend 和 data-sync-service 共用
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, UniqueConstraint
 from sqlalchemy import inspect
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -293,3 +293,108 @@ class FilterStock(Base):
     name = Column(String(50))
     is_exclude = Column(Integer, default=0)
     exclude_date = Column(String(10))
+
+
+class StockFinancial(Base):
+    """
+    财务指标数据表
+    存储 Tushare fina_indicator 接口返回的财务指标数据
+    用于股价估值评估和基本面分析
+    """
+    __tablename__ = 'stock_financial'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(10), nullable=False)
+    end_date = Column(String(10), nullable=False)
+    ann_date = Column(String(10))
+
+    eps = Column(Float)
+    dt_eps = Column(Float)
+    bps = Column(Float)
+    ocfps = Column(Float)
+    cfps = Column(Float)
+    total_revenue_ps = Column(Float)
+    ebit_ps = Column(Float)
+
+    roe = Column(Float)
+    roe_waa = Column(Float)
+    roa = Column(Float)
+    roic = Column(Float)
+    grossprofit_margin = Column(Float)
+    netprofit_margin = Column(Float)
+    npta = Column(Float)
+
+    netprofit_yoy = Column(Float)
+    basic_eps_yoy = Column(Float)
+    tr_yoy = Column(Float)
+    or_yoy = Column(Float)
+    revenue_yoy = Column(Float)
+    assets_yoy = Column(Float)
+    equity_yoy = Column(Float)
+
+    op_income = Column(Float)
+    profit_dedt = Column(Float)
+    ebit = Column(Float)
+    ebitda = Column(Float)
+
+    debt_to_assets = Column(Float)
+    current_ratio = Column(Float)
+    quick_ratio = Column(Float)
+
+    tangible_asset = Column(Float)
+    capital_rese_ps = Column(Float)
+    surplus_rese_ps = Column(Float)
+    undist_profit_ps = Column(Float)
+
+    update_time = Column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint('code', 'end_date', name='uq_stock_financial_code_end_date'),
+    )
+
+
+class StockIndustry(Base):
+    """
+    股票行业归属映射表
+    缓存每只股票所属的Tushare行业分类
+    """
+    __tablename__ = 'stock_industry'
+
+    code = Column(String(10), primary_key=True)
+    name = Column(String(50))
+    industry = Column(String(50), nullable=False)
+    update_time = Column(DateTime, default=datetime.now)
+
+
+class IndustryValuation(Base):
+    """
+    行业估值基准数据表
+    存储每个行业在交易日期的PE/PB/PS中位数和均值
+    用于个股估值评估时的行业基准参照
+    """
+    __tablename__ = 'industry_valuation'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    industry = Column(String(50), nullable=False)
+    trade_date = Column(String(10), nullable=False)
+
+    pe_median = Column(Float)
+    pe_mean = Column(Float)
+    pe_ttm_median = Column(Float)
+    pe_ttm_mean = Column(Float)
+
+    pb_median = Column(Float)
+    pb_mean = Column(Float)
+
+    ps_median = Column(Float)
+    ps_mean = Column(Float)
+
+    pcf_median = Column(Float)
+    pcf_mean = Column(Float)
+
+    stock_count = Column(Integer)
+    update_time = Column(DateTime, default=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint('industry', 'trade_date', name='uq_industry_valuation_industry_date'),
+    )

@@ -38,7 +38,7 @@
             />
             <span class="ml-1 mr-4">%</span>
 
-            <span class="mr-2">股价不低于近期高点</span>
+            <span class="mr-2">股价回调不低于近期高点</span>
             <el-input
               v-model.number="filterForm.priceRatio"
               placeholder="百分比"
@@ -164,12 +164,12 @@
         <el-table-column prop="stock_name" label="名称" width="90" />
         <el-table-column label="昨均价" width="80">
           <template #default="scope">
-            {{ scope.row.pre_avg_price || '-' }}
+            {{ formatPrice(scope.row.pre_avg_price) }}
           </template>
         </el-table-column>
         <el-table-column label="昨收盘价" width="80">
           <template #default="scope">
-            {{ scope.row.pre_close_price || '-' }}
+            {{ formatPrice(scope.row.pre_close_price) }}
           </template>
         </el-table-column>
         <el-table-column label="昨乖离率" width="80">
@@ -184,7 +184,7 @@
         </el-table-column>
         <el-table-column label="今开盘价" width="80">
           <template #default="scope">
-            {{ scope.row.open_price || '-' }}
+            {{ formatPrice(scope.row.open_price) }}
           </template>
         </el-table-column>
         <el-table-column label="开盘涨幅" width="80">
@@ -228,7 +228,14 @@
           </template>
         </el-table-column>
         <el-table-column prop="exp_score" label="预期分" width="70" sortable="custom" />
-        <el-table-column prop="trade_date" label="交易日期" width="110" />
+        <el-table-column label="估值分" width="80" sortable="custom" prop="valuation_score">
+          <template #default="scope">
+            <span v-if="scope.row.valuation_score !== undefined && scope.row.valuation_score !== null" :style="{color: getScoreColor(scope.row.valuation_score)}">
+              {{ scope.row.valuation_score > 0 ? '+' : '' }}{{ scope.row.valuation_score }}
+            </span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
       </el-table>
       <div class="text-sm text-gray-400 mt-2">总选出数量：{{ list.length }}</div>
     </el-card>
@@ -240,11 +247,18 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { getValueColor } from '../../utils/colorUtils.js'
-import { formatAmount } from '../../utils/commonUtils.js'
+import { formatAmount, formatPrice } from '../../utils/commonUtils.js'
 import { calcTodayGain, calcNextOpenGain, calcNextDayRise, calcOpenGain, calcYesterdayBias } from '../../utils/stockCalcUtils.js'
 import { useBlockSelection } from '../../composables/useBlockSelection.js'
 import { useCalendarStore } from '../../stores/calendarStore.js'
 import { API_BASE_URL } from '../../api/config.js'
+
+const getScoreColor = (score) => {
+  if (score === null || score === undefined) return '#9ca3af'
+  if (score > 0) return '#ef4444'
+  if (score < 0) return '#22c55e'
+  return '#1f2937'
+}
 
 const props = defineProps({
   activeTab: {
@@ -260,6 +274,7 @@ const loading = ref(false)
 const loadingAuction = ref(false)
 const loadingMoneyFlow = ref(false)
 const list = ref([])
+const valuationScores = ref({})
 
 // SSE 相关
 let eventSource = null
@@ -462,6 +477,23 @@ const getData = async () => {
     return riseB - riseA
   })
   list.value = data
+  await loadValuationScores()
+}
+
+const loadValuationScores = async () => {
+  if (list.value.length === 0) return
+  try {
+    const codes = list.value.map(s => s.code)
+    const res = await axios.post(`${API_BASE_URL}/api/data/valuation/batch`, { codes })
+    if (res.data && res.data.status === 'success') {
+      valuationScores.value = res.data.scores || {}
+      list.value.forEach(item => {
+        item.valuation_score = valuationScores.value[item.code] ?? null
+      })
+    }
+  } catch (error) {
+    console.error('获取估值分失败:', error)
+  }
 }
 
 // 加载竞价数据
@@ -638,7 +670,10 @@ const handleSortChange = (sort) => {
   list.value.sort((a, b) => {
     let valA, valB
 
-    if (prop === 'today_gain') {
+    if (prop === 'valuation_score') {
+      valA = a.valuation_score ?? -999
+      valB = b.valuation_score ?? -999
+    } else if (prop === 'today_gain') {
       valA = calcTodayGain(a) || 0
       valB = calcTodayGain(b) || 0
     } else if (prop === 'next_day_rise') {

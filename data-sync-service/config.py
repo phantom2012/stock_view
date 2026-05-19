@@ -43,10 +43,10 @@ DAILY_DATA_CONFIG: Dict[str, Any] = {
 
 # 资金流向同步配置
 MONEY_FLOW_CONFIG: Dict[str, Any] = {
-    'interval_minutes': 15,           # 定时同步间隔（分钟）
+    'interval_minutes': 60,           # 定时同步间隔（分钟）
     'default_days': 30,              # 默认同步天数
     'batch_size': 100,               # 每批处理的股票数量
-    'start_delay_minutes': 10,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+    'start_delay_minutes': 30,         # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
 # 转强得分配置
@@ -81,6 +81,16 @@ MINUTE_DATA_CONFIG: Dict[str, Any] = {
     'cron_hour': 16,                 # 定时同步时间（小时）
     'cron_minute': 0,                # 定时同步时间（分钟）
     'start_delay_minutes': 16,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+}
+
+# 财务指标数据同步配置（仅通过通知表触发，无定时任务）
+FINANCIAL_DATA_CONFIG: Dict[str, Any] = {
+    'start_delay_minutes': 20,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+}
+
+# 行业估值基准同步配置（仅通过通知表触发）
+INDUSTRY_VALUATION_CONFIG: Dict[str, Any] = {
+    'start_delay_minutes': 22,         # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
 # 数据清理配置

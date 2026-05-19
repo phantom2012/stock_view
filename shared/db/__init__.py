@@ -4,7 +4,8 @@
 from .models import (
     Base, FilterResult, StockAuction, StockDaily, StockMoneyFlow,
     BlockInfo, BlockStock, FilterConfig, StockInfo, StockMinute,
-    StockTick, ClearDataTimer, DataSyncNotify, TradeCalendar, StockScore, FilterStock,
+    StockTick, ClearDataTimer, DataSyncNotify, TradeCalendar, StockScore,
+    FilterStock, StockFinancial, StockIndustry, IndustryValuation,
 )
 from .database import get_session, get_session_ro, create_tables, engine, SessionLocal
 from .db_utils import upsert_by_unique_keys, batch_upsert_by_unique_keys, delete_by_filter, get_or_create
@@ -28,6 +29,9 @@ __all__ = [
     'TradeCalendar',
     'StockScore',
     'FilterStock',
+    'StockFinancial',
+    'StockIndustry',
+    'IndustryValuation',
     'get_session',
     'get_session_ro',
     'create_tables',

@@ -15,7 +15,7 @@ RISING_WAVE_CONFIG = {
     # 连续突破天数 >= 该值即通过筛选
     'min_streak_days': 8,
     # 连续突破天数 >= 该值 且 区间涨幅 > min_gain_pct 也可通过筛选
-    'min_streak_alt_days': 2,
+    'min_streak_alt_days': 3,
     'min_gain_pct': 20.0,
     # 连续突破天数得分系数，最高12分
     'days_score_coefficient': 1.2,
@@ -30,7 +30,7 @@ RISING_WAVE_CONFIG = {
         3: 6,
     },
     # 周期内回调幅度阈值（%），超过该值不得分
-    'within_cycle_drawdown_threshold': 10.0,
+    'within_cycle_drawdown_threshold': 12.0,
     # 周期内回调幅度分段得分（key: 回调幅度上限%, value: 得分）
     'within_cycle_drawdown_score_map': {
         0.5: 20,
@@ -45,13 +45,13 @@ RISING_WAVE_CONFIG = {
     # 周期内上涨天数占比阈值，周期内上涨天数/总交易日数 > 该值才通过筛选
     'min_up_day_ratio': 0.7,
     # 周期内日均涨幅阈值（%），周期内总涨幅/总交易日数 > 该值才通过筛选
-    'min_avg_daily_gain': 3.0,
+    'min_avg_daily_gain': 2.2,
     # 最低涨停天数要求，整个统计范围内总涨停天数 >= 该值
     'min_limit_up_days': 2,
     # 涨停次日红盘占比阈值，涨停次日收红盘天数/总涨停次数 >= 该值
     'limit_up_next_red_ratio': 0.5,
     # 周期间最大允许回调跌幅（%）
-    'between_cycle_max_drawdown': 20.0,
+    'between_cycle_max_drawdown': 30.0,
     # 周期间回调跌幅/上一升浪累计涨幅 比例阈值
     'between_cycle_drawdown_ratio': 0.5,
     # 周期间回调幅度分段得分
@@ -68,8 +68,9 @@ RISING_WAVE_CONFIG = {
 # value: 对应的得分
 TURN_START_SCORE_MAP = {
     0: 10,
-    1: 5,
-    2: 3,
+    1: 8,
+    2: 5,
+    3: 3,
 }
 
 # 转强周期衰减配置
