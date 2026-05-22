@@ -152,6 +152,7 @@
         height="600"
         header-row-class-name="bg-gray-50 text-gray-800"
         row-class-name="bg-white hover:bg-gray-50 cursor-pointer"
+        :default-sort="sortState"
         @row-click="handleRowClick"
         @sort-change="handleSortChange"
       >
@@ -228,12 +229,23 @@
           </template>
         </el-table-column>
         <el-table-column prop="exp_score" label="预期分" width="70" sortable="custom" />
-        <el-table-column label="估值分" width="80" sortable="custom" prop="valuation_score">
+        <el-table-column label="估值分" width="70" sortable="custom" prop="valuation_score">
           <template #default="scope">
             <span v-if="scope.row.valuation_score !== undefined && scope.row.valuation_score !== null" :style="{color: getScoreColor(scope.row.valuation_score)}">
               {{ scope.row.valuation_score > 0 ? '+' : '' }}{{ scope.row.valuation_score }}
             </span>
             <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="80">
+          <template #default="scope">
+            <el-button
+              type="danger"
+              size="small"
+              @click.stop="handleExcludeStock(scope.row)"
+            >
+              剔除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -275,6 +287,12 @@ const loadingAuction = ref(false)
 const loadingMoneyFlow = ref(false)
 const list = ref([])
 const valuationScores = ref({})
+
+// 保存排序状态
+const sortState = ref({
+  prop: '',
+  order: ''
+})
 
 // SSE 相关
 let eventSource = null
@@ -471,13 +489,23 @@ const runStrategy = async () => {
 const getData = async () => {
   const res = await axios.get(`${API_BASE_URL}/api/strategy/get-exceed-list`)
   let data = res.data || []
-  data.sort((a, b) => {
-    const riseA = parseFloat(a.interval_max_rise) || 0
-    const riseB = parseFloat(b.interval_max_rise) || 0
-    return riseB - riseA
-  })
+
+  // 只有在没有保存排序状态时，才使用默认排序
+  if (!sortState.value.prop || !sortState.value.order) {
+    data.sort((a, b) => {
+      const riseA = parseFloat(a.interval_max_rise) || 0
+      const riseB = parseFloat(b.interval_max_rise) || 0
+      return riseB - riseA
+    })
+  }
+
   list.value = data
   await loadValuationScores()
+
+  // 应用保存的排序状态
+  if (sortState.value.prop && sortState.value.order) {
+    applySortState()
+  }
 }
 
 const loadValuationScores = async () => {
@@ -667,6 +695,9 @@ const handleSortChange = (sort) => {
 
   const { prop, order } = sort
 
+  // 保存排序状态
+  sortState.value = { prop, order }
+
   list.value.sort((a, b) => {
     let valA, valB
 
@@ -690,6 +721,60 @@ const handleSortChange = (sort) => {
       return valA - valB
     }
   })
+}
+
+// 应用保存的排序
+const applySortState = () => {
+  if (!sortState.value.prop || !sortState.value.order) {
+    return
+  }
+
+  const { prop, order } = sortState.value
+
+  list.value.sort((a, b) => {
+    let valA, valB
+
+    if (prop === 'valuation_score') {
+      valA = a.valuation_score ?? -999
+      valB = b.valuation_score ?? -999
+    } else if (prop === 'today_gain') {
+      valA = calcTodayGain(a) || 0
+      valB = calcTodayGain(b) || 0
+    } else if (prop === 'next_day_rise') {
+      valA = calcNextDayRise(a) || 0
+      valB = calcNextDayRise(b) || 0
+    } else {
+      valA = parseFloat(a[prop]) || 0
+      valB = parseFloat(b[prop]) || 0
+    }
+
+    if (order === 'ascending') {
+      return valB - valA
+    } else {
+      return valA - valB
+    }
+  })
+}
+
+// 剔除股票
+const handleExcludeStock = async (row) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/data/exclude-stock`, {
+      code: row.code,
+      stock_name: row.stock_name
+    })
+
+    if (response.data.status === 'success') {
+      ElMessage.success(response.data.msg)
+      // 刷新列表
+      await getData()
+    } else {
+      ElMessage.error(response.data.msg)
+    }
+  } catch (error) {
+    console.error('剔除股票失败:', error)
+    ElMessage.error('剔除股票失败，请稍后重试')
+  }
 }
 
 const handleRowClick = (row, column, event) => {

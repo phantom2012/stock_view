@@ -50,6 +50,8 @@ RISING_WAVE_CONFIG = {
     'min_limit_up_days': 2,
     # 涨停次日红盘占比阈值，涨停次日收红盘天数/总涨停次数 >= 该值
     'limit_up_next_red_ratio': 0.5,
+    # 所有主升浪周期天数之和占整个回溯天数的比例阈值，超过才通过筛选
+    'min_wave_days_ratio': 0.3,
     # 周期间最大允许回调跌幅（%）
     'between_cycle_max_drawdown': 30.0,
     # 周期间回调跌幅/上一升浪累计涨幅 比例阈值

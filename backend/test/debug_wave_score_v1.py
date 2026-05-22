@@ -8,7 +8,7 @@ debug_wave_score_v1.py
 测试日期: 2026-05-07
 """
 
-stock_code = "603986"
+stock_code = "002491"
 trade_date = "2026-05-18"
 
 
@@ -69,6 +69,7 @@ def debug_full_components(symbol, trade_date):
     MIN_AVG_DAILY_GAIN = config['min_avg_daily_gain']
     MIN_LIMIT_UP_DAYS = config['min_limit_up_days']
     LIMIT_UP_NEXT_RED_RATIO = config['limit_up_next_red_ratio']
+    MIN_WAVE_DAYS_RATIO = config['min_wave_days_ratio']
     BETWEEN_CYCLE_MAX_DD = config['between_cycle_max_drawdown']
     BETWEEN_CYCLE_DD_RATIO = config['between_cycle_drawdown_ratio']
     BETWEEN_CYCLE_DD_SCORE_MAP = config['between_cycle_drawdown_score_map']
@@ -84,6 +85,7 @@ def debug_full_components(symbol, trade_date):
     print(f"  上涨天数占比阈值: >{MIN_UP_DAY_RATIO}")
     print(f"  周期内日均涨幅阈值: >{MIN_AVG_DAILY_GAIN}%")
     print(f"  涨停判定: close >= round(pre_close × 1.10, 2), 最低涨停天数: {MIN_LIMIT_UP_DAYS}, 次日红盘占比: ≥{LIMIT_UP_NEXT_RED_RATIO}")
+    print(f"  主升浪天数占比阈值: >{MIN_WAVE_DAYS_RATIO}（升浪周期天数之和/回溯总天数）")
     print(f"  周期间最大回调={BETWEEN_CYCLE_MAX_DD}%, 回调/涨幅比例>{BETWEEN_CYCLE_DD_RATIO}")
     print(f"  周期间回调分段得分: {BETWEEN_CYCLE_DD_SCORE_MAP}")
 
@@ -100,7 +102,7 @@ def debug_full_components(symbol, trade_date):
     n = len(data)
 
     print(f"\n获取到 {n} 条日K数据，日期范围: {data.iloc[0]['eob']} ~ {data.iloc[-1]['eob']}")
-    print(f"(回溯{LOOKBACK_DAYS}个交易日 + 20天缓冲 = {total_days}条)")
+    print(f"(回溯{LOOKBACK_DAYS}个交易日)")
 
     for idx, row in data.iterrows():
         print(f"  [{idx:3d}] eob={row['eob']}, close={row['close']:.2f}, high={row['high']:.2f}")
@@ -350,18 +352,24 @@ def debug_full_components(symbol, trade_date):
     print(f"  → 上涨占比 汇总: {total_up_days}/{total_days_all} = {combined_up_ratio:.4f} (阈值 >{MIN_UP_DAY_RATIO})")
     print(f"  → 日均涨幅 汇总: {total_gain_all:.2f}%/{total_days_all}天 = {combined_avg_daily_gain:.2f}%/日 (阈值 >{MIN_AVG_DAILY_GAIN}%)")
 
+    total_cycle_days_check = sum(s['total_days_in_cycle'] for s in all_sequences)
+    wave_days_ratio_check = total_cycle_days_check / LOOKBACK_DAYS if LOOKBACK_DAYS > 0 else 0.0
+    print(f"  → 主升浪天数占比: {total_cycle_days_check}/{LOOKBACK_DAYS} = {wave_days_ratio_check:.4f} (阈值 >{MIN_WAVE_DAYS_RATIO})")
+
     fail_reasons = []
     if combined_up_ratio <= MIN_UP_DAY_RATIO:
         fail_reasons.append(f"上涨占比{combined_up_ratio:.4f} ≤ {MIN_UP_DAY_RATIO}")
     if combined_avg_daily_gain <= MIN_AVG_DAILY_GAIN:
         fail_reasons.append(f"日均涨幅{combined_avg_daily_gain:.2f}% ≤ {MIN_AVG_DAILY_GAIN}%")
+    if wave_days_ratio_check <= MIN_WAVE_DAYS_RATIO:
+        fail_reasons.append(f"主升浪天数占比{wave_days_ratio_check:.4f} ≤ {MIN_WAVE_DAYS_RATIO}")
     if fail_reasons:
         print(f"  ❌ {'; '.join(fail_reasons)}, 整体不得分")
         print(f"\n{'='*60}")
         print(f"  ★ 最终得分: 0.00")
         print(f"{'='*60}")
         return
-    print(f"  ✅ 两个汇总条件均满足, 继续计算得分")
+    print(f"  ✅ 所有汇总条件均满足, 继续计算得分")
 
     # ===== 第二阶段：取倒数第二个到最后一个序列的间隔计算周期间回调 =====
     print(f"\n{'#'*70}")

@@ -11,7 +11,7 @@ from services.money_flow_service import get_money_flow_service
 from services.rising_wave_service import get_rising_wave_service
 from services.data_sync_notify_service import get_data_sync_notify_service
 from services.valuation_service import get_valuation_service
-from shared.db import get_session, FilterConfig
+from shared.db import get_session, FilterConfig, FilterStock
 
 router = APIRouter(prefix="/api/data", tags=["数据加载"])
 
@@ -100,6 +100,62 @@ def load_daily_data(block_codes: List[str] = Body(...)):
 @router.post("/save-filter-stocks")
 def save_filter_stocks(stocks: List[Dict[str, Any]] = Body(...)):
     return auction_data_service.save_filter_stocks(stocks)
+
+
+class ExcludeStockRequest(BaseModel):
+    code: str
+    stock_name: str
+
+
+@router.post("/exclude-stock")
+def exclude_stock(request: ExcludeStockRequest):
+    """
+    剔除股票，默认筛选5天
+
+    Args:
+        request: 股票信息
+            - code: 股票代码
+            - stock_name: 股票名称
+
+    Returns:
+        Dict: 执行结果
+    """
+    try:
+        from datetime import timedelta
+
+        logger.info(f"收到剔除股票请求: code={request.code}, name={request.stock_name}")
+
+        # 计算延后5天的日期
+        exclude_date = (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d')
+
+        with get_session() as db:
+            # 查找或创建记录
+            filter_stock = db.query(FilterStock).filter(FilterStock.code == request.code).first()
+            if filter_stock:
+                filter_stock.name = request.stock_name
+                filter_stock.is_exclude = 1
+                filter_stock.exclude_date = exclude_date
+            else:
+                filter_stock = FilterStock(
+                    code=request.code,
+                    name=request.stock_name,
+                    is_exclude=1,
+                    exclude_date=exclude_date
+                )
+                db.add(filter_stock)
+
+            db.commit()
+            logger.info(f"已剔除股票: code={request.code}, exclude_date={exclude_date}")
+
+            return {
+                "status": "success",
+                "msg": f"已将 {request.stock_name}({request.code}) 剔除，筛选日期截止至 {exclude_date}"
+            }
+    except Exception as e:
+        logger.error(f"剔除股票失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "msg": str(e)}
 
 
 

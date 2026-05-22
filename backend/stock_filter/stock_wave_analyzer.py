@@ -83,6 +83,7 @@ class StockWaveAnalyzer:
         MIN_AVG_DAILY_GAIN = config['min_avg_daily_gain']
         MIN_LIMIT_UP_DAYS = config['min_limit_up_days']
         LIMIT_UP_NEXT_RED_RATIO = config['limit_up_next_red_ratio']
+        MIN_WAVE_DAYS_RATIO = config['min_wave_days_ratio']
         BETWEEN_CYCLE_MAX_DD = config['between_cycle_max_drawdown']
         BETWEEN_CYCLE_DD_RATIO = config['between_cycle_drawdown_ratio']
         BETWEEN_CYCLE_DD_SCORE_MAP = config['between_cycle_drawdown_score_map']
@@ -255,6 +256,11 @@ class StockWaveAnalyzer:
             total_gain_all = sum(s['period_gain'] for s in all_sequences)
             combined_avg_daily_gain = total_gain_all / total_days_all if total_days_all > 0 else 0.0
             if combined_avg_daily_gain <= MIN_AVG_DAILY_GAIN:
+                return 0.0
+
+            total_cycle_days = sum(s['total_days_in_cycle'] for s in all_sequences)
+            wave_days_ratio = total_cycle_days / LOOKBACK_DAYS if LOOKBACK_DAYS > 0 else 0.0
+            if wave_days_ratio <= MIN_WAVE_DAYS_RATIO:
                 return 0.0
 
             last_seq = all_sequences[-1]

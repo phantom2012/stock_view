@@ -5,7 +5,8 @@ import akshare as ak
 # RUN_MODE = 1: 查询早盘竞价历史数据
 # RUN_MODE = 2: 查询股票资金流向数据
 # RUN_MODE = 3: 查询股票基本信息（流通股本、流通市值）
-RUN_MODE = 2
+# RUN_MODE = 4: 查询同花顺全概念列表
+RUN_MODE = 4
 
 # 股票代码配置
 STOCK_CODE = "000823"  # 测试股票代码   001309  000823  002008
@@ -218,6 +219,30 @@ def test_stock_individual_info():
 
     return results
 
+def test_ths_concept_list():
+    print("查询同花顺全概念列表...")
+    print(f"当前akshare版本: {ak.__version__}")
+    print("=" * 80)
+    print()
+
+    try:
+        df = ak.stock_board_concept_name_ths()
+
+        print(f"成功获取同花顺概念列表！")
+        print(f"共 {len(df)} 个概念板块")
+        print()
+        print("前20条概念列表：")
+        print("-" * 80)
+        print(df.head(20))
+        print("-" * 80)
+
+        return df
+    except Exception as e:
+        print(f"查询失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 if __name__ == "__main__":
     if RUN_MODE == 1:
         test_stock_auction_history()
@@ -225,5 +250,7 @@ if __name__ == "__main__":
         test_stock_fund_flow_individual()
     elif RUN_MODE == 3:
         test_stock_individual_info()
+    elif RUN_MODE == 4:
+        test_ths_concept_list()
     else:
         print(f"未知的 RUN_MODE: {RUN_MODE}")

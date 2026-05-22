@@ -16,21 +16,21 @@
     <!-- 主内容区域容器：w-[88%] 控制筛选条件和表格宽度 -->
     <div class="mx-auto w-[88%] px-6 pb-6">
       <AuctionTab
-        v-if="activeTab === 'auction'"
+        v-show="activeTab === 'auction'"
         :activeTab="activeTab"
         @selectStock="handleSelectStock"
       />
 
       <StockInfoTab
-        v-else-if="activeTab === 'stock_info'"
+        v-show="activeTab === 'stock_info'"
         :selectedStock="selectedStock"
         @back="handleBack"
       />
 
-      <DataImportTab v-else-if="activeTab === 'data_import'" @selectStock="handleSelectStock" />
+      <DataImportTab v-show="activeTab === 'data_import'" @selectStock="handleSelectStock" />
 
-      <FlowTab v-else-if="activeTab === 'flow'" />
-      <SectorTab v-else-if="activeTab === 'sector'" />
+      <FlowTab v-show="activeTab === 'flow'" />
+      <SectorTab v-show="activeTab === 'sector'" />
     </div>
   </div>
 </template>

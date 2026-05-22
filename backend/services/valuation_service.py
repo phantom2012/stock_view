@@ -71,24 +71,36 @@ class ValuationService:
             for end_date in end_dates:
                 if end_date and end_date.endswith('-12-31'):
                     r = records_dict[end_date]
-                    if r.op_income:
+                    if r.op_income and end_date[:4] == end_dates[0][:4]:
                         latest_annual_op_income = r.op_income
                         annual_op_income_source = 'annual'
                         break
 
-            if latest_annual_op_income is None and end_dates:
-                latest_r = records_dict[end_dates[0]]
-                if latest_r and latest_r.op_income:
-                    ed = end_dates[0]
-                    if ed.endswith('-03-31'):
-                        latest_annual_op_income = latest_r.op_income * 4
-                    elif ed.endswith('-06-30'):
-                        latest_annual_op_income = latest_r.op_income * 2
-                    elif ed.endswith('-09-30'):
-                        latest_annual_op_income = latest_r.op_income / 3 * 4
-                    else:
-                        latest_annual_op_income = latest_r.op_income
-                    annual_op_income_source = 'estimated'
+            if latest_annual_op_income is None:
+                latest_year = end_dates[0][:4] if end_dates else ''
+                for end_date in end_dates:
+                    if end_date and end_date.endswith('-12-31'):
+                        r = records_dict[end_date]
+                        if r.op_income and end_date[:4] >= str(int(latest_year) - 1):
+                            latest_annual_op_income = r.op_income
+                            annual_op_income_source = 'annual'
+                            break
+
+            if latest_annual_op_income is None or annual_op_income_source != 'annual':
+                for end_date in end_dates:
+                    if end_date and not end_date.endswith('-12-31') and end_date[:4] == end_dates[0][:4]:
+                        r = records_dict[end_date]
+                        if r.op_income:
+                            if end_date.endswith('-03-31'):
+                                latest_annual_op_income = r.op_income * 4
+                            elif end_date.endswith('-06-30'):
+                                latest_annual_op_income = r.op_income * 2
+                            elif end_date.endswith('-09-30'):
+                                latest_annual_op_income = r.op_income / 3 * 4
+                            else:
+                                latest_annual_op_income = r.op_income
+                            annual_op_income_source = 'estimated'
+                            break
 
             total_mv = None
             if stock_info and stock_info.circ_mv:
@@ -287,7 +299,7 @@ class ValuationService:
                         break
                 if prev_q1 and prev_q1 in eps_values:
                     return eps_values[prev_year_end] - eps_values[prev_q1] + latest_eps
-                return eps_values[prev_year_end] + latest_eps
+                return latest_eps
         if is_q2:
             prev_year_end = None
             for ed in end_dates:
