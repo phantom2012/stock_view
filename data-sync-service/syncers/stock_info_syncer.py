@@ -4,7 +4,6 @@
 检查 stock_info 表中 free_share 字段是否为空或0，调用 daily_basic 接口补充
 同时更新 list_status、list_date、delist_date 字段
 """
-import logging
 from datetime import datetime, date as dt_date
 from sqlalchemy import Date
 from typing import List, Tuple
@@ -14,9 +13,9 @@ from shared.stock_code_convert import to_tushare_ts_code, to_pure_code
 from shared.trade_date_util import TradeDateUtil
 from external_data import get_query_handler
 from .base_syncer import BaseSyncer
-from utils.log_utils import log_progress
+from utils.log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 trade_date_util = TradeDateUtil()
 SYNC_TYPE = 'stock_info'  # 同步类型标识
@@ -35,7 +34,7 @@ class StockInfoSyncer(BaseSyncer):
     """
 
     def sync(self) -> Tuple[bool, int, int, str]:
-        logger.info("===== 开始股票基础信息同步 =====")
+        log_util.info("===== 开始股票基础信息同步 =====")
         try:
             # 获取最新交易日
             latest_trade_date = trade_date_util.get_latest_trade_date()
@@ -45,13 +44,13 @@ class StockInfoSyncer(BaseSyncer):
 
             # 检查通知表状态，判断是否需要执行同步
             if self._should_skip_sync(latest_trade_date):
-                logger.info(f"股票信息已同步到最新交易日 {latest_trade_date}，且无失败记录，跳过本次同步")
+                log_util.info(f"股票信息已同步到最新交易日 {latest_trade_date}，且无失败记录，跳过本次同步")
                 return True, 0, 0, f"数据已同步到 {latest_trade_date}，无需更新"
 
             query_handler = get_query_handler()
 
             # 获取股票基本信息（已包含所有状态，list_status 已在接口内部显式设置）
-            logger.info(f"获取股票基本信息（所有状态）")
+            log_util.info(f"获取股票基本信息（所有状态）")
             instruments_df = query_handler.get_instruments(list_status=None)
             if instruments_df is None or instruments_df.empty:
                 self._update_notify_status(False, 0, 0, "获取股票基本信息失败")
@@ -69,15 +68,15 @@ class StockInfoSyncer(BaseSyncer):
                     'delist_date': self._format_date(row.get('delist_date', '')),
                 }
 
-            logger.info(f"获取股票基本信息成功，共 {len(stock_basic_data)} 只股票")
+            log_util.info(f"获取股票基本信息成功，共 {len(stock_basic_data)} 只股票")
 
-            logger.info(f"批量查询全市场每日基本面数据，日期: {latest_trade_date}")
+            log_util.info(f"批量查询全市场每日基本面数据，日期: {latest_trade_date}")
             all_stock_data = query_handler.get_daily_basic_data(trade_date=latest_trade_date)
             if all_stock_data is None:
                 self._update_notify_status(False, 0, 0, "批量查询全市场数据失败")
                 return False, 0, 0, "批量查询全市场数据失败"
 
-            logger.info(f"批量查询全市场基本面数据成功，获取到 {len(all_stock_data)} 只股票的数据")
+            log_util.info(f"批量查询全市场基本面数据成功，获取到 {len(all_stock_data)} 只股票的数据")
 
             # 遍历所有股票信息，进行插入或更新
             total_stocks = len(stock_basic_data)
@@ -98,15 +97,15 @@ class StockInfoSyncer(BaseSyncer):
                         updated_count += 1
                     else:
                         failed_count += 1
-                    log_progress(f"进度: [{idx}/{total_stocks}] 已处理 {updated_count} 只股票", idx, total_stocks)
+                    log_util.log_progress(f"进度: [{idx}/{total_stocks}] 已处理 {updated_count} 只股票", idx, total_stocks)
 
                 except Exception as e:
-                    logger.error(f"  处理 {code} 失败: {e}")
+                    log_util.limit_error(f"  处理 {code} 失败: {e}")
                     failed_count += 1
                     continue
 
-            logger.info("===== 股票基础信息同步完成 =====")
-            logger.info(f"总股票数: {total_stocks}, 已更新: {updated_count}, 失败: {failed_count}")
+            log_util.info("===== 股票基础信息同步完成 =====")
+            log_util.info(f"总股票数: {total_stocks}, 已更新: {updated_count}, 失败: {failed_count}")
 
             # 更新通知表状态
             success = failed_count == 0
@@ -117,7 +116,7 @@ class StockInfoSyncer(BaseSyncer):
             return success, updated_count, failed_count, f"更新{updated_count}只, 失败{failed_count}只"
 
         except Exception as e:
-            logger.error(f"股票基础信息同步异常: {e}")
+            log_util.limit_error(f"股票基础信息同步异常: {e}")
             import traceback; traceback.print_exc()
             self._update_notify_status(False, 0, 0, str(e))
             return False, 0, 0, str(e)
@@ -142,18 +141,18 @@ class StockInfoSyncer(BaseSyncer):
                 ).first()
 
                 if not notify:
-                    logger.info(f"未找到 {SYNC_TYPE} 的通知记录，需要执行同步")
+                    log_util.info(f"未找到 {SYNC_TYPE} 的通知记录，需要执行同步")
                     return False
 
                 # 检查 data_date 是否为最新交易日且无失败记录
                 if (notify.data_date == latest_trade_date and
                     notify.fail_count == 0):
-                    logger.info(f"data_date={notify.data_date}, latest_trade_date={latest_trade_date}, fail_count={notify.fail_count}")
+                    log_util.info(f"data_date={notify.data_date}, latest_trade_date={latest_trade_date}, fail_count={notify.fail_count}")
                     return True
 
                 return False
         except Exception as e:
-            logger.error(f"检查同步状态失败: {e}")
+            log_util.limit_error(f"检查同步状态失败: {e}")
             return False
 
     def _update_notify_status(self, success: bool, success_count: int,
@@ -187,9 +186,9 @@ class StockInfoSyncer(BaseSyncer):
                         notify.data_date = data_date
 
                     db.commit()
-                    logger.info(f"更新 {SYNC_TYPE} 通知状态: status={notify.status}, data_date={notify.data_date}")
+                    log_util.info(f"更新 {SYNC_TYPE} 通知状态: status={notify.status}, data_date={notify.data_date}")
         except Exception as e:
-            logger.error(f"更新 {SYNC_TYPE} 通知状态失败: {e}")
+            log_util.limit_error(f"更新 {SYNC_TYPE} 通知状态失败: {e}")
 
     def _format_date(self, date_str: str) -> str:
         """格式化日期，将 YYYYMMDD 转换为 YYYY-MM-DD"""
@@ -259,5 +258,5 @@ class StockInfoSyncer(BaseSyncer):
                 db.commit()
                 return True
         except Exception as e:
-            logger.error(f"更新 {code} 失败: {e}")
+            log_util.limit_error(f"更新 {code} 失败: {e}")
             return False

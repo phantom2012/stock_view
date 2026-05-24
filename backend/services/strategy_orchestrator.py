@@ -6,12 +6,12 @@ from models import StockDetail, FilterResult, StockScore, get_session
 from models.filter_params import FilterParams
 from stock_filter import get_stock_filter_engine
 from common.block_stock_util import get_stocks_by_blocks
-from common.stock_code_convert import to_goldminer_symbol, to_pure_code
+from shared.stock_code_convert import to_goldminer_symbol, to_pure_code
 from common.singleton import SingletonMixin
 from shared.db import upsert_by_unique_keys
 from shared.trade_date_util import TradeDateUtil
 from services.data_sync_notify_service import get_data_sync_notify_service
-from config import INTERVAL_RISE_SCORE_COEFFICIENT
+from config import calculate_interval_rise_score
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +230,7 @@ class StrategyOrchestrator(SingletonMixin):
                 if stock.rising_wave_score > 0:
                     update_data['rising_wave_score'] = stock.rising_wave_score
                 if stock.interval_max_rise != 0:
-                    interval_rise_score = round(abs(stock.interval_max_rise) * INTERVAL_RISE_SCORE_COEFFICIENT, 2)
+                    interval_rise_score = calculate_interval_rise_score(abs(stock.interval_max_rise))
                     update_data['interval_rise_score'] = interval_rise_score
 
                 if len(update_data) > 1:

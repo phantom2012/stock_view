@@ -17,20 +17,21 @@ from stock_filter.stock_analyzer import StockAnalyzer
 from stock_cache import get_stock_cache
 from common.block_stock_util import get_blocks_by_stock, get_stocks_by_blocks
 from models.filter_params import FilterParams
-from common.stock_code_convert import to_goldminer_symbol
+from shared.stock_code_convert import to_goldminer_symbol
 
 # 初始化
 stock_analyzer = StockAnalyzer()
 stock_cache = get_stock_cache()
 
+
 # 用户筛选条件 - 使用板块代码
-# 880491=半导体, 880656=CPO概念, 880672=存储芯片, 880952=芯片
+# 880608=第三代半导体, 880656=CPO概念, 880672=存储芯片, 880952=芯片
 params = FilterParams(
-    trade_date='2026-05-18',
+    trade_date='2026-05-12',
     weipan_exceed=0,
     zaopan_exceed=0,
     rising_wave=1,  # 勾选了上升形态
-    select_blocks='880491,880656,880672,880952',  # 使用板块代码
+    select_blocks='880608,880656,880672,880952',  # 使用板块代码
     interval_days=50,
     interval_max_rise=30.0,
     recent_days=10,
@@ -40,7 +41,7 @@ params = FilterParams(
 )
 
 # 德明利股票代码
-stock_code = '603986'
+stock_code = '600584'
 symbol = to_goldminer_symbol(stock_code)
 
 print(f"========== 德明利({stock_code})筛选分析 ==========")

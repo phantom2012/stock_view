@@ -3,7 +3,6 @@
 仅负责从外部接口拉取资金流向数据并保存到 stock_money_flow 表
 转强字段计算已迁移到 backend/stock_filter/stock_money_analyzer.py
 """
-import logging
 from datetime import datetime
 from typing import List, Set, Tuple, Dict, Any
 
@@ -16,9 +15,9 @@ from shared.trade_date_util import TradeDateUtil
 from external_data import get_query_handler
 from config import MONEY_FLOW_CONFIG
 from .base_syncer import BaseSyncer
-from utils.log_utils import log_progress
+from utils.log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 trade_date_util = TradeDateUtil()
 SCAN_DAYS = 30
@@ -33,20 +32,20 @@ class MoneyFlowSyncer(BaseSyncer):
     """
 
     def sync(self, stock_codes=None) -> Tuple[bool, int, int, str]:
-        logger.info("===== 开始资金流向数据同步 =====")
+        log_util.info("===== 开始资金流向数据同步 =====")
         try:
             if stock_codes is None:
                 stock_codes = self._get_filter_stock_codes()
 
             if not stock_codes:
-                logger.warning("filter_results 表中没有股票数据，跳过同步")
+                log_util.limit_warn("filter_results 表中没有股票数据，跳过同步")
                 return True, 0, 0, "无股票数据"
 
             all_trade_dates = trade_date_util.get_recent_trade_dates(SCAN_DAYS)
             if not all_trade_dates:
                 return False, 0, 0, "获取交易日列表失败"
 
-            logger.info(f"最近 {SCAN_DAYS} 个交易日: {all_trade_dates[0]} ~ {all_trade_dates[-1]}")
+            log_util.info(f"最近 {SCAN_DAYS} 个交易日: {all_trade_dates[0]} ~ {all_trade_dates[-1]}")
 
             query_handler = get_query_handler()
             total_stocks = len(stock_codes)
@@ -59,7 +58,7 @@ class MoneyFlowSyncer(BaseSyncer):
                     if not missing_dates:
                         continue
 
-                    log_progress(f"[{idx}/{total_stocks}] {code}: 缺失 {len(missing_dates)} 个交易日", idx, total_stocks)
+                    log_util.log_progress(f"[{idx}/{total_stocks}] {code}: 缺失 {len(missing_dates)} 个交易日", idx, total_stocks)
                     start_date = missing_dates[0]
                     end_date = missing_dates[-1]
 
@@ -69,7 +68,7 @@ class MoneyFlowSyncer(BaseSyncer):
                     )
 
                     if df is None or df.empty:
-                        logger.warning(f"  外部接口未返回 {code} 的数据")
+                        log_util.limit_warn(f"  外部接口未返回 {code} 的数据")
                         failed_stocks += 1
                         continue
 
@@ -77,17 +76,17 @@ class MoneyFlowSyncer(BaseSyncer):
                     total_saved += saved
 
                 except Exception as e:
-                    logger.error(f"  同步 {code} 失败: {e}")
+                    log_util.limit_error(f"  同步 {code} 失败: {e}")
                     failed_stocks += 1
                     continue
 
-            logger.info("===== 资金流向数据同步完成 =====")
-            logger.info(f"总股票数: {total_stocks}, 成功保存: {total_saved}, 失败: {failed_stocks}")
+            log_util.info("===== 资金流向数据同步完成 =====")
+            log_util.info(f"总股票数: {total_stocks}, 成功保存: {total_saved}, 失败: {failed_stocks}")
 
             return True, total_saved, failed_stocks, f"同步{total_saved}条, 失败{failed_stocks}只"
 
         except Exception as e:
-            logger.error(f"资金流向数据同步异常: {e}")
+            log_util.limit_error(f"资金流向数据同步异常: {e}")
             import traceback; traceback.print_exc()
             return False, 0, 0, str(e)
 
@@ -97,10 +96,10 @@ class MoneyFlowSyncer(BaseSyncer):
             with get_session_ro() as db:
                 rows = db.query(FilterResult.code).distinct().all()
                 codes = [row[0] for row in rows if row[0]]
-                logger.info(f"从 filter_results 获取到 {len(codes)} 个股票代码")
+                log_util.info(f"从 filter_results 获取到 {len(codes)} 个股票代码")
                 return codes
         except Exception as e:
-            logger.error(f"获取 filter_results 股票代码失败: {e}")
+            log_util.limit_error(f"获取 filter_results 股票代码失败: {e}")
             return []
 
     def _get_existing_trade_dates(self, code: str) -> Set[str]:
@@ -112,7 +111,7 @@ class MoneyFlowSyncer(BaseSyncer):
                 ).all()
                 return {row[0] for row in rows if row[0]}
         except Exception as e:
-            logger.error(f"查询 {code} 已有交易日失败: {e}")
+            log_util.limit_error(f"查询 {code} 已有交易日失败: {e}")
             return set()
 
     def _get_missing_trade_dates(self, code: str, all_trade_dates: List[str]) -> List[str]:

@@ -3,7 +3,6 @@
 从 backend/stock_cache/__init__.py 中的 get_history_data / get_stock_day_data 迁移
 每日16:00执行，从掘金接口获取日线数据并写入 stock_daily 表
 """
-import logging
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
@@ -13,9 +12,9 @@ from shared.trade_date_util import TradeDateUtil
 from external_data import get_query_handler
 from config import DAILY_DATA_CONFIG
 from .base_syncer import BaseSyncer
-from utils.log_utils import log_progress
+from utils.log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 trade_date_util = TradeDateUtil()
 DEFAULT_DAYS = DAILY_DATA_CONFIG.get('default_days', 90)  # 默认90个交易日，可配置
@@ -35,7 +34,7 @@ class DailyDataSyncer(BaseSyncer):
     """
 
     def sync(self) -> Tuple[bool, int, int, str]:
-        logger.info("===== 开始日线数据同步 =====")
+        log_util.info("===== 开始日线数据同步 =====")
         try:
             # 获取最新交易日
             latest_trade_date = trade_date_util.get_latest_trade_date()
@@ -47,7 +46,7 @@ class DailyDataSyncer(BaseSyncer):
             stock_codes = self._get_stock_codes_from_blocks()
 
             if not stock_codes:
-                logger.warning("未获取到板块配置对应的股票数据，跳过同步")
+                log_util.limit_warn("未获取到板块配置对应的股票数据，跳过同步")
                 self._update_notify_status(True, 0, 0, "无股票数据")
                 return True, 0, 0, "无股票数据"
 
@@ -55,10 +54,10 @@ class DailyDataSyncer(BaseSyncer):
             expected_dates = trade_date_util.get_recent_trade_dates(days=DEFAULT_DAYS + 10)
             expected_count = len(expected_dates)
             if expected_count == 0:
-                logger.warning("未获取到交易日列表")
+                log_util.limit_warn("未获取到交易日列表")
                 return False, 0, 0, "未获取到交易日列表"
 
-            logger.info(f"期望同步最近 {expected_count} 个交易日数据")
+            log_util.info(f"期望同步最近 {expected_count} 个交易日数据")
 
             query_handler = get_query_handler()
             total_saved = 0
@@ -73,12 +72,12 @@ class DailyDataSyncer(BaseSyncer):
                     total_stocks = len(stock_codes)
                     # 如果数据量已满足（刚好等于期望的交易日个数），跳过查询外部接口
                     if existing_count >= expected_count:
-                        log_progress(f"[{idx}/{total_stocks}] {code}: 已有 {existing_count} 条数据，无需同步", idx, total_stocks)
+                        log_util.log_progress(f"[{idx}/{total_stocks}] {code}: 已有 {existing_count} 条数据，无需同步", idx, total_stocks)
                         skipped_count += 1
                         continue
 
                     symbol = to_goldminer_symbol(code)
-                    log_progress(f"[{idx}/{total_stocks}] {code}: 获取日线数据...(已有 {existing_count} 条，期望 {expected_count} 条)", idx, total_stocks)
+                    log_util.log_progress(f"[{idx}/{total_stocks}] {code}: 获取日线数据...(已有 {existing_count} 条，期望 {expected_count} 条)", idx, total_stocks)
 
                     data = query_handler.get_daily_data(
                         symbol=symbol,
@@ -87,7 +86,7 @@ class DailyDataSyncer(BaseSyncer):
                     )
 
                     if data is None or data.empty:
-                        logger.warning(f"  {code}: 未获取到日线数据")
+                        log_util.limit_warn(f"  {code}: 未获取到日线数据")
                         failed_count += 1
                         continue
 
@@ -95,12 +94,12 @@ class DailyDataSyncer(BaseSyncer):
                     total_saved += saved
 
                 except Exception as e:
-                    logger.error(f"  {code}: 同步失败: {e}")
+                    log_util.limit_error(f"  {code}: 同步失败: {e}")
                     failed_count += 1
                     continue
 
-            logger.info("===== 日线数据同步完成 =====")
-            logger.info(f"总股票数: {len(stock_codes)}, 成功保存: {total_saved}, 跳过: {skipped_count}, 失败: {failed_count}")
+            log_util.info("===== 日线数据同步完成 =====")
+            log_util.info(f"总股票数: {len(stock_codes)}, 成功保存: {total_saved}, 跳过: {skipped_count}, 失败: {failed_count}")
 
             # 更新通知表状态
             success = failed_count == 0
@@ -111,7 +110,7 @@ class DailyDataSyncer(BaseSyncer):
             return success, total_saved, failed_count, f"同步{total_saved}条, 跳过{skipped_count}条"
 
         except Exception as e:
-            logger.error(f"日线数据同步异常: {e}")
+            log_util.limit_error(f"日线数据同步异常: {e}")
             import traceback; traceback.print_exc()
             self._update_notify_status(False, 0, 0, str(e))
             return False, 0, 0, str(e)
@@ -147,9 +146,9 @@ class DailyDataSyncer(BaseSyncer):
                         notify.data_date = data_date
 
                     db.commit()
-                    logger.info(f"更新 {SYNC_TYPE} 通知状态: status={notify.status}, data_date={notify.data_date}")
+                    log_util.info(f"更新 {SYNC_TYPE} 通知状态: status={notify.status}, data_date={notify.data_date}")
         except Exception as e:
-            logger.error(f"更新 {SYNC_TYPE} 通知状态失败: {e}")
+            log_util.limit_error(f"更新 {SYNC_TYPE} 通知状态失败: {e}")
 
     def _get_existing_daily_count(self, code: str, start_date: str = None) -> int:
         """获取数据库中该股票在指定时间范围内已有的日线数据数量"""
@@ -162,7 +161,7 @@ class DailyDataSyncer(BaseSyncer):
                 count = query.count()
                 return count
         except Exception as e:
-            logger.error(f"查询股票 {code} 日线数据数量失败: {e}")
+            log_util.limit_error(f"查询股票 {code} 日线数据数量失败: {e}")
             return 0
 
     def _get_stock_codes_from_blocks(self) -> List[str]:
@@ -178,16 +177,16 @@ class DailyDataSyncer(BaseSyncer):
                 ).first()
 
                 if not config or not config.select_blocks:
-                    logger.warning("filter_config 中 type=2 的配置不存在或未设置 select_blocks")
+                    log_util.limit_warn("filter_config 中 type=2 的配置不存在或未设置 select_blocks")
                     return []
 
                 # 解析板块列表（逗号分隔）
                 block_codes = [b.strip() for b in config.select_blocks.split(',') if b.strip()]
                 if not block_codes:
-                    logger.warning("select_blocks 为空")
+                    log_util.limit_warn("select_blocks 为空")
                     return []
 
-                logger.info(f"从 filter_config 获取到 {len(block_codes)} 个板块: {block_codes}")
+                log_util.info(f"从 filter_config 获取到 {len(block_codes)} 个板块: {block_codes}")
 
                 # 从 block_stock 表查询这些板块对应的所有股票（去重）
                 rows = db.query(BlockStock.stock_code).filter(
@@ -195,12 +194,12 @@ class DailyDataSyncer(BaseSyncer):
                 ).distinct().all()
 
                 stock_codes = [row[0] for row in rows if row[0]]
-                logger.info(f"从 {len(block_codes)} 个板块中获取到 {len(stock_codes)} 只股票（已去重）")
+                log_util.info(f"从 {len(block_codes)} 个板块中获取到 {len(stock_codes)} 只股票（已去重）")
 
                 return stock_codes
 
         except Exception as e:
-            logger.error(f"获取板块股票代码失败: {e}")
+            log_util.limit_error(f"获取板块股票代码失败: {e}")
             import traceback; traceback.print_exc()
             return []
 
@@ -242,7 +241,7 @@ class DailyDataSyncer(BaseSyncer):
                     processed += 1
                 db.commit()
         except Exception as e:
-            logger.error(f"保存日线数据失败: {e}")
+            log_util.limit_error(f"保存日线数据失败: {e}")
             import traceback; traceback.print_exc()
         return processed
 

@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, Any, List
 
 from models import get_session
-from common.stock_code_convert import to_goldminer_symbol
+from shared.stock_code_convert import to_goldminer_symbol
 from common.singleton import SingletonMixin
 from services.data_sync_notify_service import get_data_sync_notify_service
 

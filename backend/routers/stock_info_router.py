@@ -5,7 +5,7 @@ from fastapi import APIRouter
 
 from models import get_session_ro, StockScore
 from stock_cache import get_stock_cache
-from common.stock_code_convert import to_goldminer_symbol
+from shared.stock_code_convert import to_goldminer_symbol
 
 router = APIRouter(prefix="/api/stock", tags=["股票信息"])
 

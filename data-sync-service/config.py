@@ -27,19 +27,33 @@ TUSHARE_CONFIG = {
 # ==================== 同步器配置 ====================
 # 股票信息同步配置
 STOCK_INFO_CONFIG: Dict[str, Any] = {
-    'cron_hour': 15,                  # 定时同步时间（小时）
+    'cron_hour': 16,                  # 定时同步时间（小时）
     'cron_minute': 0,                 # 定时同步时间（分钟）
-    'start_delay_minutes': 5,          # 启动后延迟执行时间（分钟），None或0表示不延迟
+    'start_delay_minutes': 1,          # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
 
 # 日线数据同步配置
 DAILY_DATA_CONFIG: Dict[str, Any] = {
-    'interval_minutes': 30,           # 定时同步间隔（分钟）
+    'interval_minutes': 45,           # 定时同步间隔（分钟）
     'default_days': 90,              # 默认同步天数（可配置）
-    'start_delay_minutes': 7,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+    'start_delay_minutes': 2,         # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
+
+# 竞价数据同步配置
+AUCTION_DATA_CONFIG: Dict[str, Any] = {
+    'cron_hour': 9,                  # 定时同步时间（小时）
+    'cron_minute': 35,               # 定时同步时间（分钟）
+    'start_delay_minutes': 4,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+}
+
+# 分钟数据同步配置
+MINUTE_DATA_CONFIG: Dict[str, Any] = {
+    'cron_hour': 16,                 # 定时同步时间（小时）
+    'cron_minute': 0,                # 定时同步时间（分钟）
+    'start_delay_minutes': 6,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+}
 
 # 资金流向同步配置
 MONEY_FLOW_CONFIG: Dict[str, Any] = {
@@ -69,38 +83,25 @@ TURN_STRONG_CYCLE_CONFIG: Dict[str, Any] = {
     'daily_outflow_ratio': 0.7,
 }
 
-# 竞价数据同步配置
-AUCTION_DATA_CONFIG: Dict[str, Any] = {
-    'cron_hour': 9,                  # 定时同步时间（小时）
-    'cron_minute': 35,               # 定时同步时间（分钟）
-    'start_delay_minutes': 13,         # 启动后延迟执行时间（分钟），None或0表示不延迟
-}
-
-# 分钟数据同步配置
-MINUTE_DATA_CONFIG: Dict[str, Any] = {
-    'cron_hour': 16,                 # 定时同步时间（小时）
-    'cron_minute': 0,                # 定时同步时间（分钟）
-    'start_delay_minutes': 16,         # 启动后延迟执行时间（分钟），None或0表示不延迟
-}
-
 # 财务指标数据同步配置（仅通过通知表触发，无定时任务）
 FINANCIAL_DATA_CONFIG: Dict[str, Any] = {
-    'start_delay_minutes': 20,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+    'start_delay_minutes': 200,         # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
 # 行业估值基准同步配置（仅通过通知表触发）
 INDUSTRY_VALUATION_CONFIG: Dict[str, Any] = {
-    'start_delay_minutes': 22,         # 启动后延迟执行时间（分钟），None或0表示不延迟
+    'start_delay_minutes': 200,         # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
 # 数据清理配置
 CLEAR_DATA_CONFIG: Dict[str, Any] = {
-    'interval_seconds': 120,          # 扫描间隔（秒）
+    'interval_minutes': 60,           # 扫描间隔（分钟）
+    'start_delay_minutes': 0,         # 启动后延迟执行时间（分钟），None或0表示不延迟
 }
 
 # ==================== 通知表扫描配置 ====================
 NOTIFY_SCANNER_CONFIG: Dict[str, Any] = {
-    'interval_seconds': 5,           # 扫描间隔（秒）
+    'interval_seconds': 2,           # 扫描间隔（秒）
     'max_wait_seconds': 8,           # backend 最大等待时间（秒）
 }
 

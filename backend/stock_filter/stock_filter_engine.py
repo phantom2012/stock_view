@@ -6,7 +6,7 @@ from models import StockDetail
 from models.filter_params import FilterParams
 from shared.trade_date_util import TradeDateUtil
 from stock_cache import get_stock_cache
-from common.stock_code_convert import to_pure_code
+from shared.stock_code_convert import to_pure_code
 from .stock_analyzer import StockAnalyzer
 
 logger = logging.getLogger(__name__)

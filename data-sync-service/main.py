@@ -1,6 +1,7 @@
 """
 data-sync-service 数据同步服务入口
 """
+import argparse
 import logging
 import sys
 import os
@@ -56,7 +57,10 @@ def handle_signal(signum, frame):
     sys.exit(0)
 
 
-def main():
+# 启动方式：
+#   python main.py                  默认启动，不延迟，所有定时任务立即按周期运行
+#   python main.py --start_sync     启用延迟策略，各任务按配置的 start_delay_minutes 错峰启动
+def main(start_sync: bool = False):
     """服务入口"""
     global scheduler
 
@@ -71,7 +75,7 @@ def main():
         logger.info("信号处理已注册")
 
         # 初始化调度器
-        scheduler = DataSyncScheduler()
+        scheduler = DataSyncScheduler(start_sync=start_sync)
         scheduler.start()
 
         logger.info("data-sync-service 启动完成，开始运行...")
@@ -96,4 +100,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='数据同步服务')
+    parser.add_argument(
+        '--start_sync', action='store_true',
+        help='启用启动延迟策略，让各同步任务错峰启动（默认不延迟，直接按周期运行）'
+    )
+    args = parser.parse_args()
+    main(start_sync=args.start_sync)

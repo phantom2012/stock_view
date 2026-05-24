@@ -8,15 +8,6 @@ from typing import Dict, Tuple
 class LogUtils:
 
     def __init__(self, logger: logging.Logger, threshold: int = 3, window_seconds: float = 3.0, throttle_interval: float = 2.0):
-        """
-        初始化日志工具
-
-        Args:
-            logger: 标准 logging.Logger 实例，用于实际输出日志
-            threshold: 触发频率控制的调用次数阈值。同一调用位置在 window_seconds 内调用次数超过此值时，开始启用频率控制
-            window_seconds: 调用统计窗口（秒）。在此时间窗口内的连续调用会被累加计数；窗口外无调用则计数器重置
-            throttle_interval: 频率控制下的打印间隔（秒）。达到阈值后，每隔此时间间隔打印一次累计调用次数
-        """
         self._logger = logger
         self._threshold = threshold
         self._window = window_seconds

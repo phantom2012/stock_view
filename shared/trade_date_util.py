@@ -119,7 +119,6 @@ class TradeDateUtil:
                             )
                             db.add(new_record)
 
-                    db.commit()
                     logger.info(f"成功同步 {len(data)} 条交易日历数据")
 
             finally:

@@ -2,7 +2,6 @@
 竞价数据同步器
 从 stock_minute 表获取分时数据，计算早盘和尾盘竞价信息，写入 stock_auction 表
 """
-import logging
 from datetime import datetime
 from typing import List, Tuple, Dict, Optional, Any
 
@@ -12,9 +11,9 @@ from shared.db import (
 )
 from shared.trade_date_util import TradeDateUtil
 from .base_syncer import BaseSyncer
-from utils.log_utils import log_progress
+from utils.log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 trade_date_util = TradeDateUtil()
 DEFAULT_DAYS = 30
@@ -23,14 +22,14 @@ DEFAULT_DAYS = 30
 class AuctionDataSyncer(BaseSyncer):
 
     def sync(self, stock_codes=None) -> Tuple[bool, int, int, str]:
-        logger.info("===== 开始竞价数据同步 =====")
+        log_util.info("===== 开始竞价数据同步 =====")
         try:
             # 如果没有传入股票列表，从 filter_results 表读取
             if stock_codes is None:
                 stock_codes = self._get_filter_stock_codes()
 
             if not stock_codes:
-                logger.warning("filter_results 表中没有股票数据，跳过同步")
+                log_util.limit_warn("filter_results 表中没有股票数据，跳过同步")
                 return True, 0, 0, "无股票数据"
 
             recent_trade_dates = trade_date_util.get_recent_trade_dates(DEFAULT_DAYS)
@@ -38,7 +37,7 @@ class AuctionDataSyncer(BaseSyncer):
                 return False, 0, 0, "获取交易日列表失败"
 
             recent_trade_dates.reverse()
-            logger.info(f"获取到 {len(recent_trade_dates)} 个交易日")
+            log_util.info(f"获取到 {len(recent_trade_dates)} 个交易日")
 
             success_count = 0
             fail_count = 0
@@ -55,17 +54,17 @@ class AuctionDataSyncer(BaseSyncer):
                     else:
                         fail_count += 1
                 except Exception as e:
-                    logger.error(f"  {code}: 同步失败: {e}")
+                    log_util.limit_error(f"  {code}: 同步失败: {e}")
                     fail_count += 1
 
-                log_progress(f"进度: [{stock_idx}/{len(stock_codes)}]", stock_idx, len(stock_codes))
+                log_util.log_progress(f"进度: [{stock_idx}/{len(stock_codes)}]", stock_idx, len(stock_codes))
 
-            logger.info("===== 竞价数据同步完成 =====")
-            logger.info(f"总股票数: {len(stock_codes)}, 成功: {success_count}, 失败: {fail_count}")
+            log_util.info("===== 竞价数据同步完成 =====")
+            log_util.info(f"总股票数: {len(stock_codes)}, 成功: {success_count}, 失败: {fail_count}")
             return True, success_count, fail_count, f"处理{success_count}只"
 
         except Exception as e:
-            logger.error(f"竞价数据同步异常: {e}")
+            log_util.limit_error(f"竞价数据同步异常: {e}")
             return False, 0, 0, str(e)
 
     def _sync_stock_auction(self, code: str, trade_dates: List[str]) -> bool:
@@ -91,7 +90,7 @@ class AuctionDataSyncer(BaseSyncer):
                     auction_updates.append((date_str, auction_data))
                     auction_map[date_str] = auction_data
             except Exception as e:
-                logger.error(f"  {code} {date_str}: 处理失败: {e}")
+                log_util.limit_error(f"  {code} {date_str}: 处理失败: {e}")
                 stock_success = False
 
         if auction_updates:
@@ -105,7 +104,7 @@ class AuctionDataSyncer(BaseSyncer):
                 rows = db.query(FilterResult.code).distinct().all()
                 return [row[0] for row in rows if row[0]]
         except Exception as e:
-            logger.error(f"获取 filter_results 股票代码失败: {e}")
+            log_util.limit_error(f"获取 filter_results 股票代码失败: {e}")
             return []
 
     def _get_minute_data_map(self, code: str, trade_dates: List[str]) -> Dict[str, Dict[str, Any]]:
@@ -123,7 +122,7 @@ class AuctionDataSyncer(BaseSyncer):
                     result[row.trade_date][time_part] = row
                 return result
         except Exception as e:
-            logger.error(f"查询 {code} minute数据失败: {e}")
+            log_util.limit_error(f"查询 {code} minute数据失败: {e}")
             return {}
 
     def _get_daily_data_map(self, code: str, trade_dates: List[str]) -> Dict[str, Any]:
@@ -135,7 +134,7 @@ class AuctionDataSyncer(BaseSyncer):
                 ).all()
                 return {row.trade_date: row for row in rows}
         except Exception as e:
-            logger.error(f"查询 {code} daily数据失败: {e}")
+            log_util.limit_error(f"查询 {code} daily数据失败: {e}")
             return {}
 
     def _get_auction_data_map(self, code: str, trade_dates: List[str]) -> Dict[str, Dict]:
@@ -147,7 +146,7 @@ class AuctionDataSyncer(BaseSyncer):
                 ).all()
                 return {row.trade_date: {'open_volume': row.open_volume} for row in rows}
         except Exception as e:
-            logger.error(f"查询 {code} auction数据失败: {e}")
+            log_util.limit_error(f"查询 {code} auction数据失败: {e}")
             return {}
 
     def _calculate_auction_data(self, code: str, date_str: str, trade_dates: List[str],
@@ -188,7 +187,7 @@ class AuctionDataSyncer(BaseSyncer):
         prev_date_str = trade_date_util.get_previous_trade_date(current_date)
 
         if not prev_date_str:
-            logger.warning(f"未找到 {date_str} 之前的上一个交易日")
+            log_util.limit_warn(f"未找到 {date_str} 之前的上一个交易日")
             return None
 
         prev_minute = minute_map.get(prev_date_str, {}).get("09:25:00")
@@ -217,7 +216,7 @@ class AuctionDataSyncer(BaseSyncer):
                     )
                 db.commit()
         except Exception as e:
-            logger.error(f"批量保存竞价数据失败: {e}")
+            log_util.limit_error(f"批量保存竞价数据失败: {e}")
 
     @staticmethod
     def _to_float(value, default=0):

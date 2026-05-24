@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
 from shared.trade_date_util import TradeDateUtil
-from common.stock_code_convert import to_pure_code
+from shared.stock_code_convert import to_pure_code
 from models import StockDaily, StockAuction, StockInfo, StockMinute, StockTick, get_session, get_session_ro
 
 

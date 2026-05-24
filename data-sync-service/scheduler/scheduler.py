@@ -38,8 +38,9 @@ class DataSyncScheduler:
     管理定时任务和通知表扫描
     """
 
-    def __init__(self):
+    def __init__(self, start_sync: bool = False):
         self.scheduler = BackgroundScheduler()
+        self.start_sync = start_sync
         self.syncers = {
             'money_flow': MoneyFlowSyncer(),
             'stock_info': StockInfoSyncer(),
@@ -64,13 +65,20 @@ class DataSyncScheduler:
         self.scheduler.shutdown(wait=False)
         logger.info("调度器已停止")
 
+    def _get_delay_minutes(self, configured_delay: int) -> int:
+        """
+        根据 start_sync 标志决定实际生效的延迟分钟数
+        未传入 --start-sync 时禁用所有延迟启动
+        """
+        return configured_delay if self.start_sync else 0
+
     def _register_timed_tasks(self):
         """注册定时任务"""
         # 资金流向同步（每15分钟）
         self._register_job_with_delay(
             'money_flow',
             IntervalTrigger(minutes=MONEY_FLOW_CONFIG['interval_minutes']),
-            MONEY_FLOW_CONFIG.get('start_delay_minutes', 0),
+            self._get_delay_minutes(MONEY_FLOW_CONFIG.get('start_delay_minutes', 0)),
             'timed_money_flow_sync',
             '定时资金流向同步',
             30,
@@ -81,7 +89,7 @@ class DataSyncScheduler:
         self._register_job_with_delay(
             'stock_info',
             CronTrigger(hour=STOCK_INFO_CONFIG['cron_hour'], minute=STOCK_INFO_CONFIG['cron_minute']),
-            STOCK_INFO_CONFIG.get('start_delay_minutes', 0),
+            self._get_delay_minutes(STOCK_INFO_CONFIG.get('start_delay_minutes', 0)),
             'timed_stock_info_sync',
             '定时股票信息同步',
             300,
@@ -92,7 +100,7 @@ class DataSyncScheduler:
         self._register_job_with_delay(
             'daily_data',
             IntervalTrigger(minutes=DAILY_DATA_CONFIG['interval_minutes']),
-            DAILY_DATA_CONFIG.get('start_delay_minutes', 0),
+            self._get_delay_minutes(DAILY_DATA_CONFIG.get('start_delay_minutes', 0)),
             'timed_daily_data_sync',
             '定时日线数据同步',
             300,
@@ -103,7 +111,7 @@ class DataSyncScheduler:
         self._register_job_with_delay(
             'auction_data',
             CronTrigger(hour=AUCTION_DATA_CONFIG['cron_hour'], minute=AUCTION_DATA_CONFIG['cron_minute']),
-            AUCTION_DATA_CONFIG.get('start_delay_minutes', 0),
+            self._get_delay_minutes(AUCTION_DATA_CONFIG.get('start_delay_minutes', 0)),
             'timed_auction_data_sync',
             '定时竞价数据同步',
             300,
@@ -114,22 +122,23 @@ class DataSyncScheduler:
         self._register_job_with_delay(
             'minute_data',
             CronTrigger(hour=MINUTE_DATA_CONFIG['cron_hour'], minute=MINUTE_DATA_CONFIG['cron_minute']),
-            MINUTE_DATA_CONFIG.get('start_delay_minutes', 0),
+            self._get_delay_minutes(MINUTE_DATA_CONFIG.get('start_delay_minutes', 0)),
             'timed_minute_data_sync',
             '定时分钟数据同步',
             300,
             f"每日{MINUTE_DATA_CONFIG['cron_hour']}:{MINUTE_DATA_CONFIG['cron_minute']:02d}"
         )
 
-        # 数据清理扫描（每分钟）
+        # 数据清理扫描
+        clear_interval_seconds = CLEAR_DATA_CONFIG['interval_minutes'] * 60
         self._register_job_with_delay(
             'clear_data',
-            IntervalTrigger(seconds=CLEAR_DATA_CONFIG['interval_seconds']),
-            CLEAR_DATA_CONFIG.get('start_delay_minutes', 0),
+            IntervalTrigger(seconds=clear_interval_seconds),
+            self._get_delay_minutes(CLEAR_DATA_CONFIG.get('start_delay_minutes', 0)),
             'timed_clear_data_sync',
             '定时数据清理',
             10,
-            f"每{CLEAR_DATA_CONFIG['interval_seconds']}秒"
+            f"每{CLEAR_DATA_CONFIG['interval_minutes']}分钟"
         )
 
     def _register_job_with_delay(self, sync_type: str, trigger, delay_minutes: int,

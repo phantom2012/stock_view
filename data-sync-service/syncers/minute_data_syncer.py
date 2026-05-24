@@ -14,7 +14,6 @@
 - 先批量获取所有股票数据，再统一入库（按时间顺序）
 - 减少网络请求次数，提升同步效率
 """
-import logging
 import pandas as pd
 from datetime import datetime
 from typing import List, Tuple, Optional
@@ -24,9 +23,9 @@ from shared.stock_code_convert import to_goldminer_symbol, to_pure_code
 from shared.trade_date_util import TradeDateUtil
 from external_data import get_query_handler
 from .base_syncer import BaseSyncer
-from utils.log_utils import log_progress
+from utils.log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 trade_date_util = TradeDateUtil()
 DEFAULT_DAYS = 5  # 最近5个交易日
@@ -40,22 +39,22 @@ class MinuteDataSyncer(BaseSyncer):
     """
 
     def sync(self, stock_codes=None) -> Tuple[bool, int, int, str]:
-        logger.info("===== 开始分钟数据同步（批量优化版）=====")
+        log_util.info("===== 开始分钟数据同步（批量优化版）=====")
         try:
             # 如果没有传入股票列表，从 filter_results 表读取
             if stock_codes is None:
                 stock_codes = self._get_filter_stock_codes()
             
             if not stock_codes:
-                logger.warning("filter_results 表中没有股票数据，跳过同步")
+                log_util.limit_warn("filter_results 表中没有股票数据，跳过同步")
                 return True, 0, 0, "无股票数据"
 
             recent_trade_dates = trade_date_util.get_recent_trade_dates(DEFAULT_DAYS)
             if not recent_trade_dates:
                 return False, 0, 0, "获取交易日列表失败"
 
-            logger.info(f"获取到 {len(recent_trade_dates)} 个交易日: {recent_trade_dates}")
-            logger.info(f"获取到 {len(stock_codes)} 只股票")
+            log_util.info(f"获取到 {len(recent_trade_dates)} 个交易日: {recent_trade_dates}")
+            log_util.info(f"获取到 {len(stock_codes)} 只股票")
 
             query_handler = get_query_handler()
 
@@ -66,7 +65,7 @@ class MinuteDataSyncer(BaseSyncer):
             total_fail = 0
 
             for date_str in recent_trade_dates:
-                logger.info(f"处理日期: {date_str}")
+                log_util.info(f"处理日期: {date_str}")
 
                 # 1. 批量获取早盘分钟数据（9:30~9:40）
                 morning_minute_data = query_handler.get_minute_data_batch(
@@ -94,12 +93,12 @@ class MinuteDataSyncer(BaseSyncer):
                 total_success += success_count
                 total_fail += fail_count
 
-            logger.info("===== 分钟数据同步完成 =====")
-            logger.info(f"总股票数: {len(stock_codes)}, 成功: {total_success}, 失败: {total_fail}")
+            log_util.info("===== 分钟数据同步完成 =====")
+            log_util.info(f"总股票数: {len(stock_codes)}, 成功: {total_success}, 失败: {total_fail}")
             return True, total_success, total_fail, f"处理{total_success}只"
 
         except Exception as e:
-            logger.error(f"分钟数据同步异常: {e}")
+            log_util.limit_error(f"分钟数据同步异常: {e}")
             import traceback
             traceback.print_exc()
             return False, 0, 0, str(e)
@@ -111,7 +110,7 @@ class MinuteDataSyncer(BaseSyncer):
                 rows = db.query(FilterResult.code).distinct().all()
                 return [row[0] for row in rows if row[0]]
         except Exception as e:
-            logger.error(f"获取 filter_results 股票代码失败: {e}")
+            log_util.limit_error(f"获取 filter_results 股票代码失败: {e}")
             return []
 
     def _get_morning_tick_snapshots_batch(self, query_handler, symbols: List[str], date_str: str) -> List[dict]:
@@ -175,7 +174,7 @@ class MinuteDataSyncer(BaseSyncer):
                 'amount': last_row['cum_amount'],
             })
 
-        logger.info(f"  从Tick数据中提取了 {len(snapshots)} 个快照")
+        log_util.info(f"  从Tick数据中提取了 {len(snapshots)} 个快照")
         return snapshots
 
     def _batch_save_to_db(self, stock_codes: List[str], date_str: str,
@@ -214,7 +213,7 @@ class MinuteDataSyncer(BaseSyncer):
                 success_count = len(stock_codes)
 
         except Exception as e:
-            logger.error(f"批量保存数据失败: {e}")
+            log_util.limit_error(f"批量保存数据失败: {e}")
             fail_count = len(stock_codes)
 
         return success_count, fail_count
