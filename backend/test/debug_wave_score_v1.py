@@ -9,7 +9,7 @@ debug_wave_score_v1.py
 """
 
 # 603629-利通电子 603986-兆易创新 600584-长电科技 600500-中化国际 002885-京泉华
-stock_code = "603986"
+stock_code = "603045"
 trade_date = "2026-05-22"
 
 
@@ -59,8 +59,10 @@ def debug_full_components(symbol, trade_date):
     MIN_STREAK_DAYS = config['min_streak_days']
     MIN_STREAK_ALT_DAYS = config['min_streak_alt_days']
     MIN_GAIN_PCT = config['min_gain_pct']
-    DAYS_COEF = config['days_score_coefficient']
-    GAIN_COEF = config['gain_score_coefficient']
+    DAYS_COEF = config['streak_score_cfg']['coeff']
+    STREAK_SCORE_CAP = config['streak_score_cfg']['max']
+    GAIN_COEF = config['gain_score_cfg']['coeff']
+    GAIN_SCORE_CAP = config['gain_score_cfg']['max']
     PATTERN_SCORE_MAP = config['pattern_score_map']
     LOOKBACK_DAYS = config['lookback_days']
     WITHIN_CYCLE_DD_SCORE_MAP = config['within_cycle_drawdown_score_map']
@@ -284,8 +286,8 @@ def debug_full_components(symbol, trade_date):
         max_gap_present = max(k for k, v in pattern_distribution.items() if v > 0)
         pattern_score = PATTERN_SCORE_MAP.get(max_gap_present, 0)
 
-        streak_score = min(streak * DAYS_COEF, 10)
-        gain_score = min(period_gain * GAIN_COEF, 15)
+        streak_score = min(streak * DAYS_COEF, STREAK_SCORE_CAP)
+        gain_score = min(period_gain * GAIN_COEF, GAIN_SCORE_CAP)
         base_score = streak_score + gain_score + pattern_score
 
         within_dd_score = 0.0
@@ -311,8 +313,8 @@ def debug_full_components(symbol, trade_date):
         print(f"\n  {'─'*50}")
         print(f"  【基础分分解】")
         print(f"  {'─'*50}")
-        print(f"  ① streak={streak} × DAYS_COEF({DAYS_COEF}) = {streak * DAYS_COEF}（上限10分，取 {streak_score}）")
-        print(f"  ② period_gain={period_gain:.2f}% × GAIN_COEF({GAIN_COEF}) = {period_gain * GAIN_COEF:.2f}（上限15分，取 {gain_score:.2f}）")
+        print(f"  ① streak={streak} × DAYS_COEF({DAYS_COEF}) = {streak * DAYS_COEF}（上限{STREAK_SCORE_CAP}分，取 {streak_score}）")
+        print(f"  ② period_gain={period_gain:.2f}% × GAIN_COEF({GAIN_COEF}) = {period_gain * GAIN_COEF:.2f}（上限{GAIN_SCORE_CAP}分，取 {gain_score:.2f}）")
         print(f"  ③ 最大突破间隔={max_gap_present}(分布={pattern_distribution}) → pattern_score={pattern_score}")
         print(f"  ★ 基础分 = {base_score:.2f}")
         print(f"  ★ 周期内回调加分 = +{within_dd_score}")

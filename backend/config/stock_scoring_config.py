@@ -57,17 +57,23 @@ RISING_WAVE_CONFIG = {
     # 连续突破天数 >= 该值 且 区间涨幅 > min_gain_pct 也可通过筛选
     'min_streak_alt_days': 3,
     'min_gain_pct': 20.0,
-    # 连续突破天数得分系数，最高12分
-    'days_score_coefficient': 1.2,
-    # 连续区间涨幅得分系数，最高15分
-    'gain_score_coefficient': 0.15,
+    # 连续突破天数得分配置
+    'streak_score_cfg': {
+        'coeff': 1.2,
+        'max': 12,
+    },
+    # 连续区间涨幅得分配置
+    'gain_score_cfg': {
+        'coeff': 0.15,
+        'max': 15,
+    },
     # 突破形态分值映射表
     # key: 突破间隔天数 (1=每天突破, 2=隔日突破, 3=隔2日突破)
     # value: 对应得分
     'pattern_score_map': {
-        1: 15,
-        2: 10,
-        3: 6,
+        1: 12,
+        2: 8,
+        3: 5,
     },
     # 周期内回调幅度阈值（%），超过该值不得分
     'within_cycle_drawdown_threshold': 12.0,

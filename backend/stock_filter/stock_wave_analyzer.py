@@ -60,7 +60,7 @@ class StockWaveAnalyzer:
               - 回调跌幅/参考升浪累计涨幅 < between_cycle_drawdown_ratio（50%，浅回调条件）
            c. 升浪周期日均涨幅得分：所有升浪周期的总涨幅/总交易日数作为日均涨幅，
               超过 min_avg_daily_gain（2.2%）门槛后，乘以 avg_daily_gain_score_coefficient 系数计入总分
-        10. 基础分中连续突破天数得分上限12分，区间涨幅得分上限15分
+        10. 基础分中连续突破天数得分上限 streak_score_cfg.max（12分），区间涨幅得分上限 gain_score_cfg.max（15分）
 
         Args:
             symbol: 股票代码
@@ -75,8 +75,10 @@ class StockWaveAnalyzer:
         MIN_STREAK_DAYS = config['min_streak_days']
         MIN_STREAK_ALT_DAYS = config['min_streak_alt_days']
         MIN_GAIN_PCT = config['min_gain_pct']
-        DAYS_COEF = config['days_score_coefficient']
-        GAIN_COEF = config['gain_score_coefficient']
+        DAYS_COEF = config['streak_score_cfg']['coeff']
+        STREAK_SCORE_CAP = config['streak_score_cfg']['max']
+        GAIN_COEF = config['gain_score_cfg']['coeff']
+        GAIN_SCORE_CAP = config['gain_score_cfg']['max']
         PATTERN_SCORE_MAP = config['pattern_score_map']
         LOOKBACK_DAYS = config['lookback_days']
         WITHIN_CYCLE_DD_SCORE_MAP = config['within_cycle_drawdown_score_map']
@@ -229,7 +231,7 @@ class StockWaveAnalyzer:
                 max_gap_present = max(k for k, v in pattern_distribution.items() if v > 0)
                 pattern_score = PATTERN_SCORE_MAP.get(max_gap_present, 0)
 
-                base_score = min(streak * DAYS_COEF, 12) + min(period_gain * GAIN_COEF, 15) + pattern_score
+                base_score = min(streak * DAYS_COEF, STREAK_SCORE_CAP) + min(period_gain * GAIN_COEF, GAIN_SCORE_CAP) + pattern_score
 
                 within_dd_score = self._score_drawdown(max_within_drawdown, WITHIN_CYCLE_DD_SCORE_MAP)
 
@@ -308,9 +310,21 @@ class StockWaveAnalyzer:
                (max_drawdown / drawdown_ref_gain) < BETWEEN_CYCLE_DD_RATIO:
                 between_dd_score = self._score_drawdown(max_drawdown, BETWEEN_CYCLE_DD_SCORE_MAP)
 
-            # ===== 第五步：总分计算 =====
+            # ===== 第五步：周期内回调得分（取最后两个升浪中的更大回调深度） =====
+            last_two = all_sequences[-2:] if len(all_sequences) >= 2 else all_sequences[-1:]
+            consolidated_max_dd = max(s['max_within_drawdown'] for s in last_two)
+            consolidated_violated = any(
+                (s.get('max_single_day_drop', 0) > WITHIN_CYCLE_MAX_SINGLE_DAY_DROP or
+                 s.get('max_two_day_drop', 0) > WITHIN_CYCLE_MAX_TWO_DAY_DROP)
+                for s in last_two
+            )
+            consolidated_within_dd_score = self._score_drawdown(consolidated_max_dd, WITHIN_CYCLE_DD_SCORE_MAP)
+            if consolidated_violated:
+                consolidated_within_dd_score = 0.0
+
+            # ===== 第六步：总分计算 =====
             avg_daily_gain_score = combined_avg_daily_gain * AVG_DAILY_GAIN_COEF
-            total_score = last_seq['base_score'] + last_seq['within_dd_score'] + between_dd_score + avg_daily_gain_score
+            total_score = last_seq['base_score'] + consolidated_within_dd_score + between_dd_score + avg_daily_gain_score
 
             return round(total_score, 2)
         except Exception as e:
