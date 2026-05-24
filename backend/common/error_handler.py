@@ -3,10 +3,11 @@
 避免在每个 Service 方法中重复 try-except 和日志记录
 """
 import logging
+from shared.log_utils import create_log_util
 import functools
 from typing import Any, Callable, Optional
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 def handle_errors(
@@ -32,7 +33,7 @@ def handle_errors(
                 return func(*args, **kwargs)
             except Exception as e:
                 if log_error:
-                    logger.error(f"Error in {func.__name__}: {str(e)}")
+                    log_util.error(f"Error in {func.__name__}: {str(e)}")
                     import traceback
                     traceback.print_exc()
                 
@@ -64,7 +65,7 @@ def handle_api_errors(
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                logger.error(f"API error in {func.__name__}: {str(e)}")
+                log_util.error(f"API error in {func.__name__}: {str(e)}")
                 import traceback
                 traceback.print_exc()
                 

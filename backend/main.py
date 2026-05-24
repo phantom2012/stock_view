@@ -4,6 +4,8 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from shared.log_utils import create_log_util
+
 from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,7 +22,7 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 stock_cache = get_stock_cache()
 
@@ -45,11 +47,11 @@ app.include_router(calendar_router)
 
 @app.get("/")
 def index():
-    logger.info("API health check called")
+    log_util.info("API health check called")
     return {"status": "运行中", "last_run": strategy_orchestrator.last_run_time}
 
 
 if __name__ == "__main__":
     import uvicorn
-    logger.info("Starting server...")
+    log_util.info("Starting server...")
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -1,4 +1,5 @@
 import logging
+from shared.log_utils import create_log_util
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Body, BackgroundTasks
 from sse_starlette.sse import EventSourceResponse
@@ -15,7 +16,7 @@ from shared.db import get_session, FilterConfig, FilterStock
 
 router = APIRouter(prefix="/api/data", tags=["数据加载"])
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 auction_data_service = get_auction_data_service()
 money_flow_service = get_money_flow_service()
 rising_wave_service = get_rising_wave_service()
@@ -54,7 +55,7 @@ def load_daily_data(block_codes: List[str] = Body(...)):
     Returns:
         Dict: 执行结果
     """
-    logger.info(f"收到加载板块日线请求，板块列表: {block_codes}")
+    log_util.info(f"收到加载板块日线请求，板块列表: {block_codes}")
 
     try:
         # 1. 更新 filter_config(type=2) 的 select_blocks 字段
@@ -71,7 +72,7 @@ def load_daily_data(block_codes: List[str] = Body(...)):
                 )
                 db.add(config)
             db.commit()
-            logger.info(f"已更新 filter_config(type=2) 的 select_blocks: {config.select_blocks}")
+            log_util.info(f"已更新 filter_config(type=2) 的 select_blocks: {config.select_blocks}")
 
         # 3. 发送 stock_info 同步通知（确保股票数据最新）
         success = notify_service.notify_stock_info_sync()
@@ -91,7 +92,7 @@ def load_daily_data(block_codes: List[str] = Body(...)):
             }
 
     except Exception as e:
-        logger.error(f"触发板块日线数据同步失败: {e}")
+        log_util.error(f"触发板块日线数据同步失败: {e}")
         import traceback
         traceback.print_exc()
         return {"status": "error", "msg": str(e)}
@@ -123,7 +124,7 @@ def exclude_stock(request: ExcludeStockRequest):
     try:
         from datetime import timedelta
 
-        logger.info(f"收到剔除股票请求: code={request.code}, name={request.stock_name}")
+        log_util.info(f"收到剔除股票请求: code={request.code}, name={request.stock_name}")
 
         # 计算延后5天的日期
         exclude_date = (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d')
@@ -145,14 +146,14 @@ def exclude_stock(request: ExcludeStockRequest):
                 db.add(filter_stock)
 
             db.commit()
-            logger.info(f"已剔除股票: code={request.code}, exclude_date={exclude_date}")
+            log_util.info(f"已剔除股票: code={request.code}, exclude_date={exclude_date}")
 
             return {
                 "status": "success",
                 "msg": f"已将 {request.stock_name}({request.code}) 剔除，筛选日期截止至 {exclude_date}"
             }
     except Exception as e:
-        logger.error(f"剔除股票失败: {e}")
+        log_util.error(f"剔除股票失败: {e}")
         import traceback
         traceback.print_exc()
         return {"status": "error", "msg": str(e)}
@@ -187,7 +188,7 @@ async def sync_complete(request: SyncCompleteRequest, background_tasks: Backgrou
             - message: 结果消息
         background_tasks: FastAPI 后台任务
     """
-    logger.info(f"收到 {request.sync_type} 同步完成通知: success={request.success}, message={request.message}")
+    log_util.info(f"收到 {request.sync_type} 同步完成通知: success={request.success}, message={request.message}")
 
     if request.sync_type == "money_flow" and request.success:
         background_tasks.add_task(money_flow_service.run_turn_strong_calculation)
@@ -222,7 +223,7 @@ async def recalculate_turn_strong(request: RecalcTurnStrongRequest,
         Dict: 执行结果
     """
     codes = request.codes
-    logger.info(f"收到转强复算请求: codes={codes}")
+    log_util.info(f"收到转强复算请求: codes={codes}")
 
     background_tasks.add_task(money_flow_service.run_recalc_turn_strong, codes)
 
@@ -250,7 +251,7 @@ async def recalculate_rising_wave(request: RecalcTurnStrongRequest,
         Dict: 执行结果
     """
     codes = request.codes
-    logger.info(f"收到升浪复算请求: codes={codes}")
+    log_util.info(f"收到升浪复算请求: codes={codes}")
 
     background_tasks.add_task(rising_wave_service.run_recalc_rising_wave, codes)
 
@@ -276,7 +277,7 @@ async def sse_endpoint():
     # 创建一个新的消息队列
     queue = asyncio.Queue()
     sse_queues.add(queue)
-    logger.info(f"SSE 客户端已连接: 总订阅数: {len(sse_queues)}")
+    log_util.info(f"SSE 客户端已连接: 总订阅数: {len(sse_queues)}")
 
     async def event_generator():
         try:
@@ -291,10 +292,10 @@ async def sse_endpoint():
                 }
         except asyncio.CancelledError:
             sse_queues.remove(queue)
-            logger.info(f"SSE 客户端已断开: 总订阅数: {len(sse_queues)}")
+            log_util.info(f"SSE 客户端已断开: 总订阅数: {len(sse_queues)}")
             raise
         except Exception as e:
-            logger.error(f"SSE 连接异常: {e}")
+            log_util.error(f"SSE 连接异常: {e}")
             sse_queues.discard(queue)
 
     return EventSourceResponse(event_generator())
@@ -309,7 +310,7 @@ async def notify_sse_subscribers(data: dict):
     """
     import json
 
-    logger.info(f"准备通知 {len(sse_queues)} 个 SSE 订阅者: {data}")
+    log_util.info(f"准备通知 {len(sse_queues)} 个 SSE 订阅者: {data}")
 
     # 将数据序列化为 JSON 字符串
     message = json.dumps(data)
@@ -319,7 +320,7 @@ async def notify_sse_subscribers(data: dict):
         try:
             await queue.put(message)
         except Exception as e:
-            logger.error(f"发送消息给 SSE 订阅者失败: {e}")
+            log_util.error(f"发送消息给 SSE 订阅者失败: {e}")
 
 
 class ValuationRequest(BaseModel):
@@ -342,7 +343,7 @@ def get_valuation(request: ValuationRequest = Body(...)):
         Dict: 估值评估结果列表
     """
     codes = request.codes
-    logger.info(f"收到估值评估请求: codes={'全部' if codes is None else f'{len(codes)}只'}")
+    log_util.info(f"收到估值评估请求: codes={'全部' if codes is None else f'{len(codes)}只'}")
 
     if codes:
         results = valuation_service.evaluate_stocks(codes)
@@ -369,7 +370,7 @@ def get_stock_valuation(code: str):
     Returns:
         Dict: 估值评估结果
     """
-    logger.info(f"收到单只股票估值评估请求: code={code}")
+    log_util.info(f"收到单只股票估值评估请求: code={code}")
 
     result = valuation_service.evaluate_stock(code)
 
@@ -393,7 +394,7 @@ def batch_get_valuation_scores(codes: List[str] = Body(..., embed=True)):
     Returns:
         Dict: { scores: { code: score } }
     """
-    logger.info(f"收到批量估值分请求: {len(codes)}只股票")
+    log_util.info(f"收到批量估值分请求: {len(codes)}只股票")
 
     scores = valuation_service.batch_get_valuation_scores(codes)
 

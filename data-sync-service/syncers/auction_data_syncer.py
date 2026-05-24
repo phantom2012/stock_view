@@ -11,7 +11,7 @@ from shared.db import (
 )
 from shared.trade_date_util import TradeDateUtil
 from .base_syncer import BaseSyncer
-from utils.log_utils import create_log_util
+from shared.log_utils import create_log_util
 
 log_util = create_log_util(__name__)
 

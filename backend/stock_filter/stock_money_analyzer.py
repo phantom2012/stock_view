@@ -1,4 +1,5 @@
 import logging
+from shared.log_utils import create_log_util
 from datetime import datetime
 from typing import List, Dict, Optional
 
@@ -6,7 +7,7 @@ from config import TURN_START_SCORE_MAP, TURN_STRONG_CYCLE_CONFIG
 from shared.db import get_session, get_session_ro, StockMoneyFlow, StockInfo, StockScore
 from shared.trade_date_util import TradeDateUtil
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 trade_date_util = TradeDateUtil()
 SCAN_DAYS = 30
@@ -42,7 +43,7 @@ class StockMoneyAnalyzer:
                     for r in records
                 ]
         except Exception as e:
-            logger.error(f"读取资金流向数据失败 {code}: {e}")
+            log_util.error(f"读取资金流向数据失败 {code}: {e}")
             return []
 
     @staticmethod
@@ -54,7 +55,7 @@ class StockMoneyAnalyzer:
                 if stock_info and stock_info.circ_mv:
                     return float(stock_info.circ_mv)
         except Exception as e:
-            logger.error(f"获取 {code} 流通市值失败: {e}")
+            log_util.error(f"获取 {code} 流通市值失败: {e}")
         return 0.0
 
     @staticmethod
@@ -120,7 +121,7 @@ class StockMoneyAnalyzer:
             trade_dates = trade_date_util.get_recent_trade_dates(SCAN_DAYS)
 
         if not trade_dates:
-            logger.warning(f"[{code}] 无交易日数据，跳过")
+            log_util.limit_warn(f"[{code}] 无交易日数据，跳过")
             return
 
         records = StockMoneyAnalyzer._get_money_flow_records(code, trade_dates)
@@ -130,7 +131,7 @@ class StockMoneyAnalyzer:
         circ_mv = StockMoneyAnalyzer._get_circ_mv(code)
         StockMoneyAnalyzer._calc_turn_strong_fields(records, circ_mv)
         StockMoneyAnalyzer._update_turn_strong_fields(code, records)
-        logger.debug(f"[{code}] 转强字段更新完成，共 {len(records)} 条")
+        log_util.info(f"[{code}] 转强字段更新完成，共 {len(records)} 条")
 
     # ==================== 转强计算核心算法 ====================
 

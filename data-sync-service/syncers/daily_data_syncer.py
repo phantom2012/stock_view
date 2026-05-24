@@ -12,7 +12,7 @@ from shared.trade_date_util import TradeDateUtil
 from external_data import get_query_handler
 from config import DAILY_DATA_CONFIG
 from .base_syncer import BaseSyncer
-from utils.log_utils import create_log_util
+from shared.log_utils import create_log_util
 
 log_util = create_log_util(__name__)
 

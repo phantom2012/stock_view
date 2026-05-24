@@ -4,12 +4,13 @@
 使用行业估值基准（PE/PB中位数）替代硬编码阈值
 """
 import logging
+from shared.log_utils import create_log_util
 from typing import List, Dict, Any, Optional
 from statistics import mean
 
 from shared.db import get_session_ro, StockFinancial, StockDaily, StockInfo, StockIndustry, IndustryValuation
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 class ValuationService:
@@ -198,7 +199,7 @@ class ValuationService:
             return result
 
         except Exception as e:
-            logger.error(f"评估 {code} 估值失败: {e}")
+            log_util.error(f"评估 {code} 估值失败: {e}")
             import traceback; traceback.print_exc()
             return self._build_empty_result(code, f"评估异常: {str(e)}")
 
@@ -209,7 +210,7 @@ class ValuationService:
                 result = self.evaluate_stock(code)
                 results.append(result)
             except Exception as e:
-                logger.error(f"评估 {code} 失败: {e}")
+                log_util.error(f"评估 {code} 失败: {e}")
                 results.append(self._build_empty_result(code, str(e)))
         return results
 
@@ -220,7 +221,7 @@ class ValuationService:
                 codes = [row[0] for row in codes if row[0]]
             return self.evaluate_stocks(codes)
         except Exception as e:
-            logger.error(f"全量评估失败: {e}")
+            log_util.error(f"全量评估失败: {e}")
             return []
 
     def _get_industry_benchmarks(self, code: str) -> Dict[str, Any]:
@@ -259,7 +260,7 @@ class ValuationService:
 
                 return result
         except Exception as e:
-            logger.warning(f"获取 {code} 行业基准失败: {e}")
+            log_util.limit_warn(f"获取 {code} 行业基准失败: {e}")
             return result
 
     def _calc_ttm_eps(self, records_dict: Dict[str, Any], end_dates: List[str]) -> Optional[float]:
@@ -738,7 +739,7 @@ class ValuationService:
                 result = self.evaluate_stock(code)
                 results[code] = result.get('valuation_score')
             except Exception as e:
-                logger.warning(f"获取 {code} 估值分失败: {e}")
+                log_util.limit_warn(f"获取 {code} 估值分失败: {e}")
                 results[code] = None
         return results
 

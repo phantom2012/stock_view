@@ -1,5 +1,6 @@
 import json
 import logging
+from shared.log_utils import create_log_util
 from typing import Dict, Any, List, Optional
 
 from services.data_sync_notify_service import get_data_sync_notify_service
@@ -7,7 +8,7 @@ from stock_filter.stock_money_analyzer import StockMoneyAnalyzer
 from shared.db import get_session, get_session_ro, FilterResult, DataSyncNotify
 from shared.trade_date_util import TradeDateUtil
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 trade_date_util = TradeDateUtil()
 
@@ -49,7 +50,7 @@ class MoneyFlowService:
                 }
 
         except Exception as e:
-            logger.error(f"Error in load_money_flow_data: {str(e)}")
+            log_util.error(f"Error in load_money_flow_data: {str(e)}")
             import traceback
             traceback.print_exc()
             return {"status": "error", "msg": str(e)}
@@ -60,17 +61,17 @@ class MoneyFlowService:
         优先使用 data_sync_notify 中 money_flow 类型指定的 stock_codes，
         未指定则回退到从 filter_results 读取全部股票
         """
-        logger.info("===== 开始后台转强计算 =====")
+        log_util.info("===== 开始后台转强计算 =====")
         try:
             codes = self._get_money_flow_stock_codes()
 
             if not codes:
-                logger.warning("无股票数据，跳过转强计算")
+                log_util.limit_warn("无股票数据，跳过转强计算")
                 return
 
             trade_dates = trade_date_util.get_recent_trade_dates(30)
             if not trade_dates:
-                logger.warning("无交易日数据，跳过转强计算")
+                log_util.limit_warn("无交易日数据，跳过转强计算")
                 return
 
             success_count = 0
@@ -80,12 +81,12 @@ class MoneyFlowService:
                     StockMoneyAnalyzer.calculate_and_update(code, trade_dates)
                     success_count += 1
                 except Exception as e:
-                    logger.error(f"转强计算失败 {code}: {e}")
+                    log_util.error(f"转强计算失败 {code}: {e}")
                     failed_count += 1
 
-            logger.info(f"===== 后台转强计算完成: 成功 {success_count}, 失败 {failed_count} =====")
+            log_util.info(f"===== 后台转强计算完成: 成功 {success_count}, 失败 {failed_count} =====")
         except Exception as e:
-            logger.error(f"转强计算异常: {e}")
+            log_util.error(f"转强计算异常: {e}")
             import traceback; traceback.print_exc()
 
     @staticmethod
@@ -103,17 +104,17 @@ class MoneyFlowService:
                 if notify and notify.stock_codes:
                     parsed = json.loads(notify.stock_codes)
                     if parsed:
-                        logger.info(f"从 money_flow 通知读取到 {len(parsed)} 只股票")
+                        log_util.info(f"从 money_flow 通知读取到 {len(parsed)} 只股票")
                         return parsed
 
-            logger.info("money_flow 通知未指定股票列表，回退到 filter_results")
+            log_util.info("money_flow 通知未指定股票列表，回退到 filter_results")
             with get_session_ro() as db:
                 rows = db.query(FilterResult.code).distinct().all()
                 codes = [row[0] for row in rows if row[0]]
-                logger.info(f"从 filter_results 读取到 {len(codes)} 只股票")
+                log_util.info(f"从 filter_results 读取到 {len(codes)} 只股票")
                 return codes
         except Exception as e:
-            logger.error(f"获取股票代码列表失败: {e}")
+            log_util.error(f"获取股票代码列表失败: {e}")
             return []
 
     def run_recalc_turn_strong(self, codes: Optional[List[str]] = None):
@@ -123,7 +124,7 @@ class MoneyFlowService:
         Args:
             codes: 股票代码列表（可选），为 None 则计算所有 filter_results 中的股票
         """
-        logger.info(f"===== 开始转强复算: codes={codes} =====")
+        log_util.info(f"===== 开始转强复算: codes={codes} =====")
         try:
             if codes is None:
                 with get_session() as db:
@@ -131,12 +132,12 @@ class MoneyFlowService:
                     codes = [row[0] for row in rows if row[0]]
 
             if not codes:
-                logger.warning("无股票数据，跳过转强复算")
+                log_util.limit_warn("无股票数据，跳过转强复算")
                 return
 
             trade_dates = trade_date_util.get_recent_trade_dates(30)
             if not trade_dates:
-                logger.warning("无交易日数据，跳过转强复算")
+                log_util.limit_warn("无交易日数据，跳过转强复算")
                 return
 
             success_count = 0
@@ -146,12 +147,12 @@ class MoneyFlowService:
                     StockMoneyAnalyzer.calculate_and_update(code, trade_dates)
                     success_count += 1
                 except Exception as e:
-                    logger.error(f"转强复算失败 {code}: {e}")
+                    log_util.error(f"转强复算失败 {code}: {e}")
                     failed_count += 1
 
-            logger.info(f"===== 转强复算完成: 成功 {success_count}, 失败 {failed_count} =====")
+            log_util.info(f"===== 转强复算完成: 成功 {success_count}, 失败 {failed_count} =====")
         except Exception as e:
-            logger.error(f"转强复算异常: {e}")
+            log_util.error(f"转强复算异常: {e}")
             import traceback; traceback.print_exc()
 
 

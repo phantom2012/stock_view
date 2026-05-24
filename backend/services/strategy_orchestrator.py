@@ -1,4 +1,5 @@
 import logging
+from shared.log_utils import create_log_util
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 
@@ -13,7 +14,7 @@ from shared.trade_date_util import TradeDateUtil
 from services.data_sync_notify_service import get_data_sync_notify_service
 from config import calculate_interval_rise_score
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 filter_engine = get_stock_filter_engine()
 trade_date_util = TradeDateUtil()
@@ -45,7 +46,7 @@ class StrategyOrchestrator(SingletonMixin):
             {"status": "success"/"error", "msg": "...", "time": "..."}
         """
         try:
-            logger.info(f"Starting type=1 strategy execution: {params.model_dump()}")
+            log_util.info(f"Starting type=1 strategy execution: {params.model_dump()}")
 
             target_date = self._parse_trade_date(params.trade_date)
             results = self._execute_filter_flow(params, target_date, config_type=1)
@@ -57,7 +58,7 @@ class StrategyOrchestrator(SingletonMixin):
                 "time": self._last_run_time
             }
         except Exception as e:
-            logger.error(f"Error in filter_type1_stocks: {str(e)}")
+            log_util.error(f"Error in filter_type1_stocks: {str(e)}")
             import traceback
             traceback.print_exc()
             return {"status": "error", "msg": str(e)}
@@ -77,7 +78,7 @@ class StrategyOrchestrator(SingletonMixin):
             # 获取最新交易日
             latest_trade_date_str = trade_date_util.get_latest_trade_date()
             if not latest_trade_date_str:
-                logger.error("无法获取最新交易日，无法执行筛选")
+                log_util.error("无法获取最新交易日，无法执行筛选")
                 return []
             trade_date = datetime.strptime(latest_trade_date_str, '%Y-%m-%d')
 
@@ -87,7 +88,7 @@ class StrategyOrchestrator(SingletonMixin):
             return [stock.model_dump() for stock in results]
 
         except Exception as e:
-            logger.error(f"Error in filter_type2_stocks: {str(e)}")
+            log_util.error(f"Error in filter_type2_stocks: {str(e)}")
             import traceback
             traceback.print_exc()
             return []
@@ -115,9 +116,9 @@ class StrategyOrchestrator(SingletonMixin):
         stocks_to_filter = get_stocks_by_blocks(selected_block_codes)
 
         if selected_block_codes:
-            logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（来自 {len(selected_block_codes)} 个板块）")
+            log_util.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（来自 {len(selected_block_codes)} 个板块）")
         else:
-            logger.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（所有板块）")
+            log_util.info(f"从数据库中获取到 {len(stocks_to_filter)} 只股票（所有板块）")
 
         if not stocks_to_filter:
             raise ValueError("未从数据库加载到股票数据")
@@ -125,12 +126,12 @@ class StrategyOrchestrator(SingletonMixin):
         # 2. 主板过滤
         if params.only_main_board:
             main_board_stocks = self._filter_main_board(stocks_to_filter)
-            logger.info(f"主板过滤：从 {len(stocks_to_filter)} 只股票中筛选出 {len(main_board_stocks)} 只主板股票")
+            log_util.info(f"主板过滤：从 {len(stocks_to_filter)} 只股票中筛选出 {len(main_board_stocks)} 只主板股票")
             stocks_to_filter = main_board_stocks
 
         # 3. 转换为掘金格式
         stock_symbols = [to_goldminer_symbol(code) for code in stocks_to_filter]
-        logger.info(f"准备筛选 {len(stock_symbols)} 只股票")
+        log_util.info(f"准备筛选 {len(stock_symbols)} 只股票")
 
         if not stock_symbols:
             raise ValueError("未加载到股票数据")
@@ -141,7 +142,7 @@ class StrategyOrchestrator(SingletonMixin):
             trade_date=trade_date,
             params=params
         )
-        logger.info(f"筛选完成，共 {len(results)} 只股票")
+        log_util.info(f"筛选完成，共 {len(results)} 只股票")
 
         # 5. 保存筛选配置
         self._save_filter_config(params, trade_date.strftime('%Y-%m-%d'), config_type=config_type)
@@ -201,13 +202,13 @@ class StrategyOrchestrator(SingletonMixin):
                 if existing:
                     for key, value in config_data.items():
                         setattr(existing, key, value)
-                    logger.info(f"Updated filter config for type={config_type}")
+                    log_util.info(f"Updated filter config for type={config_type}")
                 else:
                     config_data['type'] = config_type
                     db.add(FilterConfig(**config_data))
-                    logger.info(f"Created filter config for type={config_type}")
+                    log_util.info(f"Created filter config for type={config_type}")
         except Exception as e:
-            logger.error(f"Error updating filter config: {str(e)}")
+            log_util.error(f"Error updating filter config: {str(e)}")
 
     def _save_results_to_db(self, results: List[StockDetail], config_type: int):
         save_start = datetime.now()
@@ -244,7 +245,7 @@ class StrategyOrchestrator(SingletonMixin):
             db.commit()
             save_end = datetime.now()
             save_duration = (save_end - save_start).total_seconds()
-            logger.info(f"Results saved to database ({insert_count} records, type={config_type}), elapsed time: {save_duration:.3f} seconds")
+            log_util.info(f"Results saved to database ({insert_count} records, type={config_type}), elapsed time: {save_duration:.3f} seconds")
 
     def _trigger_sync(self, results: List[StockDetail], config_type: int):
         if not results:
@@ -258,13 +259,13 @@ class StrategyOrchestrator(SingletonMixin):
                 notify_service.notify_minute_data_sync(stock_codes)
                 notify_service.notify_auction_data_sync(stock_codes)
                 notify_service.notify_money_flow_sync(stock_codes)
-                logger.info(f"已通知更新 minute_data, auction_data, money_flow 数据，股票数量: {len(stock_codes)}")
+                log_util.info(f"已通知更新 minute_data, auction_data, money_flow 数据，股票数量: {len(stock_codes)}")
             else:
                 notify_service.notify_daily_data_sync()
                 notify_service.notify_minute_data_sync(stock_codes)
-                logger.info(f"已通知更新 daily_data, minute_data 数据，股票数量: {len(stock_codes)}")
+                log_util.info(f"已通知更新 daily_data, minute_data 数据，股票数量: {len(stock_codes)}")
         except Exception as e:
-            logger.warning(f"通知更新数据失败: {e}")
+            log_util.limit_warn(f"通知更新数据失败: {e}")
 
 def get_strategy_orchestrator() -> StrategyOrchestrator:
     return StrategyOrchestrator.get_instance()

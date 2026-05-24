@@ -4,6 +4,7 @@ from datetime import datetime
 
 from models.filter_params import FilterParams
 from services.strategy_orchestrator import get_strategy_orchestrator
+from shared.log_utils import create_log_util
 
 router = APIRouter(prefix="/api/strategy", tags=["策略"])
 
@@ -127,7 +128,5 @@ def _query_filter_results(filter_type: int) -> List[Dict[str, Any]]:
 
         return results
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Error reading filter results (type={filter_type}) from database: {str(e)}")
+        log_util.error(f"Error reading filter results (type={filter_type}) from database: {str(e)}")
         return []

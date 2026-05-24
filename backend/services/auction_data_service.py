@@ -1,4 +1,5 @@
 import logging
+from shared.log_utils import create_log_util
 from datetime import datetime
 from typing import Dict, Any, List
 
@@ -7,7 +8,7 @@ from shared.stock_code_convert import to_goldminer_symbol
 from common.singleton import SingletonMixin
 from services.data_sync_notify_service import get_data_sync_notify_service
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 notify_service = get_data_sync_notify_service()
 
@@ -30,7 +31,7 @@ class AuctionDataService(SingletonMixin):
             if not codes:
                 return {"status": "error", "msg": "股票列表为空"}
 
-            logger.info(f"触发竞价数据同步: {len(codes)} 只股票, {days} 天")
+            log_util.info(f"触发竞价数据同步: {len(codes)} 只股票, {days} 天")
 
             success = notify_service.notify_auction_data_sync(codes)
             if not success:
@@ -42,7 +43,7 @@ class AuctionDataService(SingletonMixin):
                 "data": {"total": len(codes)}
             }
         except Exception as e:
-            logger.error(f"Error in load_auction_data: {str(e)}")
+            log_util.error(f"Error in load_auction_data: {str(e)}")
             return {"status": "error", "msg": str(e)}
 
     def save_filter_stocks(self, stocks: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -73,10 +74,10 @@ class AuctionDataService(SingletonMixin):
                     db.add(filter_result)
                     insert_count += 1
 
-                logger.info(f"Saved {insert_count} filter stocks to database (type=2)")
+                log_util.info(f"Saved {insert_count} filter stocks to database (type=2)")
                 return {"status": "success", "msg": f"保存成功，共{insert_count}条记录"}
         except Exception as e:
-            logger.error(f"Error saving filter stocks: {str(e)}")
+            log_util.error(f"Error saving filter stocks: {str(e)}")
             import traceback
             traceback.print_exc()
             return {"status": "error", "msg": str(e)}

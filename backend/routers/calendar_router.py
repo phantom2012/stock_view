@@ -1,11 +1,12 @@
 import logging
+from shared.log_utils import create_log_util
 from typing import List
 from fastapi import APIRouter
 from shared.db import get_session_ro, TradeCalendar
 
 router = APIRouter(prefix="/api/calendar", tags=["交易日历"])
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 @router.get("/non-trading-dates")
@@ -23,5 +24,5 @@ def get_non_trading_dates() -> List[str]:
             ).order_by(TradeCalendar.calendar_date).all()
             return [row[0] for row in rows if row[0]]
     except Exception as e:
-        logger.error(f"获取非交易日失败: {e}")
+        log_util.error(f"获取非交易日失败: {e}")
         return []

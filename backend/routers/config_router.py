@@ -1,4 +1,5 @@
 import logging
+from shared.log_utils import create_log_util
 from typing import List, Dict, Any
 from fastapi import APIRouter
 
@@ -6,7 +7,7 @@ from models import get_session_ro, BlockInfo, FilterConfig
 
 router = APIRouter(prefix="/api/config", tags=["配置"])
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 @router.get("/get-block-list")
@@ -25,7 +26,7 @@ def get_block_list():
 
             return blocks
     except Exception as e:
-        logger.error(f"Error in get-block-list: {str(e)}")
+        log_util.error(f"Error in get-block-list: {str(e)}")
         import traceback
         traceback.print_exc()
         return []
@@ -41,5 +42,5 @@ def get_filter_config(config_type: int = 2):
                 return {c.name: getattr(row, c.name) for c in row.__table__.columns}
             return None
     except Exception as e:
-        logger.error(f"Error reading filter config: {str(e)}")
+        log_util.error(f"Error reading filter config: {str(e)}")
         return None

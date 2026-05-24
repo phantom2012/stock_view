@@ -1,4 +1,5 @@
 import logging
+from shared.log_utils import create_log_util
 from datetime import datetime
 from typing import Optional, Dict, Any
 
@@ -7,7 +8,7 @@ from models.filter_params import FilterParams
 from stock_cache import get_stock_cache
 from .stock_wave_analyzer import StockWaveAnalyzer
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 class StockAnalyzer:
@@ -82,7 +83,7 @@ class StockAnalyzer:
                 max_day_rise=0, prev_high_price_rate=0
             )
         except Exception as e:
-            logger.error(f"[StockAnalyzer] Error checking performance for {symbol}: {e}")
+            log_util.error(f"[StockAnalyzer] Error checking performance for {symbol}: {e}")
             return StockPerformance(
                 is_pass=False, interval_max_rise=0,
                 max_day_rise=0, prev_high_price_rate=0
@@ -120,7 +121,7 @@ class StockAnalyzer:
 
             return None
         except Exception as e:
-            logger.error(f"[StockAnalyzer] Error checking tail auction for {symbol}: {e}")
+            log_util.error(f"[StockAnalyzer] Error checking tail auction for {symbol}: {e}")
             return None
 
     # ==================== 涨幅获取 ====================
@@ -150,7 +151,7 @@ class StockAnalyzer:
 
             return None
         except Exception as e:
-            logger.error(f"[StockAnalyzer] Error getting day gain for {symbol} on {trade_date}: {e}")
+            log_util.error(f"[StockAnalyzer] Error getting day gain for {symbol} on {trade_date}: {e}")
             return None
 
     # ==================== 股票属性判断 ====================
@@ -210,13 +211,13 @@ class StockAnalyzer:
             stock_name = self._fetch_stock_name(symbol)
 
             if stock_name == '未知':
-                logger.warning(f"[StockAnalyzer] 警告: 股票 {symbol} 无法获取有效名称，但允许通过筛选")
+                log_util.limit_warn(f"[StockAnalyzer] 警告: 股票 {symbol} 无法获取有效名称，但允许通过筛选")
             elif 'ST' in stock_name or '*ST' in stock_name:
-                logger.info(f"[StockAnalyzer] 股票 {symbol} 是 ST 股票，已剔除")
+                log_util.info(f"[StockAnalyzer] 股票 {symbol} 是 ST 股票，已剔除")
                 return False
 
         except Exception as e:
-            logger.error(f"[StockAnalyzer] 检查10cm股票时出错 {symbol}: {e}，已剔除")
+            log_util.error(f"[StockAnalyzer] 检查10cm股票时出错 {symbol}: {e}，已剔除")
             return False
 
         return True
@@ -263,7 +264,7 @@ class StockAnalyzer:
                 row = db.query(StockInfo).filter(StockInfo.code == pure_code).first()
 
                 if row is None:
-                    logger.info(f"[StockAnalyzer] 股票 {symbol} 在数据库中找不到，视为无效股票，已剔除")
+                    log_util.info(f"[StockAnalyzer] 股票 {symbol} 在数据库中找不到，视为无效股票，已剔除")
                     return False
 
                 list_status = row.list_status
@@ -276,18 +277,18 @@ class StockAnalyzer:
                     try:
                         delisted_dt = datetime.strptime(delist_date[:10], '%Y-%m-%d')
                         if delisted_dt < datetime.now():
-                            logger.info(f"[StockAnalyzer] 股票 {symbol} 已退市，日期: {delist_date}，已剔除")
+                            log_util.info(f"[StockAnalyzer] 股票 {symbol} 已退市，日期: {delist_date}，已剔除")
                             return False
                     except Exception:
                         pass
 
                 if list_status != 'L':
-                    logger.info(f"[StockAnalyzer] 股票 {symbol} 状态异常: {list_status}，已剔除")
+                    log_util.info(f"[StockAnalyzer] 股票 {symbol} 状态异常: {list_status}，已剔除")
                     return False
 
                 return True
         except Exception as e:
-            logger.error(f"[StockAnalyzer] 查询股票 {symbol} 退市状态失败: {e}")
+            log_util.error(f"[StockAnalyzer] 查询股票 {symbol} 退市状态失败: {e}")
             return True
 
     def _fetch_stock_name(self, symbol: str) -> str:
@@ -303,6 +304,6 @@ class StockAnalyzer:
         stock_name = self.cache.get_stock_name(symbol)
 
         if stock_name == '未知':
-            logger.warning(f"[StockAnalyzer] 股票 {symbol} 在数据库中也找不到，视为无效股票")
+            log_util.limit_warn(f"[StockAnalyzer] 股票 {symbol} 在数据库中也找不到，视为无效股票")
 
         return stock_name

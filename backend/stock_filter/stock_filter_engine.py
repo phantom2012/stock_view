@@ -1,4 +1,5 @@
 import logging
+from shared.log_utils import create_log_util
 from datetime import datetime
 from typing import List, Optional
 
@@ -9,7 +10,7 @@ from stock_cache import get_stock_cache
 from shared.stock_code_convert import to_pure_code
 from .stock_analyzer import StockAnalyzer
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 class StockFilterEngine:
@@ -90,7 +91,7 @@ class StockFilterEngine:
                     pre_avg_price = prev_trade_data.get('pre_avg_price', 0)
                     pre_price_gain = prev_trade_data.get('pre_price_gain', 0)
             except Exception as e:
-                logger.error(f"Error getting previous trade data for {symbol}: {e}")
+                log_util.error(f"Error getting previous trade data for {symbol}: {e}")
 
             # 8. 获取股票名称
             stock_name = self.cache.get_stock_name(symbol)
@@ -109,7 +110,7 @@ class StockFilterEngine:
                 auction_data_full = self.cache.get_auction_data(symbol, trade_date)
                 volume_ratio = auction_data_full.get('volume_ratio', 0)
             except Exception as e:
-                logger.error(f"[StockFilterEngine] Error getting auction data for {symbol}: {e}")
+                log_util.error(f"[StockFilterEngine] Error getting auction data for {symbol}: {e}")
 
             # 10. 获取当日开盘价、收盘价和次日数据
             open_price = 0.0
@@ -134,7 +135,7 @@ class StockFilterEngine:
                             next_open_price = next_row.get('open', 0.0)
                             next_close_price = next_row.get('close', 0.0)
             except Exception as e:
-                logger.error(f"[StockFilterEngine] Error getting day data for {symbol}: {e}")
+                log_util.error(f"[StockFilterEngine] Error getting day data for {symbol}: {e}")
 
             # 11. 构建结果
             result = StockDetail.create(

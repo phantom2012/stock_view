@@ -4,13 +4,14 @@
 支持设置股票列表，由调度器按优先级有序处理
 """
 import logging
+from shared.log_utils import create_log_util
 import json
 from datetime import datetime
 from typing import Optional, List
 
 from shared.db import get_session, DataSyncNotify
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 class DataSyncNotifyService:
@@ -37,7 +38,7 @@ class DataSyncNotifyService:
                 ).first()
 
                 if not notify:
-                    logger.error(f"未找到同步类型: {sync_type} 的通知记录")
+                    log_util.error(f"未找到同步类型: {sync_type} 的通知记录")
                     return False
 
                 notify.trigger_flag = 1
@@ -55,11 +56,11 @@ class DataSyncNotifyService:
                 notify.update_time = datetime.now()
 
                 db.commit()
-                logger.info(f"已发送 {sync_type} 数据同步通知 (股票数: {len(stock_codes) if stock_codes else '全部'}, 优先级: {notify.priority})")
+                log_util.info(f"已发送 {sync_type} 数据同步通知 (股票数: {len(stock_codes) if stock_codes else '全部'}, 优先级: {notify.priority})")
                 return True
 
         except Exception as e:
-            logger.error(f"发送同步通知失败: {e}")
+            log_util.error(f"发送同步通知失败: {e}")
             return False
 
     def notify_money_flow_sync(self, stock_codes: Optional[List[str]] = None) -> bool:
@@ -118,7 +119,7 @@ class DataSyncNotifyService:
                     try:
                         stock_codes = json.loads(notify.stock_codes)
                     except json.JSONDecodeError:
-                        logger.warning(f"{sync_type} 的 stock_codes 格式无效")
+                        log_util.limit_warn(f"{sync_type} 的 stock_codes 格式无效")
 
                 return {
                     'sync_type': notify.sync_type,
@@ -134,7 +135,7 @@ class DataSyncNotifyService:
                     'update_time': notify.update_time.isoformat() if notify.update_time else None,
                 }
         except Exception as e:
-            logger.error(f"获取同步状态失败: {e}")
+            log_util.error(f"获取同步状态失败: {e}")
             return None
 
     def _get_status_desc(self, status: int) -> str:

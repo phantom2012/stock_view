@@ -1,4 +1,5 @@
 import logging
+from shared.log_utils import create_log_util
 from datetime import datetime
 from typing import Dict, Any
 from fastapi import APIRouter
@@ -9,7 +10,7 @@ from shared.stock_code_convert import to_goldminer_symbol
 
 router = APIRouter(prefix="/api/stock", tags=["股票信息"])
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 stock_cache = get_stock_cache()
 
 
@@ -42,7 +43,7 @@ def get_stock_info(code: str):
         stock_name = stock_cache.get_stock_name(symbol)
 
         if stock_name == '未知':
-            logger.warning(f"股票 {code} 在数据库中未找到名称")
+            log_util.limit_warn(f"股票 {code} 在数据库中未找到名称")
 
         data = stock_cache.get_history_data(symbol, days=2)
 
@@ -74,7 +75,7 @@ def get_stock_info(code: str):
 
         return result
     except Exception as e:
-        logger.error(f"Error in get-stock-info: {e}")
+        log_util.error(f"Error in get-stock-info: {e}")
         return result
 
 
@@ -165,11 +166,11 @@ def get_stock_history(code: str, days: int = 10):
             result.reverse()
             return result
         else:
-            logger.warning(f"No history data found for {code}")
+            log_util.limit_warn(f"No history data found for {code}")
             return []
 
     except Exception as e:
-        logger.error(f"Error getting stock history: {str(e)}")
+        log_util.error(f"Error getting stock history: {str(e)}")
         import traceback
         traceback.print_exc()
         return []

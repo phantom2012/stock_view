@@ -1,4 +1,5 @@
 import logging
+from shared.log_utils import create_log_util
 from datetime import datetime
 from typing import Optional, List
 
@@ -9,7 +10,7 @@ from shared.trade_date_util import TradeDateUtil
 from stock_filter.stock_wave_analyzer import StockWaveAnalyzer
 from stock_cache import get_stock_cache
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 trade_date_util = TradeDateUtil()
 
@@ -26,7 +27,7 @@ class RisingWaveService:
         Args:
             codes: 股票代码列表（可选），为 None 则计算所有 filter_results(type=1) 中的股票
         """
-        logger.info(f"===== 开始升浪复算: codes={codes} =====")
+        log_util.info(f"===== 开始升浪复算: codes={codes} =====")
         try:
             if codes is None:
                 with get_session() as db:
@@ -34,7 +35,7 @@ class RisingWaveService:
                     codes = list({row.code for row in rows if row.code})
 
             if not codes:
-                logger.warning("无股票数据，跳过升浪复算")
+                log_util.limit_warn("无股票数据，跳过升浪复算")
                 return
 
             success_count = 0
@@ -44,12 +45,12 @@ class RisingWaveService:
                     self._calculate_and_update(code)
                     success_count += 1
                 except Exception as e:
-                    logger.error(f"升浪复算失败 {code}: {e}")
+                    log_util.error(f"升浪复算失败 {code}: {e}")
                     failed_count += 1
 
-            logger.info(f"===== 升浪复算完成: 成功 {success_count}, 失败 {failed_count} =====")
+            log_util.info(f"===== 升浪复算完成: 成功 {success_count}, 失败 {failed_count} =====")
         except Exception as e:
-            logger.error(f"升浪复算异常: {e}")
+            log_util.error(f"升浪复算异常: {e}")
             import traceback; traceback.print_exc()
 
     def _calculate_and_update(self, code: str):
@@ -63,7 +64,7 @@ class RisingWaveService:
             ).all()
 
             if not rows:
-                logger.warning(f"[{code}] 无 filter_results 记录，跳过")
+                log_util.limit_warn(f"[{code}] 无 filter_results 记录，跳过")
                 return
 
             for row in rows:

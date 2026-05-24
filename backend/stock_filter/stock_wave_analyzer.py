@@ -1,4 +1,5 @@
 import logging
+from shared.log_utils import create_log_util
 from datetime import datetime
 from typing import Optional
 
@@ -6,7 +7,7 @@ import pandas as pd
 
 from config import RISING_WAVE_CONFIG
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 class StockWaveAnalyzer:
@@ -299,7 +300,7 @@ class StockWaveAnalyzer:
 
             return round(total_score, 2)
         except Exception as e:
-            logger.error(f"[StockWaveAnalyzer] Error calculating rising wave score for {symbol}: {e}")
+            log_util.error(f"[StockWaveAnalyzer] Error calculating rising wave score for {symbol}: {e}")
             return 0.0
 
     # ==================== 区间形态计算 ====================
