@@ -27,7 +27,7 @@ stock_cache = get_stock_cache()
 # 用户筛选条件 - 使用板块代码
 # 880608=第三代半导体, 880656=CPO概念, 880672=存储芯片, 880952=芯片
 params = FilterParams(
-    trade_date='2026-05-12',
+    trade_date='2026-05-22',
     weipan_exceed=0,
     zaopan_exceed=0,
     rising_wave=1,  # 勾选了上升形态
@@ -41,7 +41,7 @@ params = FilterParams(
 )
 
 # 德明利股票代码
-stock_code = '600584'
+stock_code = '603986'
 symbol = to_goldminer_symbol(stock_code)
 
 print(f"========== 德明利({stock_code})筛选分析 ==========")

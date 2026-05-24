@@ -41,23 +41,25 @@ class StockWaveAnalyzer:
            - 突破间隔 1=每天突破, 2=隔日突破, 3=隔2日突破
         4. 累计连续突破次数(streak)、统计各类突破间隔的天数分布
         5. 当升浪序列断开时检查是否通过筛选：
-           - streak >= min_streak_days（10天），或
-           - streak >= min_streak_alt_days（5天）且区间涨幅 > min_gain_pct（30%）
+           - streak >= min_streak_days（8天），或
+           - streak >= min_streak_alt_days（3天）且区间涨幅 > min_gain_pct（20%）
         6. 通过基础筛选后，额外检查周期内上涨天数占比：
            - 统计从首涨日到最后一个突破日的全部交易日中，收盘上涨的占比
-           - 需满足 上涨天数/总交易日 > min_up_day_ratio（0.7）
+           - 需满足 上涨天数/总交易日 > min_up_day_ratio（0.65）
         7. 通过筛选则记录该周期，并从结束日之后继续扫描下一个周期，确保序列不重叠
         8. 遍历完所有日期后，取最后一个满足条件的升浪周期作为计算区间
-        9. 对最终区间计算三项得分：
+        9. 对最终区间计算四项得分：
            a. 周期内最大回调幅度（未突破期间的最大回调）及分段得分，
-              同时检查单日最大跌幅 <= within_cycle_max_single_day_drop（9%）和
-              连续两日最大累计跌幅 <= within_cycle_max_two_day_drop（5%），
+              同时检查单日最大跌幅 <= within_cycle_max_single_day_drop（10.5%）和
+              连续两日最大累计跌幅 <= within_cycle_max_two_day_drop（9.5%），
               任一超出则周期内回调得分为0
            b. 周期间回调幅度：取倒数第二个到最后一个序列之间的回调跌幅，
               与最后一个序列结束后到数据末尾的回调跌幅，两者取较大值，
               需同时满足两个条件才给分，条件不满足时周期间得分为0：
-              - 回调跌幅 <= between_cycle_max_drawdown（20%）
+              - 回调跌幅 <= between_cycle_max_drawdown（35%）
               - 回调跌幅/参考升浪累计涨幅 < between_cycle_drawdown_ratio（50%，浅回调条件）
+           c. 升浪周期日均涨幅得分：所有升浪周期的总涨幅/总交易日数作为日均涨幅，
+              超过 min_avg_daily_gain（2.2%）门槛后，乘以 avg_daily_gain_score_coefficient 系数计入总分
         10. 基础分中连续突破天数得分上限12分，区间涨幅得分上限15分
 
         Args:
@@ -82,6 +84,7 @@ class StockWaveAnalyzer:
         WITHIN_CYCLE_MAX_TWO_DAY_DROP = config['within_cycle_max_two_day_drop']
         MIN_UP_DAY_RATIO = config['min_up_day_ratio']
         MIN_AVG_DAILY_GAIN = config['min_avg_daily_gain']
+        AVG_DAILY_GAIN_COEF = config['avg_daily_gain_score_coefficient']
         MIN_LIMIT_UP_DAYS = config['min_limit_up_days']
         LIMIT_UP_NEXT_RED_RATIO = config['limit_up_next_red_ratio']
         MIN_WAVE_DAYS_RATIO = config['min_wave_days_ratio']
@@ -98,6 +101,7 @@ class StockWaveAnalyzer:
             data = data.tail(LOOKBACK_DAYS).reset_index(drop=True)
             n = len(data)
 
+            # ===== 第一步：涨停统计与次日红盘检查 =====
             limit_up_days = 0
             limit_up_next_red_days = 0
             for i in range(n - 1):
@@ -110,15 +114,14 @@ class StockWaveAnalyzer:
                     if data.iloc[i + 1]['close'] > data.iloc[i]['close']:
                         limit_up_next_red_days += 1
 
-            if limit_up_days < MIN_LIMIT_UP_DAYS:
-                return 0.0
-
-            next_red_ratio = limit_up_next_red_days / limit_up_days if limit_up_days > 0 else 0.0
-            if next_red_ratio < LIMIT_UP_NEXT_RED_RATIO:
-                return 0.0
+            if limit_up_days >= MIN_LIMIT_UP_DAYS:
+                next_red_ratio = limit_up_next_red_days / limit_up_days if limit_up_days > 0 else 0.0
+                if next_red_ratio < LIMIT_UP_NEXT_RED_RATIO:
+                    return 0.0
 
             all_sequences = []
 
+            # ===== 第二步：升浪周期扫描 =====
             start_idx = 0
             while start_idx < n - 1:
                 current_high = data.iloc[start_idx]['close']
@@ -126,6 +129,7 @@ class StockWaveAnalyzer:
                     start_idx += 1
                     continue
 
+                # --- 2a. 寻找首涨日 ---
                 wave_start = -1
                 for j in range(start_idx, n - 1):
                     if data.iloc[j + 1]['close'] > data.iloc[j]['close']:
@@ -135,6 +139,7 @@ class StockWaveAnalyzer:
                 if wave_start == -1:
                     break
 
+                # --- 2b. 初始化升浪参数 ---
                 base_close = data.iloc[wave_start - 1]['close']
                 current_high = data.iloc[wave_start]['close']
 
@@ -151,6 +156,7 @@ class StockWaveAnalyzer:
                 max_single_day_drop = 0.0
                 max_two_day_drop = 0.0
 
+                # --- 2c. 向后扫描突破序列 ---
                 for i in range(wave_start + 1, n):
                     current_close = data.iloc[i]['close']
                     days_since_breakthrough += 1
@@ -194,6 +200,7 @@ class StockWaveAnalyzer:
                     if days_since_breakthrough > MAX_GAP:
                         break
 
+                # --- 2d. 序列断开后，筛选条件判断 ---
                 if streak == 0:
                     start_idx = wave_start + 1
                     continue
@@ -211,28 +218,31 @@ class StockWaveAnalyzer:
                     start_idx = wave_start + 1
                     continue
 
+                # --- 2e. 周期内上涨天数统计 ---
                 total_days_in_cycle = streak_end_idx - wave_start + 1
                 up_days_in_cycle = 1
                 for k in range(wave_start + 1, streak_end_idx + 1):
                     if data.iloc[k]['close'] > data.iloc[k - 1]['close']:
                         up_days_in_cycle += 1
 
+                # --- 2f. 基础分及回调得分计算 ---
                 max_gap_present = max(k for k, v in pattern_distribution.items() if v > 0)
                 pattern_score = PATTERN_SCORE_MAP.get(max_gap_present, 0)
 
-                original_score = min(streak * DAYS_COEF, 12) + min(period_gain * GAIN_COEF, 15) + pattern_score
+                base_score = min(streak * DAYS_COEF, 12) + min(period_gain * GAIN_COEF, 15) + pattern_score
 
                 within_dd_score = self._score_drawdown(max_within_drawdown, WITHIN_CYCLE_DD_SCORE_MAP)
 
                 if max_single_day_drop > WITHIN_CYCLE_MAX_SINGLE_DAY_DROP or max_two_day_drop > WITHIN_CYCLE_MAX_TWO_DAY_DROP:
                     within_dd_score = 0.0
 
+                # --- 2g. 记录当前升浪周期 ---
                 all_sequences.append({
                     'start_idx': wave_start,
                     'end_idx': streak_end_idx,
                     'streak': streak,
                     'period_gain': period_gain,
-                    'original_score': original_score,
+                    'base_score': base_score,
                     'max_gap_present': max_gap_present,
                     'max_within_drawdown': max_within_drawdown,
                     'within_dd_score': within_dd_score,
@@ -248,6 +258,7 @@ class StockWaveAnalyzer:
             if not all_sequences:
                 return 0.0
 
+            # ===== 第三步：汇总过滤检查 =====
             total_up_days = sum(s['up_days_in_cycle'] for s in all_sequences)
             total_days_all = sum(s['total_days_in_cycle'] for s in all_sequences)
             combined_up_ratio = total_up_days / total_days_all if total_days_all > 0 else 0.0
@@ -266,6 +277,7 @@ class StockWaveAnalyzer:
 
             last_seq = all_sequences[-1]
 
+            # ===== 第四步：周期间回调得分 =====
             between_dd_score = 0.0
             max_drawdown = 0.0
             drawdown_ref_gain = 0.0
@@ -296,7 +308,9 @@ class StockWaveAnalyzer:
                (max_drawdown / drawdown_ref_gain) < BETWEEN_CYCLE_DD_RATIO:
                 between_dd_score = self._score_drawdown(max_drawdown, BETWEEN_CYCLE_DD_SCORE_MAP)
 
-            total_score = last_seq['original_score'] + last_seq['within_dd_score'] + between_dd_score
+            # ===== 第五步：总分计算 =====
+            avg_daily_gain_score = combined_avg_daily_gain * AVG_DAILY_GAIN_COEF
+            total_score = last_seq['base_score'] + last_seq['within_dd_score'] + between_dd_score + avg_daily_gain_score
 
             return round(total_score, 2)
         except Exception as e:
