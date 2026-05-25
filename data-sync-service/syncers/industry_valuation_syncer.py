@@ -17,8 +17,9 @@ from shared.db import get_session, get_session_ro, StockIndustry, IndustryValuat
 from shared.stock_code_convert import to_pure_code
 from external_data import get_query_handler
 from .base_syncer import BaseSyncer
+from shared.log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 SYNC_TYPE = 'industry_valuation'
 
@@ -30,7 +31,7 @@ class IndustryValuationSyncer(BaseSyncer):
     """
 
     def sync(self, stock_codes: Optional[List[str]] = None) -> Tuple[bool, int, int, str]:
-        logger.info("===== 开始行业估值基准同步 =====")
+        log_util.info("===== 开始行业估值基准同步 =====")
         try:
             query_handler = get_query_handler()
 
@@ -39,13 +40,13 @@ class IndustryValuationSyncer(BaseSyncer):
                 return False, 0, 0, "获取行业映射失败"
 
             saved_industries = self._save_stock_industry(industry_df)
-            logger.info(f"股票行业映射: 保存 {saved_industries} 条记录")
+            log_util.info(f"股票行业映射: 保存 {saved_industries} 条记录")
 
             latest_trade_date = self._get_latest_trade_date(industry_df)
             if not latest_trade_date:
                 return False, 0, 0, "无最新交易日数据"
 
-            logger.info(f"开始获取 {latest_trade_date} 全市场估值数据...")
+            log_util.info(f"开始获取 {latest_trade_date} 全市场估值数据...")
 
             basic_df = query_handler.get_daily_basic_batch_df(latest_trade_date)
             if basic_df is None or basic_df.empty:
@@ -58,13 +59,13 @@ class IndustryValuationSyncer(BaseSyncer):
             industry_stats = self._compute_industry_stats(merged)
             saved_stats = self._save_industry_valuation(industry_stats, latest_trade_date)
 
-            logger.info(f"===== 行业估值基准同步完成 =====")
-            logger.info(f"行业数: {len(industry_stats)}, 股票映射: {saved_industries}, 估值记录: {saved_stats}")
+            log_util.info(f"===== 行业估值基准同步完成 =====")
+            log_util.info(f"行业数: {len(industry_stats)}, 股票映射: {saved_industries}, 估值记录: {saved_stats}")
 
             return True, saved_stats, 0, f"同步{len(industry_stats)}个行业, {saved_stats}条记录"
 
         except Exception as e:
-            logger.error(f"行业估值基准同步异常: {e}")
+            log_util.limit_error(f"行业估值基准同步异常: {e}")
             import traceback; traceback.print_exc()
             return False, 0, 0, str(e)
 
@@ -102,7 +103,7 @@ class IndustryValuationSyncer(BaseSyncer):
 
             db.commit()
             total = db.query(StockIndustry).count()
-            logger.info(f"stock_industry 表: 新增{count}条, 共{total}条")
+            log_util.info(f"stock_industry 表: 新增{count}条, 共{total}条")
             return total
 
     def _get_latest_trade_date(self, industry_df: pd.DataFrame) -> Optional[str]:
@@ -127,10 +128,10 @@ class IndustryValuationSyncer(BaseSyncer):
                 on='pure_code', how='inner'
             )
 
-            logger.info(f"合并后数据: {len(merged)}条, {merged['industry'].nunique()}个行业")
+            log_util.info(f"合并后数据: {len(merged)}条, {merged['industry'].nunique()}个行业")
             return merged
         except Exception as e:
-            logger.error(f"合并行业数据失败: {e}")
+            log_util.limit_error(f"合并行业数据失败: {e}")
             return None
 
     def _compute_industry_stats(self, df: pd.DataFrame) -> List[dict]:
@@ -171,7 +172,7 @@ class IndustryValuationSyncer(BaseSyncer):
             stats_list.append(stats)
 
         stats_list.sort(key=lambda x: x['industry'])
-        logger.info(f"统计完成: {len(stats_list)}个行业")
+        log_util.info(f"统计完成: {len(stats_list)}个行业")
 
         return stats_list
 
@@ -225,7 +226,7 @@ class IndustryValuationSyncer(BaseSyncer):
                 db.commit()
             except IntegrityError:
                 db.rollback()
-                logger.warning("批量保存行业估值发生冲突，逐条保存...")
+                log_util.limit_warn("批量保存行业估值发生冲突，逐条保存...")
                 saved = 0
                 for stats in stats_list:
                     try:

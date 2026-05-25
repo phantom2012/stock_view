@@ -198,7 +198,7 @@ class AuctionDataSyncer(BaseSyncer):
         if prev_auction and prev_auction.get('open_volume') and prev_auction['open_volume'] > 0:
             return float(prev_auction['open_volume'])
 
-        logger.debug(f"{date_str} 的上一个交易日 {prev_date_str} 没有有效开盘量数据")
+        log_util.info(f"{date_str} 的上一个交易日 {prev_date_str} 没有有效开盘量数据")
         return None
 
     def _batch_save_auction_to_db(self, code: str, updates: List[Tuple[str, dict]]):

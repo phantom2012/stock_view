@@ -9,8 +9,9 @@ from typing import Tuple
 
 from shared.db import get_session, ClearDataTimer, StockInfo
 from .base_syncer import BaseSyncer
+from shared.log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 class ClearDataSyncer(BaseSyncer):
@@ -31,7 +32,7 @@ class ClearDataSyncer(BaseSyncer):
                 if not config:
                     return True, 0, 0, "无清理任务"
 
-                logger.info("开始清理 stock_info 的 free_share 和 circ_mv 字段")
+                log_util.info("开始清理 stock_info 的 free_share 和 circ_mv 字段")
 
                 try:
                     count = db.query(StockInfo).filter(
@@ -46,15 +47,15 @@ class ClearDataSyncer(BaseSyncer):
                     config.update_time = datetime.now()
                     db.commit()
 
-                    logger.info(f"清理完成，重置 {count} 条记录")
+                    log_util.info(f"清理完成，重置 {count} 条记录")
                     return True, count, 0, f"清理{count}条"
 
                 except Exception as e:
                     db.rollback()
-                    logger.error(f"清理失败: {e}")
+                    log_util.limit_error(f"清理失败: {e}")
                     return False, 0, 1, str(e)
 
         except Exception as e:
-            logger.error(f"扫描清理任务异常: {e}")
+            log_util.limit_error(f"扫描清理任务异常: {e}")
             import traceback; traceback.print_exc()
             return False, 0, 0, str(e)

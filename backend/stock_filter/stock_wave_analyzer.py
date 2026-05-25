@@ -34,7 +34,7 @@ class StockWaveAnalyzer:
 
         算法逻辑：
         1. 在 LOOKBACK_DAYS 个交易日范围内，从第一天开始向后遍历
-        2. 从当前扫描位置找到第一个上涨日（收盘价 > 前一日收盘价）作为升浪起始日，
+        2. 从当前扫描位置找到第一个上涨日（收盘涨幅 > wave_start_min_gain%）作为升浪起始日，
            以前一日收盘价作为周期涨幅基准价，起始日收盘价作为当前前高
         3. 继续向后扫描突破序列：当日收盘 >= 当前最高价即记为一次突破
            - 突破间隔天数限制在 MAX_GAP（3天）以内
@@ -59,7 +59,8 @@ class StockWaveAnalyzer:
               - 回调跌幅 <= between_cycle_max_drawdown（35%）
               - 回调跌幅/参考升浪累计涨幅 < between_cycle_drawdown_ratio（50%，浅回调条件）
            c. 升浪周期日均涨幅得分：所有升浪周期的总涨幅/总交易日数作为日均涨幅，
-              超过 min_avg_daily_gain（2.2%）门槛后，乘以 avg_daily_gain_score_coefficient 系数计入总分
+              超过 min_avg_daily_gain（2.2%）门槛后，乘以 avg_daily_gain_score_cfg.coeff 系数计入总分，
+              不超过 avg_daily_gain_score_cfg.max 上限
         10. 基础分中连续突破天数得分上限 streak_score_cfg.max（12分），区间涨幅得分上限 gain_score_cfg.max（15分）
 
         Args:
@@ -75,6 +76,7 @@ class StockWaveAnalyzer:
         MIN_STREAK_DAYS = config['min_streak_days']
         MIN_STREAK_ALT_DAYS = config['min_streak_alt_days']
         MIN_GAIN_PCT = config['min_gain_pct']
+        WAVE_START_MIN_GAIN = config['wave_start_min_gain']
         DAYS_COEF = config['streak_score_cfg']['coeff']
         STREAK_SCORE_CAP = config['streak_score_cfg']['max']
         GAIN_COEF = config['gain_score_cfg']['coeff']
@@ -86,7 +88,8 @@ class StockWaveAnalyzer:
         WITHIN_CYCLE_MAX_TWO_DAY_DROP = config['within_cycle_max_two_day_drop']
         MIN_UP_DAY_RATIO = config['min_up_day_ratio']
         MIN_AVG_DAILY_GAIN = config['min_avg_daily_gain']
-        AVG_DAILY_GAIN_COEF = config['avg_daily_gain_score_coefficient']
+        AVG_DAILY_GAIN_COEF = config['avg_daily_gain_score_cfg']['coeff']
+        AVG_DAILY_GAIN_CAP = config['avg_daily_gain_score_cfg']['max']
         MIN_LIMIT_UP_DAYS = config['min_limit_up_days']
         LIMIT_UP_NEXT_RED_RATIO = config['limit_up_next_red_ratio']
         MIN_WAVE_DAYS_RATIO = config['min_wave_days_ratio']
@@ -131,10 +134,11 @@ class StockWaveAnalyzer:
                     start_idx += 1
                     continue
 
-                # --- 2a. 寻找首涨日 ---
+                # --- 2a. 寻找首涨日（涨幅需超过 wave_start_min_gain%） ---
                 wave_start = -1
                 for j in range(start_idx, n - 1):
-                    if data.iloc[j + 1]['close'] > data.iloc[j]['close']:
+                    pre_close = data.iloc[j]['close']
+                    if pre_close > 0 and (data.iloc[j + 1]['close'] - pre_close) / pre_close * 100 > WAVE_START_MIN_GAIN:
                         wave_start = j + 1
                         break
 
@@ -323,7 +327,7 @@ class StockWaveAnalyzer:
                 consolidated_within_dd_score = 0.0
 
             # ===== 第六步：总分计算 =====
-            avg_daily_gain_score = combined_avg_daily_gain * AVG_DAILY_GAIN_COEF
+            avg_daily_gain_score = min(combined_avg_daily_gain * AVG_DAILY_GAIN_COEF, AVG_DAILY_GAIN_CAP)
             total_score = last_seq['base_score'] + consolidated_within_dd_score + between_dd_score + avg_daily_gain_score
 
             return round(total_score, 2)

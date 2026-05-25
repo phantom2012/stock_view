@@ -13,8 +13,9 @@ from shared.db import get_session, get_session_ro, StockFinancial
 from shared.stock_code_convert import to_pure_code
 from external_data import get_query_handler
 from .base_syncer import BaseSyncer
+from shared.log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 SYNC_TYPE = 'financial_data'
 QUARTERS_TO_SYNC = 8
@@ -33,12 +34,12 @@ class FinancialDataSyncer(BaseSyncer):
     """
 
     def sync(self, stock_codes: Optional[List[str]] = None) -> Tuple[bool, int, int, str]:
-        logger.info("===== 开始财务指标数据同步 =====")
+        log_util.info("===== 开始财务指标数据同步 =====")
         try:
             query_handler = get_query_handler()
 
             quarter_end_dates = self._calc_quarter_end_dates()
-            logger.info(f"需要同步的季度: {quarter_end_dates}")
+            log_util.info(f"需要同步的季度: {quarter_end_dates}")
 
             total_saved = 0
             total_failed_quarters = 0
@@ -47,37 +48,37 @@ class FinancialDataSyncer(BaseSyncer):
             for period in quarter_end_dates:
                 try:
                     if self._has_quarter_data(period):
-                        logger.info(f"  季度 {period} 数据已存在，跳过")
+                        log_util.info(f"  季度 {period} 数据已存在，跳过")
                         total_skipped_quarters += 1
                         continue
 
-                    logger.info(f"  季度 {period}: 开始查询全市场财务数据...")
+                    log_util.info(f"  季度 {period}: 开始查询全市场财务数据...")
                     df = query_handler.get_fina_indicator_vip_data(period=period)
 
                     if df is None or df.empty:
-                        logger.warning(f"  季度 {period}: 未返回数据")
+                        log_util.limit_warn(f"  季度 {period}: 未返回数据")
                         total_failed_quarters += 1
                         continue
 
                     saved = self._save_quarter_records(df)
                     if saved > 0:
                         total_saved += saved
-                        logger.info(f"  季度 {period}: 保存 {saved} 条记录")
+                        log_util.info(f"  季度 {period}: 保存 {saved} 条记录")
                     else:
-                        logger.info(f"  季度 {period}: 无新增记录")
+                        log_util.info(f"  季度 {period}: 无新增记录")
 
                 except Exception as e:
-                    logger.error(f"  同步季度 {period} 失败: {e}")
+                    log_util.limit_error(f"  同步季度 {period} 失败: {e}")
                     total_failed_quarters += 1
                     continue
 
-            logger.info("===== 财务指标数据同步完成 =====")
-            logger.info(f"同步 {len(quarter_end_dates)} 个季度, 保存 {total_saved} 条, 跳过 {total_skipped_quarters} 个, 失败 {total_failed_quarters} 个")
+            log_util.info("===== 财务指标数据同步完成 =====")
+            log_util.info(f"同步 {len(quarter_end_dates)} 个季度, 保存 {total_saved} 条, 跳过 {total_skipped_quarters} 个, 失败 {total_failed_quarters} 个")
 
             return True, total_saved, total_failed_quarters, f"同步{total_saved}条, 跳过{total_skipped_quarters}个季度"
 
         except Exception as e:
-            logger.error(f"财务指标数据同步异常: {e}")
+            log_util.limit_error(f"财务指标数据同步异常: {e}")
             import traceback; traceback.print_exc()
             return False, 0, 0, str(e)
 
@@ -121,7 +122,7 @@ class FinancialDataSyncer(BaseSyncer):
                 ).count()
                 return count > 4000
         except Exception as e:
-            logger.error(f"检查季度 {period} 数据失败: {e}")
+            log_util.limit_error(f"检查季度 {period} 数据失败: {e}")
             return False
 
     def _save_quarter_records(self, df) -> int:
@@ -197,10 +198,10 @@ class FinancialDataSyncer(BaseSyncer):
 
         except IntegrityError:
             db.rollback()
-            logger.warning("批量保存发生唯一键冲突，执行逐条降级保存...")
+            log_util.limit_warn("批量保存发生唯一键冲突，执行逐条降级保存...")
             return self._save_quarter_records_fallback(df)
         except Exception as e:
-            logger.error(f"批量保存季度数据失败: {e}")
+            log_util.limit_error(f"批量保存季度数据失败: {e}")
             return 0
 
     def _save_quarter_records_fallback(self, df) -> int:

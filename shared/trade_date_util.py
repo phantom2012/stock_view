@@ -8,13 +8,13 @@
 3. 将查询结果更新到 trade_calendar 表
 4. 缓存最近90个交易日列表，后续查询直接从缓存获取
 """
-import logging
 from datetime import datetime, timedelta
 from typing import Optional, List
 
 from .db import get_session, get_session_ro, TradeCalendar
+from .log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 CACHE_DAYS = 90
 
@@ -59,13 +59,13 @@ class TradeDateUtil:
                 ).first()
 
                 if exists:
-                    logger.info(f"trade_calendar 表已存在当天日期数据: {today}")
+                    log_util.info(f"trade_calendar 表已存在当天日期数据: {today}")
                     return
 
-            logger.info(f"trade_calendar 表不存在当天日期数据，从 Baostock 同步最近3天数据...")
+            log_util.info(f"trade_calendar 表不存在当天日期数据，从 Baostock 同步最近3天数据...")
             self._sync_from_baostock()
         except Exception as e:
-            logger.error(f"初始化交易日历失败: {e}")
+            log_util.limit_error(f"初始化交易日历失败: {e}")
 
     def _sync_from_baostock(self):
         """
@@ -76,7 +76,7 @@ class TradeDateUtil:
 
             lg = bs.login()
             if lg.error_code != '0':
-                logger.error(f"Baostock 登录失败: {lg.error_msg}")
+                log_util.limit_error(f"Baostock 登录失败: {lg.error_msg}")
                 return
 
             try:
@@ -86,12 +86,12 @@ class TradeDateUtil:
                 start_str = start_date.strftime("%Y-%m-%d")
                 end_str = end_date.strftime("%Y-%m-%d")
 
-                logger.info(f"查询 Baostock 交易日历: {start_str} 至 {end_str}")
+                log_util.info(f"查询 Baostock 交易日历: {start_str} 至 {end_str}")
                 df = bs.query_trade_dates(start_date=start_str, end_date=end_str)
                 data = df.get_data()
 
                 if data.empty:
-                    logger.warning("Baostock 返回空数据")
+                    log_util.limit_warn("Baostock 返回空数据")
                     return
 
                 with get_session() as db:
@@ -119,15 +119,15 @@ class TradeDateUtil:
                             )
                             db.add(new_record)
 
-                    logger.info(f"成功同步 {len(data)} 条交易日历数据")
+                    log_util.info(f"成功同步 {len(data)} 条交易日历数据")
 
             finally:
                 bs.logout()
 
         except ImportError:
-            logger.error("未安装 baostock 库，请先安装: pip install baostock")
+            log_util.limit_error("未安装 baostock 库，请先安装: pip install baostock")
         except Exception as e:
-            logger.error(f"从 Baostock 同步交易日历失败: {e}")
+            log_util.limit_error(f"从 Baostock 同步交易日历失败: {e}")
 
     def _get_threshold_date(self) -> str:
         """
@@ -174,15 +174,15 @@ class TradeDateUtil:
                 self._cached_trade_dates = [row.calendar_date for row in rows]
                 self._cached_trade_dates.reverse()
 
-                logger.info(f"缓存了 {len(self._cached_trade_dates)} 个交易日 (门槛日期: {threshold_date})")
+                log_util.info(f"缓存了 {len(self._cached_trade_dates)} 个交易日 (门槛日期: {threshold_date})")
         except Exception as e:
-            logger.error(f"缓存交易日失败: {e}")
+            log_util.limit_error(f"缓存交易日失败: {e}")
 
     def refresh_cache(self):
         """刷新交易日缓存"""
         self._latest_trade_date = None
         self._cache_recent_trade_dates()
-        logger.info("交易日缓存已刷新")
+        log_util.info("交易日缓存已刷新")
 
     def get_recent_trade_dates(self, days: int = 5, trade_date: Optional[datetime] = None) -> List[str]:
         """
@@ -217,11 +217,11 @@ class TradeDateUtil:
                 result.reverse()
 
                 if len(result) < days:
-                    logger.warning(f"只找到 {len(result)} 个交易日，不足 {days} 个")
+                    log_util.limit_warn(f"只找到 {len(result)} 个交易日，不足 {days} 个")
 
                 return result
         except Exception as e:
-            logger.error(f"查询最近交易日失败: {e}")
+            log_util.limit_error(f"查询最近交易日失败: {e}")
             return []
 
     def get_latest_trade_date(self) -> Optional[str]:
@@ -251,10 +251,10 @@ class TradeDateUtil:
                     self._latest_trade_date = row.calendar_date
                     return row.calendar_date
 
-                logger.warning(f"未找到 <= {threshold_date} 的交易日")
+                log_util.limit_warn(f"未找到 <= {threshold_date} 的交易日")
                 return None
         except Exception as e:
-            logger.error(f"查询最新交易日失败: {e}")
+            log_util.limit_error(f"查询最新交易日失败: {e}")
             return None
 
     def get_next_trade_date(self, trade_date: datetime) -> Optional[str]:
@@ -292,17 +292,17 @@ class TradeDateUtil:
                     if row:
                         next_date = row.calendar_date
                     else:
-                        logger.warning(f"未找到 {date_str} 之后的下一个交易日")
+                        log_util.limit_warn(f"未找到 {date_str} 之后的下一个交易日")
                         return None
             except Exception as e:
-                logger.error(f"查询下一个交易日失败: {e}")
+                log_util.limit_error(f"查询下一个交易日失败: {e}")
                 return None
 
         today_str = datetime.now().strftime("%Y-%m-%d")
         if next_date >= today_str:
             threshold_date = self._get_threshold_date()
             if next_date > threshold_date:
-                logger.debug(f"下一个交易日 {next_date} 尚未收盘，跳过")
+                log_util.info(f"下一个交易日 {next_date} 尚未收盘，跳过")
                 return None
 
         return next_date
@@ -336,10 +336,10 @@ class TradeDateUtil:
                 if row:
                     return row.calendar_date
 
-                logger.warning(f"未找到 {date_str} 之前的上一个交易日")
+                log_util.limit_warn(f"未找到 {date_str} 之前的上一个交易日")
                 return None
         except Exception as e:
-            logger.error(f"查询上一个交易日失败: {e}")
+            log_util.limit_error(f"查询上一个交易日失败: {e}")
             return None
 
     def get_month_trade_dates(self, year: int, month: int) -> List[str]:
@@ -363,7 +363,7 @@ class TradeDateUtil:
 
                 return [row.calendar_date for row in rows]
         except Exception as e:
-            logger.error(f"查询{year}年{month}月交易日失败: {e}")
+            log_util.limit_error(f"查询{year}年{month}月交易日失败: {e}")
             return []
 
     def is_trading_day(self, date_str: str) -> bool:
@@ -387,7 +387,7 @@ class TradeDateUtil:
 
                 return row and row.is_trading_day == 1
         except Exception as e:
-            logger.error(f"判断交易日失败: {e}")
+            log_util.limit_error(f"判断交易日失败: {e}")
             return False
 
     def count_trade_days_between(self, start_date: str, end_date: str) -> int:
@@ -411,5 +411,5 @@ class TradeDateUtil:
                 ).all()
                 return len(rows)
         except Exception as e:
-            logger.error(f"计算交易日天数失败: {e}")
+            log_util.limit_error(f"计算交易日天数失败: {e}")
             return 0

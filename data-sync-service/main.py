@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from config import LOG_CONFIG
 from scheduler.scheduler import DataSyncScheduler
+from shared.log_utils import create_log_util
 
 # 配置日志
 logging.basicConfig(
@@ -24,7 +25,7 @@ logging.basicConfig(
     ]
 )
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 # 全局调度器实例，用于信号处理
 scheduler = None
@@ -46,14 +47,14 @@ def handle_signal(signum, frame):
     }
     signal_name = signal_names.get(signum, f"信号 {signum}")
 
-    logger.info(f"\n{'='*60}")
-    logger.info(f"收到 {signal_name}，正在关闭服务...")
-    logger.info('='*60)
+    log_util.info(f"\n{'='*60}")
+    log_util.info(f"收到 {signal_name}，正在关闭服务...")
+    log_util.info('='*60)
 
     if scheduler:
         scheduler.stop()
 
-    logger.info("data-sync-service 已停止")
+    log_util.info("data-sync-service 已停止")
     sys.exit(0)
 
 
@@ -64,22 +65,22 @@ def main(start_sync: bool = False):
     """服务入口"""
     global scheduler
 
-    logger.info("=" * 60)
-    logger.info("data-sync-service 启动中...")
-    logger.info("=" * 60)
+    log_util.info("=" * 60)
+    log_util.info("data-sync-service 启动中...")
+    log_util.info("=" * 60)
 
     try:
         # 注册信号处理（确保能够响应 Ctrl+C 和系统终止信号）
         signal.signal(signal.SIGINT, handle_signal)
         signal.signal(signal.SIGTERM, handle_signal)
-        logger.info("信号处理已注册")
+        log_util.info("信号处理已注册")
 
         # 初始化调度器
         scheduler = DataSyncScheduler(start_sync=start_sync)
         scheduler.start()
 
-        logger.info("data-sync-service 启动完成，开始运行...")
-        logger.info("按 Ctrl+C 可停止服务")
+        log_util.info("data-sync-service 启动完成，开始运行...")
+        log_util.info("按 Ctrl+C 可停止服务")
 
         # 保持主线程运行
         while True:
@@ -87,13 +88,13 @@ def main(start_sync: bool = False):
 
     except KeyboardInterrupt:
         # 备用处理：如果信号处理没有生效，这里作为最后的保障
-        logger.info("收到 KeyboardInterrupt，正在关闭...")
+        log_util.info("收到 KeyboardInterrupt，正在关闭...")
         if scheduler:
             scheduler.stop()
-        logger.info("data-sync-service 已停止")
+        log_util.info("data-sync-service 已停止")
 
     except Exception as e:
-        logger.error(f"服务启动失败: {e}")
+        log_util.limit_error(f"服务启动失败: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

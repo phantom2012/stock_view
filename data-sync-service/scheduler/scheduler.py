@@ -28,8 +28,9 @@ from syncers.minute_data_syncer import MinuteDataSyncer
 from syncers.clear_data_syncer import ClearDataSyncer
 from syncers.financial_data_syncer import FinancialDataSyncer
 from syncers.industry_valuation_syncer import IndustryValuationSyncer
+from shared.log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 class DataSyncScheduler:
@@ -58,12 +59,12 @@ class DataSyncScheduler:
         self._register_notify_scanner()
         self._init_notify_records()
         self.scheduler.start()
-        logger.info("调度器已启动")
+        log_util.info("调度器已启动")
 
     def stop(self):
         """停止调度器"""
         self.scheduler.shutdown(wait=False)
-        logger.info("调度器已停止")
+        log_util.info("调度器已停止")
 
     def _get_delay_minutes(self, configured_delay: int) -> int:
         """
@@ -166,7 +167,7 @@ class DataSyncScheduler:
                 name=f'{job_name}(启动延迟)',
                 misfire_grace_time=misfire_grace_time,
             )
-            logger.info(f"注册启动延迟任务: {job_name} (延迟{delay_minutes}分钟执行)")
+            log_util.info(f"注册启动延迟任务: {job_name} (延迟{delay_minutes}分钟执行)")
 
         # 添加定时任务
         self.scheduler.add_job(
@@ -177,7 +178,7 @@ class DataSyncScheduler:
             name=job_name,
             misfire_grace_time=misfire_grace_time,
         )
-        logger.info(f"注册定时任务: {job_name} ({desc})")
+        log_util.info(f"注册定时任务: {job_name} ({desc})")
 
     def _register_notify_scanner(self):
         """注册通知表扫描器"""
@@ -188,7 +189,7 @@ class DataSyncScheduler:
             name='通知表扫描',
             misfire_grace_time=5,
         )
-        logger.info(f"注册通知表扫描器 (每{NOTIFY_SCANNER_CONFIG['interval_seconds']}秒)")
+        log_util.info(f"注册通知表扫描器 (每{NOTIFY_SCANNER_CONFIG['interval_seconds']}秒)")
 
     def _init_notify_records(self):
         """初始化通知表记录（如果不存在）"""
@@ -220,7 +221,7 @@ class DataSyncScheduler:
                         update_time=datetime.now(),
                     )
                     db.add(record)
-                    logger.info(f"初始化通知记录: {sync_type} (优先级: {priority})")
+                    log_util.info(f"初始化通知记录: {sync_type} (优先级: {priority})")
 
     def _run_syncer(self, sync_type: str):
         """
@@ -232,10 +233,10 @@ class DataSyncScheduler:
         """
         syncer = self.syncers.get(sync_type)
         if not syncer:
-            logger.error(f"未知的同步类型: {sync_type}")
+            log_util.limit_error(f"未知的同步类型: {sync_type}")
             return
 
-        logger.info(f"[定时任务] 开始执行 {sync_type} 同步...")
+        log_util.info(f"[定时任务] 开始执行 {sync_type} 同步...")
         try:
             # 更新 trigger_time 为当前时间（记录定时任务触发时刻）
             with get_session() as db:
@@ -246,7 +247,7 @@ class DataSyncScheduler:
 
             success, success_count, fail_count, result_msg = syncer.sync()
             status = 2 if success else -1
-            logger.info(
+            log_util.info(
                 f"[定时任务] {sync_type} 同步完成: "
                 f"{'成功' if success else '失败'}, "
                 f"成功{success_count}条, 失败{fail_count}条, {result_msg}"
@@ -256,7 +257,7 @@ class DataSyncScheduler:
                 result_msg or ('成功' if success else '失败')
             )
         except Exception as e:
-            logger.error(f"[定时任务] {sync_type} 同步异常: {e}")
+            log_util.limit_error(f"[定时任务] {sync_type} 同步异常: {e}")
             self._update_notify_status(sync_type, -1, 0, 0, f"同步异常: {str(e)}")
             import traceback
             traceback.print_exc()
@@ -274,7 +275,7 @@ class DataSyncScheduler:
                 if not pending:
                     return
 
-                logger.info(f"[通知扫描] 检测到 {len(pending)} 个待处理任务，开始按优先级顺序执行")
+                log_util.info(f"[通知扫描] 检测到 {len(pending)} 个待处理任务，开始按优先级顺序执行")
 
                 for notify in pending:
                     sync_type = notify.sync_type
@@ -287,9 +288,9 @@ class DataSyncScheduler:
                             import json
                             stock_codes = json.loads(notify.stock_codes)
                         except json.JSONDecodeError:
-                            logger.warning(f"[通知扫描] {sync_type} 的 stock_codes 格式无效")
+                            log_util.limit_warn(f"[通知扫描] {sync_type} 的 stock_codes 格式无效")
 
-                    logger.info(f"[通知扫描] 执行任务: {sync_type} (优先级: {priority}, 股票数: {len(stock_codes) if stock_codes else '全部'})")
+                    log_util.info(f"[通知扫描] 执行任务: {sync_type} (优先级: {priority}, 股票数: {len(stock_codes) if stock_codes else '全部'})")
 
                     # 更新状态为处理中
                     self._update_notify_status(sync_type, 1, 0, 0, '处理中')
@@ -313,7 +314,7 @@ class DataSyncScheduler:
                             sync_type, status, success_count, fail_count,
                             result_msg or ('成功' if success else '失败')
                         )
-                        logger.info(
+                        log_util.info(
                             f"[通知扫描] {sync_type} 同步完成: "
                             f"{'成功' if success else '失败'}, "
                             f"成功{success_count}条, 失败{fail_count}条"
@@ -326,12 +327,12 @@ class DataSyncScheduler:
                         self._update_notify_status(
                             sync_type, -1, 0, 0, f"同步异常: {str(e)}"
                         )
-                        logger.error(f"[通知扫描] {sync_type} 同步异常: {e}")
+                        log_util.limit_error(f"[通知扫描] {sync_type} 同步异常: {e}")
                         import traceback
                         traceback.print_exc()
 
         except Exception as e:
-            logger.error(f"[通知扫描] 扫描异常: {e}")
+            log_util.limit_error(f"[通知扫描] 扫描异常: {e}")
 
     def _notify_backend_sync_complete(self, sync_type: str, success: bool, message: str = ""):
         """
@@ -348,7 +349,7 @@ class DataSyncScheduler:
             url = f"{base_url}{endpoint}"
             timeout = BACKEND_CONFIG['timeout_seconds']
 
-            logger.info(f"[通知 backend] 向 {url} 发送 {sync_type} 同步完成通知")
+            log_util.info(f"[通知 backend] 向 {url} 发送 {sync_type} 同步完成通知")
 
             response = requests.post(
                 url,
@@ -361,12 +362,12 @@ class DataSyncScheduler:
             )
 
             if response.status_code == 200:
-                logger.info(f"[通知 backend] {sync_type} 同步完成通知发送成功")
+                log_util.info(f"[通知 backend] {sync_type} 同步完成通知发送成功")
             else:
-                logger.warning(f"[通知 backend] {sync_type} 同步完成通知发送失败: {response.status_code}")
+                log_util.limit_warn(f"[通知 backend] {sync_type} 同步完成通知发送失败: {response.status_code}")
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"[通知 backend] {sync_type} 同步完成通知发送异常: {e}")
+            log_util.limit_error(f"[通知 backend] {sync_type} 同步完成通知发送异常: {e}")
 
     def _update_notify_status(
         self,

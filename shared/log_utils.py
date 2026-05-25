@@ -6,6 +6,12 @@ from typing import Dict, Tuple
 
 
 class LogUtils:
+    """
+    带频率控制功能的日志工具类，使用组合模式委托给原生 Logger
+
+    普通方法（info/warn/error）：直接委托给原生 logger 打印，无频率控制
+    限流方法（limit_warn/limit_error）：带频率控制，超过阈值后合并打印
+    """
 
     def __init__(self, logger: logging.Logger, threshold: int = 3, window_seconds: float = 3.0, throttle_interval: float = 2.0):
         self._logger = logger
@@ -31,11 +37,6 @@ class LogUtils:
             return f"{filename}:{lineno}"
         finally:
             del frame
-
-    def _cleanup_old_calls(self, record: dict, current_time: float) -> None:
-        if 'timestamps' in record:
-            cutoff = current_time - self._window
-            record['timestamps'] = [t for t in record['timestamps'] if t > cutoff]
 
     def _should_log(self, stack_level: int = 2) -> Tuple[bool, str, int]:
         caller_key = self._get_caller_info(stack_level)
@@ -91,8 +92,14 @@ class LogUtils:
     def warn(self, msg: str, *args, **kwargs) -> None:
         self._logger.warning(msg, *args, **kwargs)
 
+    def warning(self, msg: str, *args, **kwargs) -> None:
+        self._logger.warning(msg, *args, **kwargs)
+
     def error(self, msg: str, *args, **kwargs) -> None:
         self._logger.error(msg, *args, **kwargs)
+
+    def debug(self, msg: str, *args, **kwargs) -> None:
+        self._logger.debug(msg, *args, **kwargs)
 
     def limit_warn(self, msg: str, *args, stack_level: int = 2, **kwargs) -> None:
         should_log, caller_key, call_count = self._should_log(stack_level)

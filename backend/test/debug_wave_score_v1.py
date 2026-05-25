@@ -9,7 +9,7 @@ debug_wave_score_v1.py
 """
 
 # 603629-利通电子 603986-兆易创新 600584-长电科技 600500-中化国际 002885-京泉华
-stock_code = "603045"
+stock_code = "603110"
 trade_date = "2026-05-22"
 
 
@@ -59,6 +59,7 @@ def debug_full_components(symbol, trade_date):
     MIN_STREAK_DAYS = config['min_streak_days']
     MIN_STREAK_ALT_DAYS = config['min_streak_alt_days']
     MIN_GAIN_PCT = config['min_gain_pct']
+    WAVE_START_MIN_GAIN = config['wave_start_min_gain']
     DAYS_COEF = config['streak_score_cfg']['coeff']
     STREAK_SCORE_CAP = config['streak_score_cfg']['max']
     GAIN_COEF = config['gain_score_cfg']['coeff']
@@ -70,7 +71,8 @@ def debug_full_components(symbol, trade_date):
     WITHIN_CYCLE_MAX_TWO_DAY_DROP = config['within_cycle_max_two_day_drop']
     MIN_UP_DAY_RATIO = config['min_up_day_ratio']
     MIN_AVG_DAILY_GAIN = config['min_avg_daily_gain']
-    AVG_DAILY_GAIN_COEF = config['avg_daily_gain_score_coefficient']
+    AVG_DAILY_GAIN_COEF = config['avg_daily_gain_score_cfg']['coeff']
+    AVG_DAILY_GAIN_CAP = config['avg_daily_gain_score_cfg']['max']
     MIN_LIMIT_UP_DAYS = config['min_limit_up_days']
     LIMIT_UP_NEXT_RED_RATIO = config['limit_up_next_red_ratio']
     MIN_WAVE_DAYS_RATIO = config['min_wave_days_ratio']
@@ -81,13 +83,14 @@ def debug_full_components(symbol, trade_date):
     print(f"配置参数:")
     print(f"  MAX_GAP={MAX_GAP}, MIN_STREAK_DAYS={MIN_STREAK_DAYS}")
     print(f"  MIN_STREAK_ALT_DAYS={MIN_STREAK_ALT_DAYS}, MIN_GAIN_PCT={MIN_GAIN_PCT}%")
+    print(f"  升浪启动日最低涨幅: >{WAVE_START_MIN_GAIN}%")
     print(f"  DAYS_COEF={DAYS_COEF}, GAIN_COEF={GAIN_COEF}")
     print(f"  PATTERN_SCORE_MAP={PATTERN_SCORE_MAP}")
     print(f"  LOOKBACK_DAYS={LOOKBACK_DAYS}")
     print(f"  周期内回调分段得分: {WITHIN_CYCLE_DD_SCORE_MAP}")
     print(f"  周期内单日最大跌幅: {WITHIN_CYCLE_MAX_SINGLE_DAY_DROP}%, 连续两日最大累计跌幅: {WITHIN_CYCLE_MAX_TWO_DAY_DROP}%")
     print(f"  上涨天数占比阈值: >{MIN_UP_DAY_RATIO}")
-    print(f"  周期内日均涨幅阈值: >{MIN_AVG_DAILY_GAIN}%, 日均涨幅得分系数: {AVG_DAILY_GAIN_COEF}")
+    print(f"  周期内日均涨幅阈值: >{MIN_AVG_DAILY_GAIN}%, 日均涨幅得分系数: {AVG_DAILY_GAIN_COEF}, 上限: {AVG_DAILY_GAIN_CAP}分")
     print(f"  涨停判定: close >= round(pre_close × 1.10, 2), 最低涨停天数: {MIN_LIMIT_UP_DAYS}, 次日红盘占比: ≥{LIMIT_UP_NEXT_RED_RATIO}")
     print(f"  主升浪天数占比阈值: >{MIN_WAVE_DAYS_RATIO}（升浪周期天数之和/回溯总天数）")
     print(f"  周期间最大回调={BETWEEN_CYCLE_MAX_DD}%, 回调/涨幅比例>{BETWEEN_CYCLE_DD_RATIO}")
@@ -155,7 +158,8 @@ def debug_full_components(symbol, trade_date):
 
         wave_start = -1
         for j in range(start_idx, n - 1):
-            if data.iloc[j + 1]['close'] > data.iloc[j]['close']:
+            pre_close = data.iloc[j]['close']
+            if pre_close > 0 and (data.iloc[j + 1]['close'] - pre_close) / pre_close * 100 > WAVE_START_MIN_GAIN:
                 wave_start = j + 1
                 break
         if wave_start == -1:
@@ -376,8 +380,8 @@ def debug_full_components(symbol, trade_date):
         print(f"{'='*60}")
         return
     print(f"  ✅ 所有汇总条件均满足, 继续计算得分")
-    avg_daily_gain_score = combined_avg_daily_gain * AVG_DAILY_GAIN_COEF
-    print(f"  → 日均涨幅得分 = {combined_avg_daily_gain:.2f}% × {AVG_DAILY_GAIN_COEF} = {avg_daily_gain_score:.2f}")
+    avg_daily_gain_score = min(combined_avg_daily_gain * AVG_DAILY_GAIN_COEF, AVG_DAILY_GAIN_CAP)
+    print(f"  → 日均涨幅得分 = min({combined_avg_daily_gain:.2f}% × {AVG_DAILY_GAIN_COEF}, {AVG_DAILY_GAIN_CAP}) = {avg_daily_gain_score:.2f}")
 
     # ===== 第二阶段：周期间回调 =====
     print(f"\n{'#'*70}")
@@ -493,9 +497,13 @@ def debug_full_components(symbol, trade_date):
     print(f"  ★ 最终周期内回调分 = {consolidated_within_dd_score}")
 
     total_score = last_seq['base_score'] + consolidated_within_dd_score + between_dd_score + avg_daily_gain_score
+    final_streak_score = min(last_seq['streak'] * DAYS_COEF, STREAK_SCORE_CAP)
+    final_gain_score = min(last_seq['period_gain'] * GAIN_COEF, GAIN_SCORE_CAP)
+    final_pattern_score = PATTERN_SCORE_MAP.get(last_seq['max_gap_present'], 0)
     print(f"\n{'='*60}")
     print(f"  ★ 最终序列 #{last_idx}: {last_seq['desc']}")
-    print(f"  得分明细: 基础分({last_seq['base_score']:.2f}) + 周期内回调分({consolidated_within_dd_score}) "
+    print(f"  得分明细: 基础分(连续突破{final_streak_score:.2f} + 连续区间{final_gain_score:.2f} + 突破形态{final_pattern_score} = {last_seq['base_score']:.2f}) "
+          f"+ 周期内回调分({consolidated_within_dd_score}) "
           f"+ 周期间回调分({between_dd_score}) + 日均涨幅得分({avg_daily_gain_score:.2f}) = {total_score:.2f}")
     print(f"{'='*60}")
 

@@ -7,8 +7,9 @@ from datetime import datetime
 from typing import Tuple, Optional, List
 
 from shared.db import get_session, get_session_ro, FilterResult, DataSyncNotify
+from shared.log_utils import create_log_util
 
-logger = logging.getLogger(__name__)
+log_util = create_log_util(__name__)
 
 
 class BaseSyncer:
@@ -48,7 +49,7 @@ class BaseSyncer:
                 rows = db.query(FilterResult.code).distinct().all()
                 return [row[0] for row in rows if row[0]]
         except Exception as e:
-            logger.error(f"获取 filter_results 股票代码失败: {e}")
+            log_util.limit_error(f"获取 filter_results 股票代码失败: {e}")
             return []
 
     def update_notify_status(self, success: bool, success_count: int,
@@ -82,6 +83,6 @@ class BaseSyncer:
                     if data_date:
                         notify.data_date = data_date
 
-                    logger.info(f"更新 {self.sync_type} 通知状态: status={notify.status}, data_date={notify.data_date}")
+                    log_util.info(f"更新 {self.sync_type} 通知状态: status={notify.status}, data_date={notify.data_date}")
         except Exception as e:
-            logger.error(f"更新 {self.sync_type} 通知状态失败: {e}")
+            log_util.limit_error(f"更新 {self.sync_type} 通知状态失败: {e}")
