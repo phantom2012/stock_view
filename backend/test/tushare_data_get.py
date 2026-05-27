@@ -1,12 +1,15 @@
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'data-sync-service'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 import tushare as ts
 import pandas as pd
 from datetime import datetime, timedelta
 
 from external_data.tushare_query import TushareQuery
+
+from shared.tushare_config import TUSHARE_CONFIG
 
 GET_STOCK_CODE = "001309"
 GET_DATE = "2026-05-19"
@@ -22,12 +25,20 @@ GET_DATE = "2026-05-19"
 # RUN_MODE = 8: 使用Tushare stock_basic接口查询股票基本信息
 # RUN_MODE = 9: 使用Tushare fina_indicator接口查询财务数据
 # RUN_MODE = 10: 使用Tushare index_dailybasic接口获取德明利主营行业的PE、PB均值
+# RUN_MODE = test: 测试Tushare连接（使用内置硬编码配置）
 RUN_MODE = 6
 
-# Tushare API Token
-TUSHARE_API_TOKEN = "17bf2b4e7bffa84e9b02a52f026df310c03badcb29c63533e935353c"
-# Tushare 代理地址
-TUSHARE_PROXY_URL = "http://121.40.135.59:8010/"
+def test_tushare_connection():
+    """
+    测试Tushare连接（使用内置硬编码配置，不引用shared配置）
+    """
+    pro = ts.pro_api('17bf2b4e7bffa84e9b02a52f026df310c03badcb29c63533e935353c')
+    pro._DataApi__http_url = "http://a.sszhixia.cn/"
+    df = pro.index_basic(limit=5)
+    print(df)
+    df = ts.pro_bar(api=pro, ts_code="000001.SZ", limit=3)
+    print(df)
+
 
 def get_auction_data():
     """
@@ -35,9 +46,9 @@ def get_auction_data():
     """
     try:
         # 初始化Tushare Pro API
-        pro = ts.pro_api(TUSHARE_API_TOKEN)
+        pro = ts.pro_api(TUSHARE_CONFIG['token'])
         # 设置代理地址
-        pro._DataApi__http_url = TUSHARE_PROXY_URL
+        pro._DataApi__http_url = TUSHARE_CONFIG['proxy_url']
 
         # 构建Tushare格式的股票代码 (600487.SH 或 000001.SZ)
         if GET_STOCK_CODE.startswith('6'):
@@ -133,9 +144,9 @@ def get_opening_snapshot_tushare():
     """
     try:
         # 初始化Tushare Pro API
-        pro = ts.pro_api(TUSHARE_API_TOKEN)
+        pro = ts.pro_api(TUSHARE_CONFIG['token'])
         # 设置代理地址
-        pro._DataApi__http_url = TUSHARE_PROXY_URL
+        pro._DataApi__http_url = TUSHARE_CONFIG['proxy_url']
 
         # 构建Tushare格式的股票代码
         if GET_STOCK_CODE.startswith('6'):
@@ -257,9 +268,9 @@ def get_morning_auction_tushare():
     """
     try:
         # 初始化Tushare Pro API
-        pro = ts.pro_api(TUSHARE_API_TOKEN)
+        pro = ts.pro_api(TUSHARE_CONFIG['token'])
         # 设置代理地址
-        pro._DataApi__http_url = TUSHARE_PROXY_URL
+        pro._DataApi__http_url = TUSHARE_CONFIG['proxy_url']
 
         # 构建Tushare格式的股票代码 (600487.SH 或 000001.SZ)
         if GET_STOCK_CODE.startswith('6'):
@@ -354,8 +365,8 @@ def get_money_flow_tushare():
     moneyflow_ths接口返回同花顺资金流向数据，包含net_amount净流入金额
     """
     try:
-        pro = ts.pro_api(TUSHARE_API_TOKEN)
-        pro._DataApi__http_url = TUSHARE_PROXY_URL
+        pro = ts.pro_api(TUSHARE_CONFIG['token'])
+        pro._DataApi__http_url = TUSHARE_CONFIG['proxy_url']
 
         if GET_STOCK_CODE.startswith('6'):
             ts_code = f"{GET_STOCK_CODE}.SH"
@@ -480,8 +491,8 @@ def get_daily_basic_tushare():
     - 财务指标（毛利率、净利率、ROE等）
     """
     try:
-        pro = ts.pro_api(TUSHARE_API_TOKEN)
-        pro._DataApi__http_url = TUSHARE_PROXY_URL
+        pro = ts.pro_api(TUSHARE_CONFIG['token'])
+        pro._DataApi__http_url = TUSHARE_CONFIG['proxy_url']
 
         if GET_STOCK_CODE.startswith('6'):
             ts_code = f"{GET_STOCK_CODE}.SH"
@@ -567,8 +578,8 @@ def get_stock_basic_tushare():
     - 交易所、行业、概念等
     """
     try:
-        pro = ts.pro_api(TUSHARE_API_TOKEN)
-        pro._DataApi__http_url = TUSHARE_PROXY_URL
+        pro = ts.pro_api(TUSHARE_CONFIG['token'])
+        pro._DataApi__http_url = TUSHARE_CONFIG['proxy_url']
 
         if GET_STOCK_CODE.startswith('6'):
             ts_code = f"{GET_STOCK_CODE}.SH"
@@ -734,8 +745,8 @@ def get_fina_indicator_tushare():
     - 营运能力指标（存货周转率、应收账款周转率等）
     """
     try:
-        pro = ts.pro_api(TUSHARE_API_TOKEN)
-        pro._DataApi__http_url = TUSHARE_PROXY_URL
+        pro = ts.pro_api(TUSHARE_CONFIG['token'])
+        pro._DataApi__http_url = TUSHARE_CONFIG['proxy_url']
 
         if GET_STOCK_CODE.startswith('6'):
             ts_code = f"{GET_STOCK_CODE}.SH"
@@ -817,8 +828,8 @@ def get_industry_index_pe_pb():
     德明利的主营行业为半导体，我们获取该行业所有股票的估值指标并计算均值
     """
     try:
-        pro = ts.pro_api(TUSHARE_API_TOKEN)
-        pro._DataApi__http_url = TUSHARE_PROXY_URL
+        pro = ts.pro_api(TUSHARE_CONFIG['token'])
+        pro._DataApi__http_url = TUSHARE_CONFIG['proxy_url']
 
         # 转换日期格式为YYYYMMDD
         trade_date = GET_DATE.replace('-', '')
@@ -991,7 +1002,6 @@ def get_industry_index_pe_pb():
         import traceback
         traceback.print_exc()
 
-
 if __name__ == "__main__":
     if RUN_MODE == 1:
         print(f"运行模式: 查询竞价数据")
@@ -1033,6 +1043,9 @@ if __name__ == "__main__":
         print(f"运行模式: 使用Tushare index_dailybasic接口获取德明利主营行业的PE、PB均值")
         print(f"股票代码: {GET_STOCK_CODE}, 日期: {GET_DATE}\n")
         get_industry_index_pe_pb()
+    elif RUN_MODE == "test":
+        print(f"运行模式: 测试Tushare连接")
+        test_tushare_connection()
     else:
         print(f"错误: 未知的运行模式 {RUN_MODE}")
         print("请使用 RUN_MODE = 1~10")

@@ -19,11 +19,6 @@ GOLD_MINER_CONFIG = {
     'port': int(os.getenv('GM_PORT', '8000')),
 }
 
-# Tushare API 配置
-TUSHARE_CONFIG = {
-    'token': os.getenv('TUSHARE_TOKEN', ''),
-}
-
 # ==================== 同步器配置 ====================
 # 股票信息同步配置
 STOCK_INFO_CONFIG: Dict[str, Any] = {

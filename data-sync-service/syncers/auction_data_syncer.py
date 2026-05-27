@@ -16,7 +16,7 @@ from shared.log_utils import create_log_util
 log_util = create_log_util(__name__)
 
 trade_date_util = TradeDateUtil()
-DEFAULT_DAYS = 30
+DEFAULT_DAYS = 10
 
 
 class AuctionDataSyncer(BaseSyncer):
@@ -151,6 +151,26 @@ class AuctionDataSyncer(BaseSyncer):
 
     def _calculate_auction_data(self, code: str, date_str: str, trade_dates: List[str],
                                 minute_map: Dict, daily_map: Dict, auction_map: Dict) -> Optional[Dict]:
+        """
+        计算某只股票在指定交易日的竞价数据
+
+        算法逻辑：
+        1. 从 minute_map 中取 09:25:00 的分时数据，提取开盘价、开盘金额、开盘量
+        2. 从 minute_map 中取 14:57:00 和 15:00:00 数据，提取尾盘价格、尾盘金额、尾盘量
+        3. 从 daily_map 中取前收盘价和当日收盘价
+        4. 通过 _find_valid_prev_open_volume 获取上一交易日开盘量，计算量比
+
+        Args:
+            code: 股票代码
+            date_str: 当前交易日
+            trade_dates: 全部交易日列表
+            minute_map: 已按 code 过滤的分时数据，结构为 {trade_date: {time: StockMinute}}
+            daily_map: 已按 code 过滤的日线数据，结构为 {trade_date: StockDaily}
+            auction_map: 已按 code 过滤的竞价数据，结构为 {trade_date: {open_volume: ...}}
+
+        Returns:
+            竞价数据字典，若无 09:25 数据则返回 None
+        """
         date_minute = minute_map.get(date_str, {})
         morning_data = date_minute.get("09:25:00")
         if not morning_data:
@@ -176,18 +196,33 @@ class AuctionDataSyncer(BaseSyncer):
             result['pre_close'] = self._to_float(daily_data.pre_close)
             result['close_price'] = self._to_float(daily_data.close)
 
-        prev_open_volume = self._find_valid_prev_open_volume(date_str, minute_map, auction_map)
+        prev_open_volume = self._find_valid_prev_open_volume(code, date_str, minute_map, auction_map)
         if prev_open_volume and prev_open_volume > 0:
             result['volume_ratio'] = round(self._to_float(morning_data.volume) / prev_open_volume, 2)
 
         return result
 
-    def _find_valid_prev_open_volume(self, date_str: str, minute_map: Dict, auction_map: Dict) -> Optional[float]:
+    def _find_valid_prev_open_volume(self, code: str, date_str: str, minute_map: Dict, auction_map: Dict) -> Optional[float]:
+        """
+        获取上一个交易日的有效开盘量，用于计算量比
+
+        - 优先从 minute_map 取上一交易日 09:25:00 的分时成交量
+        - 若分时数据中没有，则兜底从 auction_map 取上一交易日已计算的竞价开盘量
+
+        Args:
+            code: 股票代码
+            date_str: 当前交易日
+            minute_map: 已按 code 过滤的分时数据，结构为 {trade_date: {time: StockMinute}}
+            auction_map: 已按 code 过滤的竞价数据，结构为 {trade_date: {open_volume: ...}}
+
+        Returns:
+            上一个交易日的有效开盘量，无有效数据则返回 None
+        """
         current_date = datetime.strptime(date_str, '%Y-%m-%d')
         prev_date_str = trade_date_util.get_previous_trade_date(current_date)
 
         if not prev_date_str:
-            log_util.limit_warn(f"未找到 {date_str} 之前的上一个交易日")
+            log_util.limit_warn(f"{code}: 未找到 {date_str} 之前的上一个交易日")
             return None
 
         prev_minute = minute_map.get(prev_date_str, {}).get("09:25:00")
@@ -198,7 +233,7 @@ class AuctionDataSyncer(BaseSyncer):
         if prev_auction and prev_auction.get('open_volume') and prev_auction['open_volume'] > 0:
             return float(prev_auction['open_volume'])
 
-        log_util.info(f"{date_str} 的上一个交易日 {prev_date_str} 没有有效开盘量数据")
+        log_util.info(f"{code}: {date_str} 的上一个交易日 {prev_date_str} 没有有效开盘量数据")
         return None
 
     def _batch_save_auction_to_db(self, code: str, updates: List[Tuple[str, dict]]):

@@ -15,6 +15,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.date import DateTrigger
 
 from shared.db import get_session, DataSyncNotify
+from shared.tushare_config import TUSHARE_CONFIG
 from config import (
     MONEY_FLOW_CONFIG, STOCK_INFO_CONFIG, DAILY_DATA_CONFIG,
     AUCTION_DATA_CONFIG, MINUTE_DATA_CONFIG, CLEAR_DATA_CONFIG, NOTIFY_SCANNER_CONFIG,
@@ -75,29 +76,34 @@ class DataSyncScheduler:
 
     def _register_timed_tasks(self):
         """注册定时任务"""
-        # 资金流向同步（每15分钟）
-        self._register_job_with_delay(
-            'money_flow',
-            IntervalTrigger(minutes=MONEY_FLOW_CONFIG['interval_minutes']),
-            self._get_delay_minutes(MONEY_FLOW_CONFIG.get('start_delay_minutes', 0)),
-            'timed_money_flow_sync',
-            '定时资金流向同步',
-            30,
-            f"每{MONEY_FLOW_CONFIG['interval_minutes']}分钟"
-        )
+        tushare_enabled = TUSHARE_CONFIG['enable']
 
-        # 股票信息同步（每日16:00）
-        self._register_job_with_delay(
-            'stock_info',
-            CronTrigger(hour=STOCK_INFO_CONFIG['cron_hour'], minute=STOCK_INFO_CONFIG['cron_minute']),
-            self._get_delay_minutes(STOCK_INFO_CONFIG.get('start_delay_minutes', 0)),
-            'timed_stock_info_sync',
-            '定时股票信息同步',
-            300,
-            f"每日{STOCK_INFO_CONFIG['cron_hour']}:{STOCK_INFO_CONFIG['cron_minute']:02d}"
-        )
+        if tushare_enabled:
+            # 资金流向同步（每N分钟）
+            self._register_job_with_delay(
+                'money_flow',
+                IntervalTrigger(minutes=MONEY_FLOW_CONFIG['interval_minutes']),
+                self._get_delay_minutes(MONEY_FLOW_CONFIG.get('start_delay_minutes', 0)),
+                'timed_money_flow_sync',
+                '定时资金流向同步',
+                30,
+                f"每{MONEY_FLOW_CONFIG['interval_minutes']}分钟"
+            )
 
-        # 日线数据同步（每5分钟）
+            # 股票信息同步（每日16:00）
+            self._register_job_with_delay(
+                'stock_info',
+                CronTrigger(hour=STOCK_INFO_CONFIG['cron_hour'], minute=STOCK_INFO_CONFIG['cron_minute']),
+                self._get_delay_minutes(STOCK_INFO_CONFIG.get('start_delay_minutes', 0)),
+                'timed_stock_info_sync',
+                '定时股票信息同步',
+                300,
+                f"每日{STOCK_INFO_CONFIG['cron_hour']}:{STOCK_INFO_CONFIG['cron_minute']:02d}"
+            )
+        else:
+            log_util.info("Tushare 未启用，跳过 stock_info、money_flow 定时任务注册")
+
+        # 日线数据同步（每N分钟）
         self._register_job_with_delay(
             'daily_data',
             IntervalTrigger(minutes=DAILY_DATA_CONFIG['interval_minutes']),
@@ -204,8 +210,12 @@ class DataSyncScheduler:
             ('industry_valuation', 8), # 行业估值基准
             ('clear_data', 10),     # 数据清理 - 最低优先级
         ]
+        tushare_enabled = TUSHARE_CONFIG['enable']
+        disabled_types = {'stock_info', 'money_flow'} if not tushare_enabled else set()
         with get_session() as db:
             for sync_type, priority in sync_type_priorities:
+                if sync_type in disabled_types:
+                    continue
                 existing = db.query(DataSyncNotify).filter(
                     DataSyncNotify.sync_type == sync_type
                 ).first()
@@ -222,6 +232,9 @@ class DataSyncScheduler:
                     )
                     db.add(record)
                     log_util.info(f"初始化通知记录: {sync_type} (优先级: {priority})")
+
+        if disabled_types:
+            log_util.info(f"Tushare 未启用，跳过通知记录初始化: {', '.join(disabled_types)}")
 
     def _run_syncer(self, sync_type: str):
         """
@@ -280,6 +293,12 @@ class DataSyncScheduler:
                 for notify in pending:
                     sync_type = notify.sync_type
                     priority = notify.priority
+
+                    # Tushare 未启用时跳过 stock_info 和 money_flow
+                    if not TUSHARE_CONFIG['enable'] and sync_type in ('stock_info', 'money_flow'):
+                        log_util.limit_warn(f"[通知扫描] {sync_type} 依赖 Tushare 接口，当前 Tushare 未启用，跳过")
+                        self._update_notify_status(sync_type, -1, 0, 0, "Tushare 未启用")
+                        continue
 
                     # 获取股票列表（如果指定）
                     stock_codes = None

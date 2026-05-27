@@ -11,6 +11,7 @@ from shared.stock_code_convert import to_goldminer_symbol, to_pure_code
 from common.singleton import SingletonMixin
 from shared.db import upsert_by_unique_keys
 from shared.trade_date_util import TradeDateUtil
+from shared.tushare_config import TUSHARE_CONFIG
 from services.data_sync_notify_service import get_data_sync_notify_service
 from config import calculate_interval_rise_score
 
@@ -258,8 +259,11 @@ class StrategyOrchestrator(SingletonMixin):
             if config_type == 1:
                 notify_service.notify_minute_data_sync(stock_codes)
                 notify_service.notify_auction_data_sync(stock_codes)
-                notify_service.notify_money_flow_sync(stock_codes)
-                log_util.info(f"已通知更新 minute_data, auction_data, money_flow 数据，股票数量: {len(stock_codes)}")
+                if TUSHARE_CONFIG['enable']:
+                    notify_service.notify_money_flow_sync(stock_codes)
+                    log_util.info(f"已通知更新 minute_data, auction_data, money_flow 数据，股票数量: {len(stock_codes)}")
+                else:
+                    log_util.info(f"已通知更新 minute_data, auction_data 数据（Tushare未启用，跳过money_flow），股票数量: {len(stock_codes)}")
             else:
                 notify_service.notify_daily_data_sync()
                 notify_service.notify_minute_data_sync(stock_codes)

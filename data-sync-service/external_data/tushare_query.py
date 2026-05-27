@@ -3,9 +3,7 @@ from typing import Optional
 import time
 
 from .rate_limiter import RateLimiter
-
-TUSHARE_API_TOKEN = "17bf2b4e7bffa84e9b02a52f026df310c03badcb29c63533e935353c"
-TUSHARE_PROXY_URL = "http://121.40.135.59:8010/"
+from shared.tushare_config import TUSHARE_CONFIG
 
 RATE_LIMIT_CONFIG = {
     'get_auction_data': 120,
@@ -29,8 +27,8 @@ class TushareQuery:
 
     def _init_tushare(self):
         import tushare as ts
-        self._tushare_pro = ts.pro_api(TUSHARE_API_TOKEN)
-        self._tushare_pro._DataApi__http_url = TUSHARE_PROXY_URL
+        self._tushare_pro = ts.pro_api(TUSHARE_CONFIG['token'])
+        self._tushare_pro._DataApi__http_url = TUSHARE_CONFIG['proxy_url']
 
     def get_auction_data(self, symbol: str, trade_date: str) -> Optional[pd.DataFrame]:
         print(f"[TushareQuery] get_auction_data - symbol={symbol}, date={trade_date}")
