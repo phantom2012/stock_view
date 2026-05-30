@@ -5,6 +5,7 @@
 """
 import logging
 import json
+import threading
 from datetime import datetime, timedelta
 from typing import Optional
 import requests
@@ -33,6 +34,9 @@ from shared.log_utils import create_log_util
 
 log_util = create_log_util(__name__)
 
+# 全局任务执行锁（所有任务入口统一争锁，避免并发冲突）
+_sync_task_lock = threading.Lock()
+
 
 class DataSyncScheduler:
     """
@@ -41,7 +45,14 @@ class DataSyncScheduler:
     """
 
     def __init__(self, start_sync: bool = False):
-        self.scheduler = BackgroundScheduler()
+        self.scheduler = BackgroundScheduler(
+            {
+                'apscheduler.executors.default': {
+                    'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
+                    'max_workers': '20',
+                },
+            }
+        )
         self.start_sync = start_sync
         self.syncers = {
             'money_flow': MoneyFlowSyncer(),
@@ -166,7 +177,7 @@ class DataSyncScheduler:
             # 添加启动延迟执行的一次性任务
             delay_time = datetime.now() + timedelta(minutes=delay_minutes)
             self.scheduler.add_job(
-                self._run_syncer,
+                self._dispatch_task,
                 DateTrigger(run_date=delay_time),
                 args=[sync_type],
                 id=f'{job_id}_delay_start',
@@ -177,7 +188,7 @@ class DataSyncScheduler:
 
         # 添加定时任务
         self.scheduler.add_job(
-            self._run_syncer,
+            self._dispatch_task,
             trigger,
             args=[sync_type],
             id=job_id,
@@ -194,6 +205,7 @@ class DataSyncScheduler:
             id='notify_scanner',
             name='通知表扫描',
             misfire_grace_time=5,
+            max_instances=2,
         )
         log_util.info(f"注册通知表扫描器 (每{NOTIFY_SCANNER_CONFIG['interval_seconds']}秒)")
 
@@ -236,47 +248,80 @@ class DataSyncScheduler:
         if disabled_types:
             log_util.info(f"Tushare 未启用，跳过通知记录初始化: {', '.join(disabled_types)}")
 
-    def _run_syncer(self, sync_type: str):
+    def _dispatch_task(self, sync_type: str):
         """
-        执行同步器（定时任务调用）
-        同步完成后更新通知表的 trigger_time、update_time、status 等字段
+        统一任务分配入口（定时/延迟任务用）
+        竞争全局锁，抢到则执行 _execute_sync，抢不到则跳过
+        """
+        if not _sync_task_lock.acquire(blocking=False):
+            log_util.info(f"[任务调度] {sync_type} 定时任务被跳过：上一任务仍在执行中")
+            return
+
+        try:
+            self._execute_sync(sync_type, source='timed')
+        finally:
+            _sync_task_lock.release()
+
+    def _execute_sync(self, sync_type: str, stock_codes=None, source='timed'):
+        """
+        实际同步执行逻辑（不包含锁竞争）
+        由 _dispatch_task(定时/延迟) 或 _scan_notify_table(通知) 在持锁状态下调用
 
         Args:
             sync_type: 同步类型
+            stock_codes: 指定股票列表（通知触发时传入）
+            source: 任务来源（timed/notify）
         """
         syncer = self.syncers.get(sync_type)
         if not syncer:
             log_util.limit_error(f"未知的同步类型: {sync_type}")
             return
 
-        log_util.info(f"[定时任务] 开始执行 {sync_type} 同步...")
+        log_util.info(f"[{source}] 开始执行 {sync_type} 同步...")
         try:
-            # 更新 trigger_time 为当前时间（记录定时任务触发时刻）
-            with get_session() as db:
-                db.query(DataSyncNotify).filter(
-                    DataSyncNotify.sync_type == sync_type
-                ).update({DataSyncNotify.trigger_time: datetime.now()})
-                db.commit()
+            if source == 'timed':
+                # 定时任务：先更新 trigger_time
+                with get_session() as db:
+                    db.query(DataSyncNotify).filter(
+                        DataSyncNotify.sync_type == sync_type
+                    ).update({DataSyncNotify.trigger_time: datetime.now()})
+                    db.commit()
 
-            success, success_count, fail_count, result_msg = syncer.sync()
+                success, success_count, fail_count, result_msg = syncer.sync()
+            else:
+                # 通知任务：更新状态为处理中
+                self._update_notify_status(sync_type, 1, 0, 0, '处理中')
+                if sync_type in ('stock_info', 'daily_data'):
+                    success, success_count, fail_count, result_msg = syncer.sync()
+                else:
+                    success, success_count, fail_count, result_msg = syncer.sync(stock_codes=stock_codes)
+                self._notify_backend_sync_complete(sync_type, success, result_msg)
+
             status = 2 if success else -1
-            log_util.info(
-                f"[定时任务] {sync_type} 同步完成: "
-                f"{'成功' if success else '失败'}, "
-                f"成功{success_count}条, 失败{fail_count}条, {result_msg}"
-            )
             self._update_notify_status(
                 sync_type, status, success_count, fail_count,
                 result_msg or ('成功' if success else '失败')
             )
+            log_util.info(
+                f"[{source}] {sync_type} 同步完成: "
+                f"{'成功' if success else '失败'}, "
+                f"成功{success_count}条, 失败{fail_count}条, {result_msg}"
+            )
         except Exception as e:
-            log_util.limit_error(f"[定时任务] {sync_type} 同步异常: {e}")
+            log_util.limit_error(f"[{source}] {sync_type} 同步异常: {e}")
             self._update_notify_status(sync_type, -1, 0, 0, f"同步异常: {str(e)}")
             import traceback
             traceback.print_exc()
 
     def _scan_notify_table(self):
-        """扫描通知表，按优先级有序处理 backend 触发的同步请求"""
+        """
+        扫描通知表，先争锁再查库
+        锁被占用时跳过本轮扫描（不执行数据库查询），避免无效开销
+        锁空闲时只处理优先级最高的一个待处理任务，释放锁后等待下轮扫描
+        """
+        if not _sync_task_lock.acquire(blocking=False):
+            return
+
         try:
             with get_session() as db:
                 # 按优先级升序排序（数值越小优先级越高）
@@ -288,70 +333,29 @@ class DataSyncScheduler:
                 if not pending:
                     return
 
-                log_util.info(f"[通知扫描] 检测到 {len(pending)} 个待处理任务，开始按优先级顺序执行")
+                notify = pending[0]
+                sync_type = notify.sync_type
 
-                for notify in pending:
-                    sync_type = notify.sync_type
-                    priority = notify.priority
+                if not TUSHARE_CONFIG['enable'] and sync_type in ('stock_info', 'money_flow'):
+                    log_util.limit_warn(f"[通知扫描] {sync_type} 依赖 Tushare 接口，当前 Tushare 未启用，跳过")
+                    self._update_notify_status(sync_type, -1, 0, 0, "Tushare 未启用")
+                    return
 
-                    # Tushare 未启用时跳过 stock_info 和 money_flow
-                    if not TUSHARE_CONFIG['enable'] and sync_type in ('stock_info', 'money_flow'):
-                        log_util.limit_warn(f"[通知扫描] {sync_type} 依赖 Tushare 接口，当前 Tushare 未启用，跳过")
-                        self._update_notify_status(sync_type, -1, 0, 0, "Tushare 未启用")
-                        continue
-
-                    # 获取股票列表（如果指定）
-                    stock_codes = None
-                    if notify.stock_codes:
-                        try:
-                            import json
-                            stock_codes = json.loads(notify.stock_codes)
-                        except json.JSONDecodeError:
-                            log_util.limit_warn(f"[通知扫描] {sync_type} 的 stock_codes 格式无效")
-
-                    log_util.info(f"[通知扫描] 执行任务: {sync_type} (优先级: {priority}, 股票数: {len(stock_codes) if stock_codes else '全部'})")
-
-                    # 更新状态为处理中
-                    self._update_notify_status(sync_type, 1, 0, 0, '处理中')
-
-                    # 执行同步（传递股票列表）
-                    syncer = self.syncers.get(sync_type)
-                    if not syncer:
-                        self._update_notify_status(
-                            sync_type, -1, 0, 0, f"未知的同步类型: {sync_type}"
-                        )
-                        continue
-
+                stock_codes = None
+                if notify.stock_codes:
                     try:
-                        # stock_info 和 daily_data 不接受 stock_codes 参数，它们内部自行获取股票列表
-                        if sync_type in ('stock_info', 'daily_data'):
-                            success, success_count, fail_count, result_msg = syncer.sync()
-                        else:
-                            success, success_count, fail_count, result_msg = syncer.sync(stock_codes=stock_codes)
-                        status = 2 if success else -1
-                        self._update_notify_status(
-                            sync_type, status, success_count, fail_count,
-                            result_msg or ('成功' if success else '失败')
-                        )
-                        log_util.info(
-                            f"[通知扫描] {sync_type} 同步完成: "
-                            f"{'成功' if success else '失败'}, "
-                            f"成功{success_count}条, 失败{fail_count}条"
-                        )
+                        stock_codes = json.loads(notify.stock_codes)
+                    except json.JSONDecodeError:
+                        log_util.limit_warn(f"[通知扫描] {sync_type} 的 stock_codes 格式无效")
 
-                        # 通知 backend 同步完成
-                        self._notify_backend_sync_complete(sync_type, success, result_msg)
+                log_util.info(f"[通知扫描] 分配任务: {sync_type} (优先级: {notify.priority}, 股票数: {len(stock_codes) if stock_codes else '全部'})")
 
-                    except Exception as e:
-                        self._update_notify_status(
-                            sync_type, -1, 0, 0, f"同步异常: {str(e)}"
-                        )
-                        log_util.limit_error(f"[通知扫描] {sync_type} 同步异常: {e}")
-                        import traceback
-                        traceback.print_exc()
+            self._execute_sync(sync_type, stock_codes=stock_codes, source='notify')
 
         except Exception as e:
             log_util.limit_error(f"[通知扫描] 扫描异常: {e}")
+        finally:
+            _sync_task_lock.release()
 
     def _notify_backend_sync_complete(self, sync_type: str, success: bool, message: str = ""):
         """

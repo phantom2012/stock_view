@@ -6,7 +6,7 @@ Tushare API 配置
 import os
 
 TUSHARE_CONFIG = {
-    'enable': int(os.getenv('TUSHARE_ENABLE', '1')),
+    'enable': int(os.getenv('TUSHARE_ENABLE', '0')),
     'token': os.getenv('TUSHARE_TOKEN', '17bf2b4e7bffa84e9b02a52f026df310c03badcb29c63533e935353c'),
     'proxy_url': os.getenv('TUSHARE_PROXY_URL', 'http://a.sszhixia.cn/'),
 }

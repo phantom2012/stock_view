@@ -26,7 +26,7 @@ GET_DATE = "2026-05-19"
 # RUN_MODE = 9: 使用Tushare fina_indicator接口查询财务数据
 # RUN_MODE = 10: 使用Tushare index_dailybasic接口获取德明利主营行业的PE、PB均值
 # RUN_MODE = test: 测试Tushare连接（使用内置硬编码配置）
-RUN_MODE = 6
+RUN_MODE = "test"
 
 def test_tushare_connection():
     """
