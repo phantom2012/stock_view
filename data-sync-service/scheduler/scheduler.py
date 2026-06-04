@@ -20,7 +20,7 @@ from shared.tushare_config import TUSHARE_CONFIG
 from config import (
     MONEY_FLOW_CONFIG, STOCK_INFO_CONFIG, DAILY_DATA_CONFIG,
     AUCTION_DATA_CONFIG, MINUTE_DATA_CONFIG, CLEAR_DATA_CONFIG, NOTIFY_SCANNER_CONFIG,
-    BACKEND_CONFIG, FINANCIAL_DATA_CONFIG,
+    BACKEND_CONFIG, FINANCIAL_DATA_CONFIG, INDUSTRY_VALUATION_CONFIG,
 )
 from syncers.money_flow_syncer import MoneyFlowSyncer
 from syncers.stock_info_syncer import StockInfoSyncer
@@ -36,6 +36,18 @@ log_util = create_log_util(__name__)
 
 # 全局任务执行锁（所有任务入口统一争锁，避免并发冲突）
 _sync_task_lock = threading.Lock()
+
+# 同步类型到配置的映射（用于检查 enable 开关）
+SYNC_CONFIG_MAP = {
+    'stock_info': STOCK_INFO_CONFIG,
+    'daily_data': DAILY_DATA_CONFIG,
+    'auction_data': AUCTION_DATA_CONFIG,
+    'minute_data': MINUTE_DATA_CONFIG,
+    'money_flow': MONEY_FLOW_CONFIG,
+    'clear_data': CLEAR_DATA_CONFIG,
+    'financial_data': FINANCIAL_DATA_CONFIG,
+    'industry_valuation': INDUSTRY_VALUATION_CONFIG,
+}
 
 
 class DataSyncScheduler:
@@ -65,6 +77,12 @@ class DataSyncScheduler:
             'industry_valuation': IndustryValuationSyncer(),
         }
 
+    @staticmethod
+    def _is_sync_enabled(sync_type: str) -> bool:
+        """检查指定同步类型的 enable 开关是否为 1"""
+        config = SYNC_CONFIG_MAP.get(sync_type)
+        return bool(config and config.get('enable', 1))
+
     def start(self):
         """启动调度器"""
         self._register_timed_tasks()
@@ -86,78 +104,96 @@ class DataSyncScheduler:
         return configured_delay if self.start_sync else 0
 
     def _register_timed_tasks(self):
-        """注册定时任务"""
+        """注册定时任务（按 enable 开关过滤）"""
         tushare_enabled = TUSHARE_CONFIG['enable']
 
         if tushare_enabled:
             # 资金流向同步（每N分钟）
-            self._register_job_with_delay(
-                'money_flow',
-                IntervalTrigger(minutes=MONEY_FLOW_CONFIG['interval_minutes']),
-                self._get_delay_minutes(MONEY_FLOW_CONFIG.get('start_delay_minutes', 0)),
-                'timed_money_flow_sync',
-                '定时资金流向同步',
-                30,
-                f"每{MONEY_FLOW_CONFIG['interval_minutes']}分钟"
-            )
+            if self._is_sync_enabled('money_flow'):
+                self._register_job_with_delay(
+                    'money_flow',
+                    IntervalTrigger(minutes=MONEY_FLOW_CONFIG['interval_minutes']),
+                    self._get_delay_minutes(MONEY_FLOW_CONFIG.get('start_delay_minutes', 0)),
+                    'timed_money_flow_sync',
+                    '定时资金流向同步',
+                    30,
+                    f"每{MONEY_FLOW_CONFIG['interval_minutes']}分钟"
+                )
+            else:
+                log_util.info("money_flow 同步已关闭，跳过定时任务注册")
 
             # 股票信息同步（每日16:00）
-            self._register_job_with_delay(
-                'stock_info',
-                CronTrigger(hour=STOCK_INFO_CONFIG['cron_hour'], minute=STOCK_INFO_CONFIG['cron_minute']),
-                self._get_delay_minutes(STOCK_INFO_CONFIG.get('start_delay_minutes', 0)),
-                'timed_stock_info_sync',
-                '定时股票信息同步',
-                300,
-                f"每日{STOCK_INFO_CONFIG['cron_hour']}:{STOCK_INFO_CONFIG['cron_minute']:02d}"
-            )
+            if self._is_sync_enabled('stock_info'):
+                self._register_job_with_delay(
+                    'stock_info',
+                    CronTrigger(hour=STOCK_INFO_CONFIG['cron_hour'], minute=STOCK_INFO_CONFIG['cron_minute']),
+                    self._get_delay_minutes(STOCK_INFO_CONFIG.get('start_delay_minutes', 0)),
+                    'timed_stock_info_sync',
+                    '定时股票信息同步',
+                    300,
+                    f"每日{STOCK_INFO_CONFIG['cron_hour']}:{STOCK_INFO_CONFIG['cron_minute']:02d}"
+                )
+            else:
+                log_util.info("stock_info 同步已关闭，跳过定时任务注册")
         else:
             log_util.info("Tushare 未启用，跳过 stock_info、money_flow 定时任务注册")
 
         # 日线数据同步（每N分钟）
-        self._register_job_with_delay(
-            'daily_data',
-            IntervalTrigger(minutes=DAILY_DATA_CONFIG['interval_minutes']),
-            self._get_delay_minutes(DAILY_DATA_CONFIG.get('start_delay_minutes', 0)),
-            'timed_daily_data_sync',
-            '定时日线数据同步',
-            300,
-            f"每{DAILY_DATA_CONFIG['interval_minutes']}分钟"
-        )
+        if self._is_sync_enabled('daily_data'):
+            self._register_job_with_delay(
+                'daily_data',
+                IntervalTrigger(minutes=DAILY_DATA_CONFIG['interval_minutes']),
+                self._get_delay_minutes(DAILY_DATA_CONFIG.get('start_delay_minutes', 0)),
+                'timed_daily_data_sync',
+                '定时日线数据同步',
+                300,
+                f"每{DAILY_DATA_CONFIG['interval_minutes']}分钟"
+            )
+        else:
+            log_util.info("daily_data 同步已关闭，跳过定时任务注册")
 
         # 竞价数据同步（每日9:35）
-        self._register_job_with_delay(
-            'auction_data',
-            CronTrigger(hour=AUCTION_DATA_CONFIG['cron_hour'], minute=AUCTION_DATA_CONFIG['cron_minute']),
-            self._get_delay_minutes(AUCTION_DATA_CONFIG.get('start_delay_minutes', 0)),
-            'timed_auction_data_sync',
-            '定时竞价数据同步',
-            300,
-            f"每日{AUCTION_DATA_CONFIG['cron_hour']}:{AUCTION_DATA_CONFIG['cron_minute']}"
-        )
+        if self._is_sync_enabled('auction_data'):
+            self._register_job_with_delay(
+                'auction_data',
+                CronTrigger(hour=AUCTION_DATA_CONFIG['cron_hour'], minute=AUCTION_DATA_CONFIG['cron_minute']),
+                self._get_delay_minutes(AUCTION_DATA_CONFIG.get('start_delay_minutes', 0)),
+                'timed_auction_data_sync',
+                '定时竞价数据同步',
+                300,
+                f"每日{AUCTION_DATA_CONFIG['cron_hour']}:{AUCTION_DATA_CONFIG['cron_minute']}"
+            )
+        else:
+            log_util.info("auction_data 同步已关闭，跳过定时任务注册")
 
         # 分钟数据同步（每日16:00）
-        self._register_job_with_delay(
-            'minute_data',
-            CronTrigger(hour=MINUTE_DATA_CONFIG['cron_hour'], minute=MINUTE_DATA_CONFIG['cron_minute']),
-            self._get_delay_minutes(MINUTE_DATA_CONFIG.get('start_delay_minutes', 0)),
-            'timed_minute_data_sync',
-            '定时分钟数据同步',
-            300,
-            f"每日{MINUTE_DATA_CONFIG['cron_hour']}:{MINUTE_DATA_CONFIG['cron_minute']:02d}"
-        )
+        if self._is_sync_enabled('minute_data'):
+            self._register_job_with_delay(
+                'minute_data',
+                CronTrigger(hour=MINUTE_DATA_CONFIG['cron_hour'], minute=MINUTE_DATA_CONFIG['cron_minute']),
+                self._get_delay_minutes(MINUTE_DATA_CONFIG.get('start_delay_minutes', 0)),
+                'timed_minute_data_sync',
+                '定时分钟数据同步',
+                300,
+                f"每日{MINUTE_DATA_CONFIG['cron_hour']}:{MINUTE_DATA_CONFIG['cron_minute']:02d}"
+            )
+        else:
+            log_util.info("minute_data 同步已关闭，跳过定时任务注册")
 
         # 数据清理扫描
-        clear_interval_seconds = CLEAR_DATA_CONFIG['interval_minutes'] * 60
-        self._register_job_with_delay(
-            'clear_data',
-            IntervalTrigger(seconds=clear_interval_seconds),
-            self._get_delay_minutes(CLEAR_DATA_CONFIG.get('start_delay_minutes', 0)),
-            'timed_clear_data_sync',
-            '定时数据清理',
-            10,
-            f"每{CLEAR_DATA_CONFIG['interval_minutes']}分钟"
-        )
+        if self._is_sync_enabled('clear_data'):
+            clear_interval_seconds = CLEAR_DATA_CONFIG['interval_minutes'] * 60
+            self._register_job_with_delay(
+                'clear_data',
+                IntervalTrigger(seconds=clear_interval_seconds),
+                self._get_delay_minutes(CLEAR_DATA_CONFIG.get('start_delay_minutes', 0)),
+                'timed_clear_data_sync',
+                '定时数据清理',
+                10,
+                f"每{CLEAR_DATA_CONFIG['interval_minutes']}分钟"
+            )
+        else:
+            log_util.info("clear_data 同步已关闭，跳过定时任务注册")
 
     def _register_job_with_delay(self, sync_type: str, trigger, delay_minutes: int,
                                 job_id: str, job_name: str, misfire_grace_time: int, desc: str):
@@ -226,7 +262,7 @@ class DataSyncScheduler:
         disabled_types = {'stock_info', 'money_flow'} if not tushare_enabled else set()
         with get_session() as db:
             for sync_type, priority in sync_type_priorities:
-                if sync_type in disabled_types:
+                if sync_type in disabled_types or not self._is_sync_enabled(sync_type):
                     continue
                 existing = db.query(DataSyncNotify).filter(
                     DataSyncNotify.sync_type == sync_type
@@ -339,6 +375,11 @@ class DataSyncScheduler:
                 if not TUSHARE_CONFIG['enable'] and sync_type in ('stock_info', 'money_flow'):
                     log_util.limit_warn(f"[通知扫描] {sync_type} 依赖 Tushare 接口，当前 Tushare 未启用，跳过")
                     self._update_notify_status(sync_type, -1, 0, 0, "Tushare 未启用")
+                    return
+
+                if not self._is_sync_enabled(sync_type):
+                    log_util.limit_warn(f"[通知扫描] {sync_type} 同步已关闭，跳过")
+                    self._update_notify_status(sync_type, -1, 0, 0, "该同步类型已关闭")
                     return
 
                 stock_codes = None
